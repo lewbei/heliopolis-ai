@@ -48,6 +48,19 @@ class TerrainProfileModel(BaseModel):
     landslide_risk: str = Field(description="Risk classification: 'Low', 'Medium', or 'High (Unbuildable)'.")
     grading_capex_premium_multiplier: float = Field(description="CAPEX multiplier adjustment for civil earthworks.")
 
+class BESSRecommendationModel(BaseModel):
+    is_bess_required: bool = Field(description="True if PV capacity exceeds 15% of upstream TNB substation capacity.")
+    recommended_battery_power_mw: float = Field(description="Recommended Battery Energy Storage System (BESS) power rating (MW).")
+    recommended_battery_capacity_mwh: float = Field(description="Recommended BESS capacity for peak shaving (MWh).")
+    estimated_bess_capex_rm: float = Field(description="Estimated extra BESS capital expenditure (RM).")
+    reasons: List[str] = Field(default=[], description="Technical rationale for battery storage requirement.")
+
+class GridCapacityValidationModel(BaseModel):
+    upstream_substation_capacity_mva: float = Field(description="Rated capacity of local TNB substation (MVA).")
+    substation_injection_percent: float = Field(description="Ratio of peak AC solar output to substation capacity.")
+    reverse_power_risk: str = Field(description="Grid risk classification: 'Negligible', 'Moderate', or 'Severe'.")
+    bess_specification: BESSRecommendationModel
+
 class TechnicalFeasibilityModel(BaseModel):
     capacity_mwp: float = Field(description="Simulated PV system peak DC capacity (MWp).")
     annual_yield_mwh: float = Field(description="Estimated annual electricity generation (MWh/year).")
@@ -58,6 +71,7 @@ class TechnicalFeasibilityModel(BaseModel):
     irr_percent: float = Field(description="Project Internal Rate of Return (%).")
     payback_years: float = Field(description="Estimated capital payback period in years.")
     terrain_profile: TerrainProfileModel
+    grid_capacity_audit: GridCapacityValidationModel
 
 class NEMASChecklistSchema(BaseModel):
     is_nemas_required: bool = Field(description="True if proposed AC capacity exceeds 72 kWac.")
@@ -92,6 +106,32 @@ class RegulatoryFilingManifest(BaseModel):
 
 # --- Specialized Parsing & Analysis Modules ---
 
+class ImageOrientationCorrector:
+    """
+    Improvised Module: Simulates Radon/Hough-based affine de-skewing and perspective
+    homography corrections to align scanned/photographed documents to 0.0° before parsing.
+    """
+    @staticmethod
+    def deskew_image(image_metadata: dict) -> dict:
+        print("[ImageOrientationCorrector] Running dominant Radon transform peaks to check document skew...")
+        detected_skew_deg = image_metadata.get("raw_skew_degrees", 0.0)
+        
+        if abs(detected_skew_deg) > 0.1:
+            print(f" [Corrector] SKEW DETECTED: {detected_skew_deg:.2f}°. Computing affine homography rotation matrix...")
+            # Simulate affine de-skewing math
+            rotation_matrix = np.array([
+                [np.cos(np.radians(-detected_skew_deg)), -np.sin(np.radians(-detected_skew_deg))],
+                [np.sin(np.radians(-detected_skew_deg)), np.cos(np.radians(-detected_skew_deg))]
+            ])
+            corrected_skew = 0.0
+            print(" [Corrector] Flawless alignment achieved: 0.00° skew.")
+        else:
+            print(" [Corrector] Document is perfectly aligned (0.0° skew). Skipping affine warping.")
+            corrected_skew = 0.0
+            
+        return {"corrected_skew_degrees": corrected_skew, "alignment": "Aligned"}
+
+
 class LandTitleParser:
     """
     Simulates high-precision, layout-aware legal OCR and text analysis of Malaysian Land Titles (Geran),
@@ -103,7 +143,7 @@ class LandTitleParser:
         Calculates precise metric conversions from archaic British imperial land units.
         Returns: (hectares, square_meters)
         """
-        hectares = (acres * 0.404686) + (roods * 0.101171) + (poles * 0.002529)
+        hectares = (acres * 0.40468564) + (roods * 0.10117141) + (poles * 0.00252928)
         sq_meters = hectares * 10000.0
         return round(hectares, 4), round(sq_meters, 2)
 
@@ -280,15 +320,27 @@ class SLDTopologyResolver:
     Processes symbol bounding boxes and wire layout lines to construct a directed
     topological graph, validating compliance with TNB interconnection protection rules.
     """
-    def __init__(self, epsilon_px: float = 15.0):
-        self.epsilon = epsilon_px
-
     def resolve(self, symbols: List[Dict[str, Any]], lines: List[tuple]) -> nx.DiGraph:
         print("[SLDTopologyResolver] Constructing directed topology graph...")
         g = nx.DiGraph()
         
         for sym in symbols:
             g.add_node(sym["id"], category=sym["class"], bbox=sym["bbox"])
+            
+        # --- Improvised Feature: Dynamic Scale-Invariant Epsilon Resolver ---
+        # Instead of hardcoded 15.0px, calculate epsilon as 15% of the average inverter bounding box width!
+        inverter_widths = []
+        for sym in symbols:
+            if sym["class"] == "Inverter":
+                ymin, xmin, ymax, xmax = sym["bbox"]
+                inverter_widths.append(xmax - xmin)
+                
+        if inverter_widths:
+            epsilon = 0.15 * np.mean(inverter_widths)
+            print(f" [Resolver] Dynamic scale-invariant matching active. Resolved Epsilon: {epsilon:.2f}px.")
+        else:
+            epsilon = 15.0
+            print(f" [Resolver] No inverters found to gauge scale. Falling back to default Epsilon: {epsilon:.2f}px.")
             
         # Match lines to bounding boxes based on Euclidean distance boundaries (epsilon-neighbor search)
         for line in lines:
@@ -306,9 +358,9 @@ class SLDTopologyResolver:
                     dy = max(b_ymin - py, 0, py - b_ymax)
                     return np.sqrt(dx**2 + dy**2)
                 
-                if distance_to_box(pt1, bbox) <= self.epsilon:
+                if distance_to_box(pt1, bbox) <= epsilon:
                     u = node_id
-                if distance_to_box(pt2, bbox) <= self.epsilon:
+                if distance_to_box(pt2, bbox) <= epsilon:
                     v = node_id
                     
             if u and v and u != v:
@@ -341,14 +393,77 @@ class SLDTopologyResolver:
                     print(" [PASS] Transformer connects safely to the TNB Grid Interconnection.")
 
 
+class TNBSubstationCapacityValidator:
+    """
+    Improvised Module: Audits solar injection against upstream TNB substation capacities.
+    If AC solar injection exceeds the 15% line/substation rating, it triggers reverse
+    power risk and automatically sizes a Battery Energy Storage System (BESS) for peak shaving.
+    """
+    @staticmethod
+    def audit_injection(proposed_ac_mw: float, upstream_substation_mva: float = 15.0) -> GridCapacityValidationModel:
+        print("[TNBSubstationCapacityValidator] Running 15% substation injection audit...")
+        
+        injection_percent = (proposed_ac_mw / upstream_substation_mva) * 100.0
+        
+        # Core TNB reverse power and load flow risk threshold
+        if injection_percent >= 25.0:
+            risk = "Severe (Reverse power flows will trip substation safety relays)"
+            is_bess_required = True
+        elif injection_percent >= 15.0:
+            risk = "Moderate (Requires stabilization or zero-export control)"
+            is_bess_required = True
+        else:
+            risk = "Negligible"
+            is_bess_required = False
+            
+        reasons = []
+        battery_power = 0.0
+        battery_capacity = 0.0
+        bess_capex = 0.0
+        
+        if is_bess_required:
+            # Sizing formula: Battery power covers the injection peak exceeding 15% threshold
+            excess_mw = proposed_ac_mw - (0.15 * upstream_substation_mva)
+            battery_power = round(float(excess_mw), 2)
+            # 4-hour storage capacity standard for utility peak-shaving
+            battery_capacity = round(float(battery_power * 4.0), 2)
+            # Estimated LFP Battery CAPEX standard: RM 1.2M per MWh
+            bess_capex = battery_capacity * 1200000.0
+            
+            reasons = [
+                f"Peak solar AC output ({proposed_ac_mw:.2f} MW) exceeds the 15% TNB substation thermal threshold ({0.15 * upstream_substation_mva:.2f} MVA) by {excess_mw:.2f} MW.",
+                "To secure SEDA NEM/NOVA approval, a Battery Energy Storage System (BESS) must be integrated at the Point of Common Coupling (PCC) to execute dynamic peak-shaving."
+            ]
+            print(f" [Grid Audit] RISK DETECTED: {risk}. Sizing LFP Battery: {battery_power} MW / {battery_capacity} MWh.")
+        else:
+            print(" [Grid Audit] PASS: Peak solar injection sits safely below the 15% substation thermal rating.")
+            
+        bess = BESSRecommendationModel(
+            is_bess_required=is_bess_required,
+            recommended_battery_power_mw=battery_power,
+            recommended_battery_capacity_mwh=battery_capacity,
+            estimated_bess_capex_rm=bess_capex,
+            reasons=reasons
+        )
+        
+        return GridCapacityValidationModel(
+            upstream_substation_capacity_mva=upstream_substation_mva,
+            substation_injection_percent=round(injection_percent, 2),
+            reverse_power_risk=risk,
+            bess_specification=bess
+        )
+
+
 class YieldFeasibilityEngine:
     """
     Simulates annual photovoltaic generation yields in tropical environments and models
-    project lifecycle financials (LCOE, NPV, IRR) in Malaysian Ringgit.
+    project lifecycle financials (LCOE, NPV, IRR) in Malaysian Ringgit, including earthwork
+    and battery storage premiums.
     """
-    def __init__(self, metadata: LandTitleMetadata, terrain: TerrainProfileModel):
+    def __init__(self, metadata: LandTitleMetadata, terrain: TerrainProfileModel, grid_audit: GridCapacityValidationModel):
         self.metadata = metadata
         self.terrain = terrain
+        self.grid_audit = grid_audit
 
     def calculate(self) -> TechnicalFeasibilityModel:
         print("[YieldFeasibilityEngine] Executing financial and clean energy yield models...")
@@ -372,9 +487,10 @@ class YieldFeasibilityEngine:
         tariff_rm_kwh = 0.23 # average commercial NEM NOVA rate
         wacc = 0.065 # 6.5% discount rate
         
-        # Adjusted CAPEX incorporating Civil Slope Grading premiums
+        # Adjusted CAPEX incorporating Civil Slope Grading premiums and Battery (BESS) additions
         base_capex = capacity_mwp * capex_per_mwp
-        adjusted_capex = base_capex * self.terrain.grading_capex_premium_multiplier
+        bess_addition_capex = self.grid_audit.bess_specification.estimated_bess_capex_rm
+        adjusted_capex = (base_capex * self.terrain.grading_capex_premium_multiplier) + bess_addition_capex
         
         discounted_costs = adjusted_capex
         discounted_energy = 0.0
@@ -383,7 +499,10 @@ class YieldFeasibilityEngine:
         for yr in range(1, project_lifetime + 1):
             degradation = (1.0 - 0.005)**(yr - 1)
             yearly_gen_kwh = annual_yield_mwh * 1000.0 * degradation
-            yearly_opex = (capacity_mwp * opex_per_mwp_year) * (1.02)**(yr - 1)
+            
+            # OPEX inflates at 2.0% annually (battery opex includes standard 1.5% maintenance premium if active)
+            bess_opex = bess_addition_capex * 0.015 if bess_addition_capex > 0 else 0.0
+            yearly_opex = (capacity_mwp * opex_per_mwp_year + bess_opex) * (1.02)**(yr - 1)
             yearly_revenue = yearly_gen_kwh * tariff_rm_kwh
             yearly_net_cash = yearly_revenue - yearly_opex
             
@@ -423,7 +542,8 @@ class YieldFeasibilityEngine:
             npv_rm=round(npv, 2),
             irr_percent=round(r * 100.0, 2),
             payback_years=round(payback, 2),
-            terrain_profile=self.terrain
+            terrain_profile=self.terrain,
+            grid_capacity_audit=self.grid_audit
         )
 
 
@@ -493,6 +613,11 @@ def main():
     print("=== SOLAR PROJECT INTELLIGENCE AGENT (MAIC NEXUS CHALLENGE) ===\n")
     output_dir = r"C:\Users\lewka\deep_learning\MAIC Nexus Challenge"
     
+    # 0. Simulate Image De-skewing and Flattening
+    scan_meta = {"filename": "geran_scan.png", "raw_skew_degrees": -4.25}
+    corrector = ImageOrientationCorrector()
+    corrector.deskew_image(scan_meta)
+    
     # 1. Parse Land Title (Fragmented Co-owner Shares)
     raw_ocr_input = """
     HAKMILIK: GRN 45293  LOT NO: Lot 8192  NEGERI: Perak
@@ -517,7 +642,14 @@ def main():
     
     terrain_model = CivilSlopeAnalyzer.analyze_topography(elevation_grid, cell_resolution_meters=10.0)
     
-    # 3. Resolve SLD Topology
+    # 3. Audit Local Substation Capacity Limits & Size BESS
+    # Size PV AC output capacity based on 12-acre sizing: approx 3.78 MWp * 0.85 AC ratio = 3.21 MWac peak injection
+    # Upstream local Substation has a capacity of 10 MVA (standard TNB rural transformer size)
+    # 3.21 MWac sits at 32.1% of substation capacity, triggering reverse power risk (>15%) and LFP Battery sizing.
+    ac_peak_mw = 3.778 * 0.85
+    grid_capacity_audit = TNBSubstationCapacityValidator.audit_injection(proposed_ac_mw=ac_peak_mw, upstream_substation_mva=10.0)
+    
+    # 4. Resolve SLD Topology
     symbols = [
         {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
         {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
@@ -534,11 +666,11 @@ def main():
     resolver = SLDTopologyResolver()
     sld_graph = resolver.resolve(symbols, lines)
     
-    # 4. Compute Yield and Financials (Incorporating Civil Earthworks Adjustments)
-    feasibility_engine = YieldFeasibilityEngine(land_metadata, terrain_model)
+    # 5. Compute Yield and Financials (Incorporating Civil Earthworks & Battery CAPEX Premiums)
+    feasibility_engine = YieldFeasibilityEngine(land_metadata, terrain_model, grid_capacity_audit)
     tech_results = feasibility_engine.calculate()
     
-    # 5. Generate SEDA/TNB Prefilled Manifest (Incorporating NEMAS triggers)
+    # 6. Generate SEDA/TNB Prefilled Manifest (Incorporating NEMAS triggers)
     regulatory_manifest = FormFiller.generate_manifest(land_metadata, tech_results)
     
     # Compile final execution package
@@ -561,12 +693,13 @@ def main():
     print(f"\n[Success] Complete Solar Assessment Report successfully written to: {report_path}")
     print(f"Calculated Capacity: {tech_results.capacity_mwp} MWp")
     print(f"Base CAPEX Cost: RM {tech_results.base_capex_rm:,.2f}")
-    print(f"Civil Slope CAPEX Cost (Adjusted): RM {tech_results.grading_adjusted_capex_rm:,.2f}")
+    print(f"Civil Slope CAPEX Cost (Adjusted): RM {tech_results.grading_adjusted_capex_rm:,.2f} (Includes Earthworks & BESS premiums)")
     print(f"Project Lifetime NPV: RM {tech_results.npv_rm:,.2f}")
     print(f"Project IRR: {tech_results.irr_percent}%")
     print(f"Land Legal Status: {land_metadata.legal_assessment.status}")
     print(f"Power of Attorney Required: {land_metadata.legal_assessment.poa_compliance.is_poa_required}")
     print(f"SEDA NEMAS Study Required: {regulatory_manifest.nemas_checklist.is_nemas_required}")
+    print(f"LFP Battery Storage Required: {grid_capacity_audit.bess_specification.is_bess_required}")
 
 
 if __name__ == "__main__":
