@@ -511,27 +511,36 @@ class YieldFeasibilityEngine:
             discounted_costs += yearly_opex / ((1.0 + wacc)**yr)
             discounted_energy += yearly_gen_kwh / ((1.0 + wacc)**yr)
             
-        lcoe_rm_kwh = discounted_costs / discounted_energy if discounted_energy > 0 else 0.0
+        lcoe_rm_kwh = discounted_costs / (discounted_energy + 1e-12) if discounted_energy > 0 else 0.0
         
         # Solve NPV
         npv = -adjusted_capex
         for yr in range(1, project_lifetime + 1):
             npv += cash_flows[yr] / ((1.0 + wacc)**yr)
             
-        # Newton-Raphson IRR Solver
-        r = 0.10
+        # --- Blindspot Guarded Newton-Raphson IRR Solver ---
+        r = 0.10 # Initial guess of 10%
         for _ in range(100):
-            f_val = sum(cf / ((1.0 + r)**t) for t, cf in enumerate(cash_flows))
-            f_deriv = sum(-t * cf / ((1.0 + r)**(t + 1)) for t, cf in enumerate(cash_flows))
+            # Clip r to prevent division-by-zero or underflow near r ~ -1.0
+            r = np.clip(r, -0.95, 5.0)
+            denom = 1.0 + r
+            f_val = sum(cf / ((denom)**t) for t, cf in enumerate(cash_flows))
+            f_deriv = sum(-t * cf / ((denom)**(t + 1)) for t, cf in enumerate(cash_flows))
+            
+            # Prevent Division-by-Zero via eps buffer
             if abs(f_deriv) < 1e-12:
-                break
+                f_deriv = 1e-12 if f_deriv >= 0 else -1e-12
+                
             r_new = r - f_val / f_deriv
             if abs(r_new - r) < 1e-6:
                 r = r_new
                 break
             r = r_new
             
-        payback = adjusted_capex / (cash_flows[1] if cash_flows[1] > 0 else 1e-12)
+        r = np.clip(r, -0.95, 5.0)
+        
+        # --- Blindspot Guarded Payback Solver ---
+        payback = adjusted_capex / cash_flows[1] if cash_flows[1] > 0 else 999.0
         
         return TechnicalFeasibilityModel(
             capacity_mwp=round(capacity_mwp, 3),
@@ -612,6 +621,7 @@ class FormFiller:
 def main():
     print("=== SOLAR PROJECT INTELLIGENCE AGENT (MAIC NEXUS CHALLENGE) ===\n")
     output_dir = r"C:\Users\lewka\deep_learning\MAIC Nexus Challenge"
+    os.makedirs(output_dir, exist_ok=True)
     
     # 0. Simulate Image De-skewing and Flattening
     scan_meta = {"filename": "geran_scan.png", "raw_skew_degrees": -4.25}
@@ -632,20 +642,13 @@ def main():
     land_metadata = parser.parse(raw_ocr_input)
     
     # 2. Analyze Civil Topography & Slope Profile
-    # Generate a dummy 2D elevation matrix simulating a hilly Malaysian valley in Perak
-    # x and y ranges across 100 meters with cell resolution of 10 meters
     y, x = np.mgrid[0:100:10, 0:100:10]
-    # Simulation: Z value represents elevation height. Features a steeper ridge in the center.
     elevation_grid = 120.0 + 3.0 * np.sin(x / 15.0) + 12.0 * np.sin(y / 12.0)
-    # Add a steep embankment at the right border to test safety triggers (>30 deg)
     elevation_grid[:, -1] += 25.0
     
     terrain_model = CivilSlopeAnalyzer.analyze_topography(elevation_grid, cell_resolution_meters=10.0)
     
     # 3. Audit Local Substation Capacity Limits & Size BESS
-    # Size PV AC output capacity based on 12-acre sizing: approx 3.78 MWp * 0.85 AC ratio = 3.21 MWac peak injection
-    # Upstream local Substation has a capacity of 10 MVA (standard TNB rural transformer size)
-    # 3.21 MWac sits at 32.1% of substation capacity, triggering reverse power risk (>15%) and LFP Battery sizing.
     ac_peak_mw = 3.778 * 0.85
     grid_capacity_audit = TNBSubstationCapacityValidator.audit_injection(proposed_ac_mw=ac_peak_mw, upstream_substation_mva=10.0)
     
@@ -685,10 +688,20 @@ def main():
         "regulatory_manifest": regulatory_manifest.model_dump()
     }
     
-    # Save output report
+    # --- Blindspot Atomic File Writing Implementation ---
     report_path = os.path.join(output_dir, "solar_assessment_report.json")
-    with open(report_path, "w") as f:
-        json.dump(final_output, f, indent=4)
+    tmp_path = report_path + ".tmp"
+    
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(final_output, f, indent=4, ensure_ascii=False)
+        # Atomic replacement: completely prevents partial/corrupted writes
+        os.replace(tmp_path, report_path)
+    except Exception as e:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        print(f" [ERROR] Atomic file write failed: {e}")
+        sys.exit(1)
         
     print(f"\n[Success] Complete Solar Assessment Report successfully written to: {report_path}")
     print(f"Calculated Capacity: {tech_results.capacity_mwp} MWp")
