@@ -1,0 +1,31 @@
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+
+# Virtual environments
+env/
+venv/
+.venv/
+ENV/
+
+# Configuration and secrets
+.env
+.env.*
+
+# Generated reports and data outputs
+*_report.json
+*report.json
+*_manifest.json
+*.png
+*.pdf
+
+# Model weights and checkpoints
+*.pt
+*.pth
+*.onnx
+*.bin
+models/
+checkpoints/
