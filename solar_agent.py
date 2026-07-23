@@ -17,6 +17,26 @@ DEFAULT_DEGRADATION_RATE = 0.005
 DEFAULT_TARIFF_RM_KWH = 0.27
 DEFAULT_WACC = 0.065
 
+# --- Financial Scenario Tariffs (RM/kWh) ---
+# Sourced from Malaysian market benchmarks:
+#   LSS PPA ~RM 0.17/kWh (LSS5 average, 2024)
+#   C&I NEM/ATAP offset ~RM 0.37/kWh (industrial displaced tariff)
+#   Self-consumption premium ~RM 0.45/kWh (system-access / green tariff scenarios)
+SCENARIO_LSS_PPA = "lss_ppa"
+SCENARIO_C_I_NEM = "c_i_nem"
+SCENARIO_SELF_CONSUMPTION = "self_consumption"
+SCENARIO_LABELS = {
+    SCENARIO_LSS_PPA: "LSS PPA (Utility-Scale)",
+    SCENARIO_C_I_NEM: "C&I NEM / ATAP Offset",
+    SCENARIO_SELF_CONSUMPTION: "Self-Consumption / Premium Tariff",
+}
+SCENARIO_TARIFFS: dict[str, float] = {
+    SCENARIO_LSS_PPA: 0.17,
+    SCENARIO_C_I_NEM: 0.37,
+    SCENARIO_SELF_CONSUMPTION: 0.45,
+}
+DEFAULT_SCENARIO = SCENARIO_C_I_NEM
+
 # --- Deterministic owner-name helper (used by CLI and Streamlit) ---
 
 def deterministic_hash(string_val: str) -> int:
@@ -147,6 +167,7 @@ class TechnicalFeasibilityModel(BaseModel):
     grading_adjusted_capex_rm: float = Field(description="Final CAPEX including civil grading premiums.")
     lcoe_rm_kwh: float = Field(description="Levelized Cost of Electricity (RM/kWh).")
     ppa_tariff_rm_kwh: float = Field(description="Assumed PPA or displaced energy tariff used for revenue projection (RM/kWh).")
+    scenario: str = Field(description="Financial scenario used for revenue projection (lss_ppa, c_i_nem, self_consumption).")
     npv_rm: float = Field(description="Net Present Value (RM) over the project lifecycle.")
     irr_percent: float = Field(description="Project Internal Rate of Return (%).")
     payback_years: float = Field(description="Estimated capital payback period in years.")
@@ -816,8 +837,8 @@ class YieldFeasibilityEngine:
         self.terrain = terrain
         self.grid_audit = grid_audit
 
-    def calculate(self) -> TechnicalFeasibilityModel:
-        print("[YieldFeasibilityEngine] Executing financial and clean energy yield models...")
+    def calculate(self, scenario: str = DEFAULT_SCENARIO) -> TechnicalFeasibilityModel:
+        print(f"[YieldFeasibilityEngine] Executing financial and clean energy yield models (scenario: {scenario})...")
         land_sqm = self.metadata.area_sq_meters
         usable_area = land_sqm * 0.90 # 10% setback buffers
 
@@ -825,6 +846,9 @@ class YieldFeasibilityEngine:
         gcr = 0.45 # Ground Coverage Ratio
         panel_efficiency = 0.215 # 21.5% Mono-PERC modules
         performance_ratio = 0.78 # Standard system loss index
+
+        # Select scenario tariff
+        tariff_rm_kwh = SCENARIO_TARIFFS.get(scenario, DEFAULT_TARIFF_RM_KWH)
 
         # Dynamically load real meteorological observations from Open-Meteo dataset
         avg_ghi = 1550.0 # Default fallback
@@ -867,7 +891,6 @@ class YieldFeasibilityEngine:
         capex_per_mwp = 3000000.0 # RM 3.0 Million per MWp base cost
         opex_per_mwp_year = DEFAULT_OPEX_PER_MWP_YEAR
         project_lifetime = DEFAULT_PROJECT_LIFETIME
-        tariff_rm_kwh = DEFAULT_TARIFF_RM_KWH
         wacc = DEFAULT_WACC
 
         # Adjusted CAPEX incorporating Civil Slope Grading premiums and Battery (BESS) additions
@@ -927,6 +950,7 @@ class YieldFeasibilityEngine:
             grading_adjusted_capex_rm=round(adjusted_capex, 2),
             lcoe_rm_kwh=round(lcoe_rm_kwh, 4),
             ppa_tariff_rm_kwh=round(tariff_rm_kwh, 4),
+            scenario=scenario,
             npv_rm=round(npv, 2),
             irr_percent=round(r * 100.0, 2),
             payback_years=round(payback, 2),
@@ -1078,8 +1102,9 @@ def main():
         sld_graph = resolver.resolve(symbols, lines)
 
     # 5. Compute Yield and Financials
+    scenario = os.environ.get("HELIOPOLIS_SCENARIO", DEFAULT_SCENARIO)
     feasibility_engine = YieldFeasibilityEngine(land_metadata, terrain_model, grid_capacity_audit)
-    tech_results = feasibility_engine.calculate()
+    tech_results = feasibility_engine.calculate(scenario=scenario)
 
     # 6. Generate SEDA/TNB Prefilled Manifest
     regulatory_manifest = FormFiller.generate_manifest(land_metadata, tech_results)
@@ -1111,6 +1136,7 @@ def main():
         sys.exit(1)
 
     print(f"\n[Success] Complete Solar Assessment Report successfully written to: {report_path}")
+    print(f"Financial Scenario: {SCENARIO_LABELS.get(tech_results.scenario, tech_results.scenario)}")
     print(f"Calculated Capacity: {tech_results.capacity_mwp:.3f} MWp")
     print(f"Base CAPEX Cost: RM {tech_results.base_capex_rm:,.2f}")
     print(f"Civil Slope CAPEX Cost (Adjusted): RM {tech_results.grading_adjusted_capex_rm:,.2f} (Includes Earthworks & BESS premiums)")

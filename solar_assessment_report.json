@@ -79,10 +79,11 @@
         "base_capex_rm": 20691810.3,
         "grading_adjusted_capex_rm": 20691810.3,
         "lcoe_rm_kwh": 0.2599,
-        "ppa_tariff_rm_kwh": 0.27,
-        "npv_rm": 963710.59,
-        "irr_percent": 7.08,
-        "payback_years": 10.03,
+        "ppa_tariff_rm_kwh": 0.17,
+        "scenario": "lss_ppa",
+        "npv_rm": -8579645.2,
+        "irr_percent": 0.53,
+        "payback_years": 17.48,
         "terrain_profile": {
             "mean_slope_degrees": 4.54,
             "optimal_area_percent": 59.0,
@@ -113,7 +114,7 @@
             "Part_B_Mukim_Daerah_Negeri": "Johor Bahru, Johor Bahru, Johor",
             "Part_C_Proposed_DC_Capacity_kWp": 6897.0,
             "Part_C_Proposed_AC_Capacity_kWac": 5862.45,
-            "Part_D_PPA_Tariff_Rate_RM_kWh": 0.27
+            "Part_D_PPA_Tariff_Rate_RM_kWh": 0.17
         },
         "tnb_grid_request": {
             "Applicant_Company": "Muthu Bin Ahmad",

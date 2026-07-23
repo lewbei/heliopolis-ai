@@ -16,6 +16,8 @@ from solar_agent import (
     _synthetic_elevation_grid,
     deterministic_hash,
     generate_co_owners,
+    DEFAULT_SCENARIO,
+    SCENARIO_LABELS,
 )
 import app_components
 
@@ -137,6 +139,7 @@ def compute_assessment(
     has_relay: bool = True,
     is_xfmr_connected: bool = True,
     sld_image_path: str | None = None,
+    scenario: str = DEFAULT_SCENARIO,
 ):
     """Run the full technical assessment pipeline and return a result dict."""
     # --- Civil Terrain Grid Generator ---
@@ -159,7 +162,7 @@ def compute_assessment(
         metadata=land_meta,
         terrain=terrain_model,
         grid_audit=grid_audit
-    ).calculate()
+    ).calculate(scenario=scenario)
 
     # --- SLD Topology ---
     symbols = [

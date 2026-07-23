@@ -27,6 +27,8 @@ from app_logic import (
     compute_assessment,
     project_lifecycle_cashflows,
     _sld_node_style,
+    DEFAULT_SCENARIO,
+    SCENARIO_LABELS,
 )
 
 # --- Page Setup ---
@@ -217,6 +219,21 @@ with st.sidebar:
     in_ac_capacity = st.number_input("Proposed AC Capacity (MWac)", value=st.session_state.get("in_ac_capacity", 3.21), step=0.1)
     in_substation_mva = st.number_input("Upstream Substation Limit (MVA)", value=st.session_state.get("in_substation_mva", 15.0), step=1.0)
 
+    st.markdown('<div class="card-title">Financial Scenario</div>', unsafe_allow_html=True)
+    scenario_options = list(SCENARIO_LABELS.values())
+    scenario_keys = list(SCENARIO_LABELS.keys())
+    current_scenario = st.session_state.get("in_scenario", DEFAULT_SCENARIO)
+    if current_scenario not in scenario_keys:
+        current_scenario = DEFAULT_SCENARIO
+    in_scenario_label = st.selectbox(
+        "Revenue Scenario",
+        scenario_options,
+        index=scenario_keys.index(current_scenario),
+        help="LSS PPA uses 2024 tender tariffs; C&I NEM/ATAP uses industrial displaced tariffs; Self-Consumption uses premium green/system-access rates.",
+    )
+    in_scenario = scenario_keys[scenario_options.index(in_scenario_label)]
+    st.session_state["in_scenario"] = in_scenario
+
     st.markdown("---")
     st.markdown('<div class="card-title">Scanned Document OCR</div>', unsafe_allow_html=True)
     st.markdown('<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Upload images to run real Gemini OCR. Leave blank to use the form values above.</div>', unsafe_allow_html=True)
@@ -276,6 +293,7 @@ assessment = compute_assessment(
     substation_mva=in_substation_mva,
     site_mode=site_mode,
     sld_image_path=sld_image_path,
+    scenario=in_scenario,
 )
 terrain_model = assessment["terrain_model"]
 grid_audit = assessment["grid_audit"]
@@ -436,6 +454,7 @@ with tabs[1]:
             has_relay=has_relay,
             is_xfmr_connected=is_xfmr_connected,
             sld_image_path=sld_image_path,
+            scenario=in_scenario,
         )
         g = sld_assessment["sld_graph"]
 
@@ -510,6 +529,7 @@ with tabs[2]:
             annual_yield_mwh=feasibility.annual_yield_mwh,
             adjusted_capex_rm=feasibility.grading_adjusted_capex_rm,
             bess_capex_rm=grid_audit.bess_specification.estimated_bess_capex_rm,
+            tariff_rm_kwh=feasibility.ppa_tariff_rm_kwh,
         )
         years = list(range(0, len(projection["cash_flows"])))
         cf_vals = projection["cash_flows"]
