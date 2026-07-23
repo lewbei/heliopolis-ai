@@ -25,6 +25,7 @@ from app_logic import (
     generate_co_owners,
     build_land_metadata,
     compute_assessment,
+    project_lifecycle_cashflows,
     _sld_node_style,
 )
 
@@ -503,18 +504,15 @@ with tabs[2]:
         # Build Cash Flow Plot using Plotly Go
         st.markdown('<div class="card-title">21-Year Lifecycle Projected Net Cash Flows</div>', unsafe_allow_html=True)
 
-        years = list(range(0, 22))
-        cf_vals = [-feasibility.grading_adjusted_capex_rm]
-
-        # Recalculate cash flows for plotting
-        bess_addition_capex = grid_audit.bess_specification.estimated_bess_capex_rm
-        bess_opex = bess_addition_capex * 0.015 if bess_addition_capex > 0 else 0.0
-        for yr in range(1, 22):
-            degradation = (1.0 - 0.005) ** (yr - 1)
-            gen = feasibility.annual_yield_mwh * 1000.0 * degradation
-            opex = (feasibility.capacity_mwp * 45000.0 + bess_opex) * (1.02) ** (yr - 1)
-            rev = gen * 0.23  # average NEM NOVA tariff RM 0.23
-            cf_vals.append(rev - opex)
+        # Use the same lifecycle projection function as the backend engine.
+        projection = project_lifecycle_cashflows(
+            capacity_mwp=feasibility.capacity_mwp,
+            annual_yield_mwh=feasibility.annual_yield_mwh,
+            adjusted_capex_rm=feasibility.grading_adjusted_capex_rm,
+            bess_capex_rm=grid_audit.bess_specification.estimated_bess_capex_rm,
+        )
+        years = list(range(0, len(projection["cash_flows"])))
+        cf_vals = projection["cash_flows"]
 
         fig_cf = go.Figure()
         fig_cf.add_trace(go.Bar(

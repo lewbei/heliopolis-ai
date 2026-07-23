@@ -418,6 +418,51 @@ class LandTitleParser:
         return self.from_registry(demo_site)
 
 
+def _synthetic_elevation_grid(profile_label: str) -> np.ndarray:
+    """Generate a synthetic elevation grid for a named slope profile."""
+    np.random.seed(42)
+    y, x = np.mgrid[0:100:10, 0:100:10]
+
+    profile_params = {
+        "Optimal": (0.3, 0.2, 0.0),
+        "Rolling": (1.2, 1.5, 0.0),
+        "Severe": (3.0, 12.0, 25.0),
+    }
+
+    # Default to the Severe ridge parameters.
+    x_amp, y_amp, ridge_boost = profile_params.get("Severe")
+    for key in profile_params:
+        if key in profile_label:
+            x_amp, y_amp, ridge_boost = profile_params[key]
+            break
+
+    elevation_grid = 120.0 + x_amp * np.sin(x / 15.0) + y_amp * np.sin(y / 12.0)
+    if ridge_boost:
+        elevation_grid[:, -1] += ridge_boost
+    return elevation_grid
+
+
+def generate_precise_terrain(target_mean_slope: float, cell_resolution_meters: float = 10.0) -> np.ndarray:
+    """Generate a synthetic elevation grid whose mean slope matches the target."""
+    np.random.seed(42)
+    y, x = np.mgrid[0:100:10, 0:100:10]
+    base_variation = np.sin(x / 15.0) + np.sin(y / 12.0)
+
+    low, high = 0.0, 200.0
+    for _ in range(20):
+        mid = (low + high) / 2.0
+        grid = 120.0 + mid * base_variation
+        grad_y, grad_x = np.gradient(grid, cell_resolution_meters)
+        slope_deg = np.degrees(np.arctan(np.sqrt(grad_x**2 + grad_y**2)))
+        current_mean = np.mean(slope_deg)
+        if current_mean < target_mean_slope:
+            low = mid
+        else:
+            high = mid
+    mid_k = (low + high) / 2.0
+    return 120.0 + mid_k * base_variation
+
+
 class CivilSlopeAnalyzer:
     """
     Improvised Module: Analyzes civil topography elevation grids using 2D spatial gradients
@@ -656,6 +701,48 @@ class TNBSubstationCapacityValidator:
         )
 
 
+def project_lifecycle_cashflows(
+    capacity_mwp: float,
+    annual_yield_mwh: float,
+    adjusted_capex_rm: float,
+    bess_capex_rm: float,
+    project_lifetime: int = 21,
+    opex_per_mwp_year: float = 45000.0,
+    bess_opex_rate: float = 0.015,
+    opex_inflation: float = 0.02,
+    degradation_rate: float = 0.005,
+    tariff_rm_kwh: float = 0.23,
+    wacc: float = 0.065,
+) -> dict[str, Any]:
+    """
+    Project annual cash flows, discounted costs, and discounted energy for a solar site.
+
+    This single source of truth is used by both the YieldFeasibilityEngine and the
+    Streamlit financial plot, ensuring the UI never drifts from the backend math.
+    """
+    cash_flows = [-adjusted_capex_rm]
+    discounted_costs = adjusted_capex_rm
+    discounted_energy = 0.0
+    bess_opex = bess_capex_rm * bess_opex_rate if bess_capex_rm > 0 else 0.0
+
+    for yr in range(1, project_lifetime + 1):
+        degradation = (1.0 - degradation_rate) ** (yr - 1)
+        yearly_gen_kwh = annual_yield_mwh * 1000.0 * degradation
+        yearly_opex = (capacity_mwp * opex_per_mwp_year + bess_opex) * ((1.0 + opex_inflation) ** (yr - 1))
+        yearly_revenue = yearly_gen_kwh * tariff_rm_kwh
+        yearly_net_cash = yearly_revenue - yearly_opex
+
+        cash_flows.append(yearly_net_cash)
+        discounted_costs += yearly_opex / ((1.0 + wacc) ** yr)
+        discounted_energy += yearly_gen_kwh / ((1.0 + wacc) ** yr)
+
+    return {
+        "cash_flows": cash_flows,
+        "discounted_costs": discounted_costs,
+        "discounted_energy": discounted_energy,
+    }
+
+
 class YieldFeasibilityEngine:
     """
     Simulates annual photovoltaic generation yields in tropical environments and models
@@ -726,24 +813,19 @@ class YieldFeasibilityEngine:
         bess_addition_capex = self.grid_audit.bess_specification.estimated_bess_capex_rm
         adjusted_capex = (base_capex * self.terrain.grading_capex_premium_multiplier) + bess_addition_capex
 
-        discounted_costs = adjusted_capex
-        discounted_energy = 0.0
-        cash_flows = [-adjusted_capex]
-
-        for yr in range(1, project_lifetime + 1):
-            degradation = (1.0 - 0.005)**(yr - 1)
-            yearly_gen_kwh = annual_yield_mwh * 1000.0 * degradation
-
-            # OPEX inflates at 2.0% annually (battery opex includes standard 1.5% maintenance premium if active)
-            bess_opex = bess_addition_capex * 0.015 if bess_addition_capex > 0 else 0.0
-            yearly_opex = (capacity_mwp * opex_per_mwp_year + bess_opex) * (1.02)**(yr - 1)
-            yearly_revenue = yearly_gen_kwh * tariff_rm_kwh
-            yearly_net_cash = yearly_revenue - yearly_opex
-
-            cash_flows.append(yearly_net_cash)
-
-            discounted_costs += yearly_opex / ((1.0 + wacc)**yr)
-            discounted_energy += yearly_gen_kwh / ((1.0 + wacc)**yr)
+        projection = project_lifecycle_cashflows(
+            capacity_mwp=capacity_mwp,
+            annual_yield_mwh=annual_yield_mwh,
+            adjusted_capex_rm=adjusted_capex,
+            bess_capex_rm=bess_addition_capex,
+            project_lifetime=project_lifetime,
+            opex_per_mwp_year=opex_per_mwp_year,
+            tariff_rm_kwh=tariff_rm_kwh,
+            wacc=wacc,
+        )
+        cash_flows = projection["cash_flows"]
+        discounted_costs = projection["discounted_costs"]
+        discounted_energy = projection["discounted_energy"]
 
         lcoe_rm_kwh = discounted_costs / (discounted_energy + 1e-12) if discounted_energy > 0 else 0.0
 
@@ -903,21 +985,7 @@ def main():
         land_metadata = LandTitleParser.from_registry(site_data)
 
     # 2. Analyze Civil Topography & Slope Profile Dynamically
-    target_slope = site_data["mean_slope_degrees"]
-    np.random.seed(42)
-    y, x = np.mgrid[0:100:10, 0:100:10]
-    base_var = np.sin(x / 15.0) + np.sin(y / 12.0)
-    low, high = 0.0, 200.0
-    for _ in range(20):
-        mid = (low + high) / 2.0
-        grid = 120.0 + mid * base_var
-        gy, gx = np.gradient(grid, 10.0)
-        curr_mean = np.mean(np.degrees(np.arctan(np.sqrt(gx**2 + gy**2))))
-        if curr_mean < target_slope:
-            low = mid
-        else:
-            high = mid
-    elevation_grid = 120.0 + ((low + high)/2.0) * base_var
+    elevation_grid = generate_precise_terrain(site_data["mean_slope_degrees"])
     terrain_model = CivilSlopeAnalyzer.analyze_topography(elevation_grid, cell_resolution_meters=10.0)
 
     # 3. Audit Local Substation Capacity Limits & Size BESS

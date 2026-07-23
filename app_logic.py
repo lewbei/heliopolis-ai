@@ -11,6 +11,9 @@ from solar_agent import (
     YieldFeasibilityEngine,
     FormFiller,
     OwnerModel,
+    project_lifecycle_cashflows,
+    generate_precise_terrain,
+    _synthetic_elevation_grid,
 )
 import app_components
 
@@ -34,51 +37,6 @@ def parse_mean_slope(profile_str: str) -> float:
     if "Rolling" in profile_str:
         return 8.5
     return 37.7
-
-
-def generate_precise_terrain(target_mean_slope: float, cell_resolution_meters: float = 10.0) -> np.ndarray:
-    """Generate a synthetic elevation grid whose mean slope matches the target."""
-    np.random.seed(42)
-    y, x = np.mgrid[0:100:10, 0:100:10]
-    base_variation = np.sin(x / 15.0) + np.sin(y / 12.0)
-
-    low, high = 0.0, 200.0
-    for _ in range(20):
-        mid = (low + high) / 2.0
-        grid = 120.0 + mid * base_variation
-        grad_y, grad_x = np.gradient(grid, cell_resolution_meters)
-        slope_deg = np.degrees(np.arctan(np.sqrt(grad_x**2 + grad_y**2)))
-        current_mean = np.mean(slope_deg)
-        if current_mean < target_mean_slope:
-            low = mid
-        else:
-            high = mid
-    mid_k = (low + high) / 2.0
-    return 120.0 + mid_k * base_variation
-
-
-def _synthetic_elevation_grid(profile_label: str) -> np.ndarray:
-    """Generate a synthetic elevation grid for a named slope profile."""
-    np.random.seed(42)
-    y, x = np.mgrid[0:100:10, 0:100:10]
-
-    profile_params = {
-        "Optimal": (0.3, 0.2, 0.0),
-        "Rolling": (1.2, 1.5, 0.0),
-        "Severe": (3.0, 12.0, 25.0),
-    }
-
-    # Default to the Severe ridge parameters.
-    x_amp, y_amp, ridge_boost = profile_params.get("Severe")
-    for key in profile_params:
-        if key in profile_label:
-            x_amp, y_amp, ridge_boost = profile_params[key]
-            break
-
-    elevation_grid = 120.0 + x_amp * np.sin(x / 15.0) + y_amp * np.sin(y / 12.0)
-    if ridge_boost:
-        elevation_grid[:, -1] += ridge_boost
-    return elevation_grid
 
 
 def _sld_node_style(category: str, node_id: str) -> dict:
