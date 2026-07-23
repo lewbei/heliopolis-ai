@@ -29,6 +29,7 @@ from app_logic import (
     _sld_node_style,
     DEFAULT_SCENARIO,
     SCENARIO_LABELS,
+    validate_inputs,
 )
 
 # --- Page Setup ---
@@ -253,6 +254,23 @@ if site_mode == "Real Malaysian Sites (500)":
     owners_list = generate_co_owners(co_owners_cnt, active_site_id)
 else:
     owners_list = SAMPLE_OWNERS
+
+# --- Validate User Inputs ---
+validation_errors = validate_inputs(
+    acres=in_acres,
+    roods=in_roods,
+    poles=in_poles,
+    ac_capacity=in_ac_capacity,
+    substation_mva=in_substation_mva,
+    state=in_state,
+    title_no=in_title,
+    lot_no=in_lot,
+    owners_list=owners_list,
+)
+if validation_errors:
+    for err in validation_errors:
+        st.error(err)
+    st.stop()
 
 # --- Persist uploaded images to temp files for OCR ---
 title_image_path = None

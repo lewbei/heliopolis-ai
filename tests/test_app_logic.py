@@ -18,6 +18,7 @@ from app_logic import (
     project_lifecycle_cashflows,
     generate_precise_terrain,
     _synthetic_elevation_grid,
+    validate_inputs,
 )
 
 
@@ -148,3 +149,24 @@ def test_compute_assessment():
     assert "sld_graph" in result
     assert "manifest" in result
     assert not result["grid_audit"].bess_specification.is_bess_required
+
+
+def test_validate_inputs():
+    """Check that the Streamlit input validator catches bad values."""
+    errors = validate_inputs(
+        acres=0.0, roods=0.0, poles=0.0,
+        ac_capacity=0.0, substation_mva=0.0,
+        state="", title_no="", lot_no="", owners_list=[]
+    )
+    assert len(errors) > 0
+    assert any("area" in e.lower() for e in errors)
+    assert any("ac capacity" in e.lower() for e in errors)
+    assert any("substation" in e.lower() for e in errors)
+
+    valid = validate_inputs(
+        acres=12.0, roods=2.0, poles=15.0,
+        ac_capacity=3.21, substation_mva=15.0,
+        state="Perak", title_no="GRN 45293", lot_no="Lot 8192",
+        owners_list=[{"name": "Ahmad", "id": "123", "share": "120/120"}]
+    )
+    assert valid == []

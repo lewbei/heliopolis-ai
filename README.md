@@ -139,3 +139,16 @@ pytest tests/
 * `real_malaysian_sites_registry.json` is a **synthetic demo registry** of representative Malaysian solar sites. It is used to demonstrate the pipeline without live e-Tanah or land-office integrations.
 * `generate_precise_terrain()` produces **synthetic elevation grids** calibrated to a target mean slope. Real project due diligence would replace this with SRTM DEM, Lidar, or survey contour data.
 * Default financial assumptions (tariff, WACC, degradation, CAPEX) are illustrative. A production deployment should load scenario-specific assumptions (LSS PPA, C&I NEM/ATAP, or self-consumption tariffs).
+
+---
+
+## 📚 Sources & Market Benchmarks
+
+The financial scenario tariffs and technical parameters are grounded in publicly available Malaysian clean-energy market data:
+
+* **LSS PPA tariff (~RM 0.17/kWh):** Based on the LSS PETRA 5 / LSS5 average award tariff reported in 2024. See [Mordor Intelligence — Malaysia Solar Energy Market](https://www.mordorintelligence.com/industry-reports/malaysia-solar-energy-market) and [The Star](https://www.thestar.com.my).
+* **Industrial / C&I displaced tariff (~RM 0.37/kWh):** Derived from reported Peninsular Malaysia low-voltage industrial tariffs in [Ember — Solar and grid flexibility for Malaysia](https://ember-energy.org/app/uploads/2024/10/Report-Solar-and-grid-flexibility-critical-for-Malaysias-future.pdf).
+* **Solar LCOE range (~RM 0.15–0.29/kWh):** BloombergNEF, *Malaysia: A Techno-Economic Analysis of Power Generation* (April 2025) — [PDF](https://assets.bbhub.io/professional/sites/24/Malaysia-A-Techno-Economic-Analysis-of-Power-Generation.pdf).
+* **NEM / NOVA / Solar ATAP:** [SEDA Malaysia NEM portal](https://www.seda.gov.my/reportal/nem) and [myTNB NEM Application](https://www.mytnb.com.my/renewable-energy/nem-application).
+* **BESS deferment and system-access charges:** [IEA-PVPS Malaysia country profile](https://iea-pvps.org/about-iea-pvps/members/malaysia) and BloombergNEF report above.
+* **Weather data:** `real_malaysian_weather.json` contains historical GHI and temperature values derived from satellite-based solar resource datasets (e.g. [Open-Meteo](https://open-meteo.com)) for Malaysian states.

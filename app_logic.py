@@ -210,3 +210,37 @@ def compute_assessment(
         "sld_graph": sld_graph,
         "manifest": manifest,
     }
+
+
+def validate_inputs(
+    acres: float,
+    roods: float,
+    poles: float,
+    ac_capacity: float,
+    substation_mva: float,
+    state: str,
+    title_no: str,
+    lot_no: str,
+    owners_list: list,
+) -> list[str]:
+    """Return a list of human-readable validation errors, or an empty list if valid."""
+    errors: list[str] = []
+    hectares, sq_meters = LandTitleParser.convert_imperial_to_metric(acres, roods, poles)
+
+    if sq_meters <= 1000.0:
+        errors.append("Land area is too small for a utility or C&I solar site (minimum ~1,000 m²).")
+    if ac_capacity <= 0.0:
+        errors.append("Proposed AC capacity must be greater than 0 MWac.")
+    if ac_capacity > 1000.0:
+        errors.append("Proposed AC capacity exceeds 1,000 MWac — please check the unit is MWac.")
+    if substation_mva <= 0.0:
+        errors.append("Upstream substation capacity must be greater than 0 MVA.")
+    if not state or state.strip() == "":
+        errors.append("State is required.")
+    if not title_no or not title_no.strip():
+        errors.append("Title No is required.")
+    if not lot_no or not lot_no.strip():
+        errors.append("Lot No is required.")
+    if not owners_list:
+        errors.append("At least one landowner is required.")
+    return errors
