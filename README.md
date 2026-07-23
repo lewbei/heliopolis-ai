@@ -1,7 +1,7 @@
 # Heliopolis-AI: Solar Project Intelligence Agent
 
 [![Python Version](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
-[![Testing Status](https://img.shields.io/badge/tests-25%20passed-green.svg)](https://pytest.org/)
+[![Testing Status](https://img.shields.io/badge/tests-28%20passed-green.svg)](https://pytest.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Track](https://img.shields.io/badge/Track-T1%20(Clean%20Energy)-orange.svg)](https://maicnexus.com/)
 
@@ -51,10 +51,12 @@ Uses spatial $\epsilon$-neighbor distance search to connect wire segment vectors
 
 ## ⚡ Key Technical Features
 
-* **Radon Affine De-skewing:** Automatically detects and aligns skewed document scans (up to $\pm 10^\circ$) before running OCR.
-* **Scale-Invariant Epsilon:** Programmatically calculates matching thresholds as $15\%$ of average inverter bounding box widths, working flawlessly across A4 to A0 drawings.
-* **TNB Substation Capacity Validator:** Audits peak AC solar output against the local substation limits. If it exceeds $15\%$, the agent programmatically sizes and costs a **Lithium Iron Phosphate (LFP) Battery Energy Storage System (BESS)** for peak-shaving.
-* **Newton-Raphson IRR Solver:** Solves lifecycle project Internal Rate of Return (IRR) iteratively with robust boundary clipping to prevent underflow crashes.
+* **Multimodal OCR + Symbolic Reasoning:** Gemini Vision extracts text and SLD symbols; all math, unit conversion, graph routing, and finance run in deterministic Python.
+* **Scale-Invariant Epsilon:** Programmatically calculates matching thresholds as $15\%$ of average inverter bounding box widths, working across A4 to A0 drawings.
+* **Junction-Dot Aware SLD Resolver:** Splits wire segments at detected junction dots and ignores plain line crossings, preventing short-circuit hallucinations.
+* **TNB Substation Capacity Validator:** Audits peak AC solar output against the local substation limits. If it exceeds $15\%$, the agent sizes and costs a **Lithium Iron Phosphate (LFP) Battery Energy Storage System (BESS)** for peak-shaving.
+* **Scenario-Based Financial Model:** Switch between LSS PPA, C&I NEM/ATAP offset, and self-consumption tariffs to match the deal structure.
+* **Newton-Raphson IRR Solver:** Solves lifecycle Internal Rate of Return iteratively with robust boundary clipping.
 
 ---
 
@@ -76,7 +78,7 @@ We conducted a multi-database patent clearance search across **MyIPO (Malaysia),
 * `heliopolis_ocr.py`: Gemini Vision OCR wrapper for scanned land titles and SLD images.
 * `app.py`: Streamlit frontend.
 * `app_config.py`, `app_components.py`, `app_logic.py`: Modular UI configuration, HTML components, and business logic.
-* `tests/`: Automated unit testing folder (**25/25 tests passing**).
+* `tests/`: Automated unit testing folder (**28/28 tests passing**).
 * `qrspi/`: Complete Quality & QRSPI Compliance portfolio:
   * `QUESTION_CONTRACT.md`: Measurable success criteria contract.
   * `RESEARCH_PACK.md`: Legal (NLC 1965) and Grid (TNB/SEDA) compliance facts.
@@ -89,48 +91,99 @@ We conducted a multi-database patent clearance search across **MyIPO (Malaysia),
 
 ---
 
-## 💻 Local Execution & Verification Guide
+## 🚀 How to Use Heliopolis-AI
 
 ### 1. Setup Environment
-Ensure you have the required libraries installed:
+Install the required Python packages:
+```bash
+pip install -r requirements.txt
+```
+Or manually:
 ```bash
 pip install numpy networkx matplotlib pydantic pytest streamlit plotly google-genai python-dotenv Pillow
 ```
 
-### 2. Configure Gemini Credentials (for OCR)
-Copy `.env.example` to `.env` and add either an AI Studio API key or Vertex AI details:
+### 2. Configure Gemini Credentials (Optional)
+To run OCR on scanned land titles or SLD images, copy `.env.example` to `.env` and add your credentials:
 ```bash
 cp .env.example .env
 ```
 ```bash
-# Option 1: AI Studio / API key
+# Option 1: Google AI Studio API key
 GEMINI_API_KEY=your_key_here
 
 # Option 2: Vertex AI
 GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 GOOGLE_CLOUD_LOCATION=us-central1
 ```
-Without credentials the agent still runs using the built-in demo registry data.
+Without credentials the app and CLI still run using the built-in demo registry data.
 
-### 3. Run Site Due Diligence Agent
-Executes the land title, topography gradient, SLD graph, BESS sizing, and pre-fills SEDA Rakyat/NOVA forms:
+### 3. Quick CLI Run
+Run the full backend pipeline on a selected demo site:
 ```bash
 python solar_agent.py
 ```
-*Generates:* `solar_assessment_report.json`
+This generates `solar_assessment_report.json`, which contains:
+* `land_title_analysis` — parsed title, owners, shares, and legal status.
+* `sld_topology_analysis` — directed graph and TNB grid-code audit.
+* `technical_financial_feasibility` — capacity, yield, LCOE, NPV, IRR, scenario.
+* `regulatory_manifest` — pre-filled SEDA and TNB application fields.
 
-### 4. Generate High-Res Visual Plots
-Generates the terrain elevation slope risk contour map and Directed SLD Network topology flows:
+You can override the financial scenario via an environment variable:
+```bash
+HELIOPOLIS_SCENARIO=lss_ppa python solar_agent.py      # utility PPA
+HELIOPOLIS_SCENARIO=c_i_nem python solar_agent.py      # C&I NEM / ATAP (default)
+HELIOPOLIS_SCENARIO=self_consumption python solar_agent.py  # premium self-consumption
+```
+
+### 4. Interactive Streamlit App
+Launch the web UI:
+```bash
+streamlit run app.py
+```
+Then open the URL printed in the terminal (usually `http://localhost:8501`).
+
+In the sidebar, fill in:
+1. **Site Mode** — choose a synthetic preset or a real Malaysian site from the demo registry.
+2. **Land Attributes** — Title No, Lot No, State, Zoning, and land area in *Ekar / Rood / Pole*.
+3. **Legal Restrictions** — tick any Caveat, Charge, or Malay Reserve flags.
+4. **Project Company** — the company that will file SEDA/TNB applications (defaults to Solarvest Development Sdn Bhd).
+5. **Technical Specifications** — slope profile, proposed AC capacity (MWac), and upstream substation limit (MVA).
+6. **Financial Scenario** — pick LSS PPA, C&I NEM/ATAP offset, or Self-Consumption / Premium tariff.
+7. **Scanned Document OCR** (optional) — upload a land-title scan and/or SLD scan to use Gemini Vision instead of the form values.
+
+The dashboard then shows:
+* Legal share split, POA requirement, and land-legal verdict.
+* 2D terrain slope risk map.
+* SLD topology graph and TNB ESAG compliance check.
+* Capacity, yield, CAPEX, LCOE, NPV, IRR, and payback for the selected scenario.
+* Pre-filled SEDA/TNB manifest fields and NEMAS checklist.
+
+### 5. Generate Plots
+After running `solar_agent.py`, generate the pitch-deck plots:
 ```bash
 python solar_visualizer.py
 ```
-*Generates plots under:* `qrspi/plots/`
+Output appears in `qrspi/plots/`:
+* `perak_slope_risk_contour.png`
+* `sld_topology_flow_graph.png`
 
-### 5. Run Automated PyTest Suite
-Runs the full unit test suite (solar_agent, app_logic, and heliopolis_ocr):
+### 6. Run the Test Suite
 ```bash
 pytest tests/
 ```
+All 28 unit and integration tests should pass.
+
+---
+
+## 📄 Understanding `solar_assessment_report.json`
+
+| Section | What it tells you |
+|---|---|
+| `land_title_analysis` | Title and lot numbers, state/district/mukim, land area in imperial and metric, owners with fractional shares, controlling-interest check, caveats/charges/reserve flags, and the legal verdict (`Approved` / `Flagged/Risky` / `Rejected`). |
+| `sld_topology_analysis` | Node/edge count of the directed SLD graph, graph edges, and the TNB compliance result (`anti_islanding_relay_present`, `grid_path_valid`). |
+| `technical_financial_feasibility` | DC capacity (MWp), annual yield (MWh/year), base and adjusted CAPEX, LCOE (RM/kWh), PPA/displaced tariff (RM/kWh), selected scenario, NPV (RM), IRR (%), and payback (years). |
+| `regulatory_manifest` | Pre-filled SEDA application fields, TNB grid-connection request, and NEMAS checklist (triggered when AC capacity > 72 kWac). |
 
 ---
 
