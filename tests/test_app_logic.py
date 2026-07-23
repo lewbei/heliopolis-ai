@@ -86,7 +86,8 @@ def test_build_land_metadata():
     )
     assert land_meta.title_no == "GRN 12345"
     assert land_meta.state == "Kedah"
-    assert land_meta.legal_assessment.status == "Approved"
+    # Pertanian zoning should be Flagged/Risky pending NLC Section 124 conversion.
+    assert land_meta.legal_assessment.status == "Flagged/Risky"
     assert hectares > 1.0
     assert sq_m > 10000.0
     assert "Solarvest" in html

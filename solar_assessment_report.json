@@ -33,9 +33,9 @@
         "has_charges": false,
         "is_malay_reserve": false,
         "legal_assessment": {
-            "status": "Approved",
+            "status": "Flagged/Risky",
             "findings": [
-                "Category 'Pertanian' requires NLC Section 124 land conversion to 'Perindustrian' or special state temporary permit."
+                "Category 'Pertanian' requires NLC Section 124 land conversion to 'Perindustrian' or a special state temporary permit before solar development can proceed."
             ],
             "poa_compliance": {
                 "is_poa_required": false,

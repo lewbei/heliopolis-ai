@@ -338,7 +338,8 @@ class LandTitleParser:
         findings = []
 
         if zoning == "Pertanian":
-            findings.append("Category 'Pertanian' requires NLC Section 124 land conversion to 'Perindustrian' or special state temporary permit.")
+            legal_status = "Flagged/Risky"
+            findings.append("Category 'Pertanian' requires NLC Section 124 land conversion to 'Perindustrian' or a special state temporary permit before solar development can proceed.")
         if has_caveats:
             legal_status = "Flagged/Risky"
             findings.append("Active Private Caveat detected. Land transactions are legally frozen until formal withdrawal is filed.")

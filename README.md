@@ -97,22 +97,45 @@ Ensure you have the required libraries installed:
 pip install numpy networkx matplotlib pydantic pytest streamlit plotly google-genai python-dotenv Pillow
 ```
 
-### 2. Run Site Due Diligence Agent
+### 2. Configure Gemini Credentials (for OCR)
+Copy `.env.example` to `.env` and add either an AI Studio API key or Vertex AI details:
+```bash
+cp .env.example .env
+```
+```bash
+# Option 1: AI Studio / API key
+GEMINI_API_KEY=your_key_here
+
+# Option 2: Vertex AI
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+```
+Without credentials the agent still runs using the built-in demo registry data.
+
+### 3. Run Site Due Diligence Agent
 Executes the land title, topography gradient, SLD graph, BESS sizing, and pre-fills SEDA Rakyat/NOVA forms:
 ```bash
 python solar_agent.py
 ```
 *Generates:* `solar_assessment_report.json`
 
-### 3. Generate High-Res Visual Plots
+### 4. Generate High-Res Visual Plots
 Generates the terrain elevation slope risk contour map and Directed SLD Network topology flows:
 ```bash
 python solar_visualizer.py
 ```
 *Generates plots under:* `qrspi/plots/`
 
-### 4. Run Automated PyTest Suite
-Runs 100% of the unit tests (solar_agent, app_logic, and heliopolis_ocr):
+### 5. Run Automated PyTest Suite
+Runs the full unit test suite (solar_agent, app_logic, and heliopolis_ocr):
 ```bash
 pytest tests/
 ```
+
+---
+
+## 🗂️ Data & Assumptions
+
+* `real_malaysian_sites_registry.json` is a **synthetic demo registry** of representative Malaysian solar sites. It is used to demonstrate the pipeline without live e-Tanah or land-office integrations.
+* `generate_precise_terrain()` produces **synthetic elevation grids** calibrated to a target mean slope. Real project due diligence would replace this with SRTM DEM, Lidar, or survey contour data.
+* Default financial assumptions (tariff, WACC, degradation, CAPEX) are illustrative. A production deployment should load scenario-specific assumptions (LSS PPA, C&I NEM/ATAP, or self-consumption tariffs).
