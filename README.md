@@ -1,7 +1,7 @@
 # Heliopolis-AI: Solar Project Intelligence Agent
 
 [![Python Version](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
-[![Testing Status](https://img.shields.io/badge/tests-5%20passed-green.svg)](https://pytest.org/)
+[![Testing Status](https://img.shields.io/badge/tests-25%20passed-green.svg)](https://pytest.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Track](https://img.shields.io/badge/Track-T1%20(Clean%20Energy)-orange.svg)](https://maicnexus.com/)
 
@@ -76,7 +76,7 @@ We conducted a rigorous, multi-database patent clearance search across **MyIPO (
 * `heliopolis_ocr.py`: Gemini Vision OCR wrapper for scanned land titles and SLD images.
 * `app.py`: Streamlit frontend.
 * `app_config.py`, `app_components.py`, `app_logic.py`: Modular UI configuration, HTML components, and business logic.
-* `tests/`: Automated unit testing folder (**5/5 tests passing**).
+* `tests/`: Automated unit testing folder (**25/25 tests passing**).
 * `qrspi/`: Complete Quality & QRSPI Compliance portfolio:
   * `QUESTION_CONTRACT.md`: Measurable success criteria contract.
   * `RESEARCH_PACK.md`: Legal (NLC 1965) and Grid (TNB/SEDA) compliance facts.
@@ -112,7 +112,7 @@ python solar_visualizer.py
 *Generates plots under:* `qrspi/plots/`
 
 ### 4. Run Automated PyTest Suite
-Runs 100% of the mathematical, topological, and battery-sizing unit tests:
+Runs 100% of the unit tests (solar_agent, app_logic, and heliopolis_ocr):
 ```bash
-pytest tests/test_solar_agent.py
+pytest tests/
 ```
