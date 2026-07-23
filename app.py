@@ -25,7 +25,6 @@ from app_logic import (
     generate_co_owners,
     build_land_metadata,
     compute_assessment,
-    dnn_inference,
     _sld_node_style,
 )
 
@@ -131,20 +130,6 @@ with st.sidebar:
             st.session_state.in_ac_capacity = float(preset_data["ac_capacity"])
             st.session_state.in_substation_mva = float(preset_data["substation_mva"])
 
-            # Pre-populate tab 5 features for the selected preset
-            if selected_preset == "Perak Site (Default High Slope)":
-                st.session_state.in_max_slope = 37.7 * 1.8
-                st.session_state.in_grid_dist = 2.5
-                st.session_state.in_owners_count = 5
-            elif selected_preset == "Kedah Plain (Flat - Optimal)":
-                st.session_state.in_max_slope = 2.1 * 1.8
-                st.session_state.in_grid_dist = 1.2
-                st.session_state.in_owners_count = 3
-            else:
-                st.session_state.in_max_slope = 8.5 * 1.8
-                st.session_state.in_grid_dist = 3.8
-                st.session_state.in_owners_count = 4
-
             st.session_state.prev_selected_mode = "Standard Presets"
             st.session_state.prev_selected_preset = selected_preset
     else:
@@ -187,11 +172,6 @@ with st.sidebar:
                 mwp_est = (site_data["area_sq_meters"] * 0.9) / 12140.0
                 st.session_state.in_ac_capacity = float(round(mwp_est * 0.85, 2))
                 st.session_state.in_substation_mva = float(site_data["substation_capacity_mva"])
-
-                # Pre-populate tab 5 features for the selected real site
-                st.session_state.in_max_slope = float(site_data["max_slope_degrees"])
-                st.session_state.in_grid_dist = float(site_data["grid_proximity_km"])
-                st.session_state.in_owners_count = int(site_data["co_owners_count"])
 
                 st.session_state.prev_selected_mode = "Real Malaysian Sites"
                 st.session_state.prev_selected_site = site_data["site_id"]
@@ -306,8 +286,7 @@ tabs = st.tabs([
     "🔍 Site Prospector (Legal & Terrain)",
     "⚡ Electrical SLD Graph Audit",
     "📊 Financials & BESS Yield Sizing",
-    "📄 SEDA & TNB Filing Manifests",
-    "🧠 HeliopolisDNN SwiGLU Inference"
+    "📄 SEDA & TNB Filing Manifests"
 ])
 
 # ==========================================
@@ -778,73 +757,3 @@ with tabs[3]:
             use_container_width=True
         )
 
-# ==========================================
-# TAB 5: HELIOPOLIS_DNN SWIGLU INFERENCE
-# ==========================================
-with tabs[4]:
-    st.markdown('<div class="brand-name" style="margin-bottom: 0.5rem;">HeliopolisDNN: PyTorch SwiGLU Multi-Task Inference</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size: 0.8rem; margin-bottom: 1.25rem;">Execute live neural-network inference to predict both structural Site Feasibility Probability and Optimized Levelized Cost of Electricity (LCOE) based on normalized multi-dimensional land/grid features.</div>', unsafe_allow_html=True)
-
-    # Pre-populate physical features for input
-    col_feat1, col_feat2, col_feat3 = st.columns(3)
-    with col_feat1:
-        feat_area = st.number_input("Inference Feature: Converted Area (sqm)", value=float(sq_meters), format="%.2f")
-        feat_grid_dist = st.slider("Inference Feature: Upstream Substation Distance (km)", 0.2, 20.0, float(st.session_state.get("in_grid_dist", 2.5)), 0.1)
-    with col_feat2:
-        feat_mean_slope = st.number_input("Inference Feature: Mean Slope (deg)", value=float(terrain_model.mean_slope_degrees), format="%.2f")
-        feat_owners_count = st.slider("Inference Feature: Registered Landowners Count", 1, 20, int(st.session_state.get("in_owners_count", len(owners_list))))
-    with col_feat3:
-        feat_max_slope = st.number_input("Inference Feature: Maximum Slope (deg)", value=float(st.session_state.get("in_max_slope", terrain_model.mean_slope_degrees * 1.8)), format="%.2f")
-        # Dynamically resolve default GHI based on the active state
-        default_ghi = 1550.0
-        weather_path = os.path.join(os.path.dirname(__file__), "real_malaysian_weather.json")
-        if os.path.exists(weather_path):
-            try:
-                with open(weather_path, "r", encoding="utf-8") as f:
-                    weather_data = json.load(f)
-                # Find matching state
-                for key, val in weather_data.items():
-                    if in_state.lower() in key.lower():
-                        default_ghi = float(val["annual_ghi_kwh_m2_year"])
-                        break
-            except Exception:
-                pass
-        feat_ghi = st.number_input("Inference Feature: Solar GHI (kWh/m²/year)", value=float(default_ghi), step=10.0)
-
-    st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
-
-    run_btn = st.button("🧠 Run Neural Site Feasibility Inference", use_container_width=True, type="primary")
-
-    if run_btn:
-        with st.spinner("Processing multi-task neural network forward pass..."):
-            raw_features = np.array([[feat_area, feat_mean_slope, feat_max_slope, feat_grid_dist, float(feat_owners_count), feat_ghi]])
-            try:
-                prob_val, lcoe_val = dnn_inference(raw_features)
-
-                # Present results beautifully
-                c_inf1, c_inf2 = st.columns(2)
-                with c_inf1:
-                    badge_inf_cls = "badge-green" if prob_val >= 75.0 else ("badge-amber" if prob_val >= 35.0 else "badge-red")
-                    st.markdown(f"""
-                    <div class="metric-card" style="text-align: center;">
-                        <div class="metric-label">Predicted Feasibility Probability</div>
-                        <div style="font-size: 2.5rem; font-weight: 800; margin: 0.8rem 0; color: var(--text);">{prob_val:.2f}%</div>
-                        <span class="badge {badge_inf_cls}" style="font-size: 0.8rem;">{("FEASIBLE" if prob_val >= 75.0 else ("MARGINAL" if prob_val >= 35.0 else "UNFEASIBLE"))}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with c_inf2:
-                    st.markdown(f"""
-                    <div class="metric-card" style="text-align: center;">
-                        <div class="metric-label">Predicted Levelized Cost of Electricity (LCOE)</div>
-                        <div style="font-size: 2.5rem; font-weight: 800; margin: 0.8rem 0; color: var(--text);">RM {lcoe_val:.4f}</div>
-                        <span class="badge badge-blue" style="font-size: 0.8rem;">PER kWh</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                st.markdown("""
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem; text-align: center;">
-                    *HeliopolisDNN features Swish-Gated Linear Units (SwiGLU) for continuous regression on LCOE parameters and binary classification on structural feasibility constraints.
-                </div>
-                """, unsafe_allow_html=True)
-            except Exception as e:
-                st.error(f"Inference execution failed: {e}")

@@ -16,7 +16,7 @@ Our roadmap is structured into 5 logical phases designed to maximize our score a
        PHASE 1                  PHASE 2                  PHASE 3                  PHASE 4                  PHASE 5
 [ Core Compliance ] ──► [ Interactive Canvas ] ──► [ Auto-Filing Agent ] ──► [ Registry API ]   ──► [ Solarvest JV ]
   - Clean-Room FTO        - Next.js BBox Drag      - Puppeteer TNB Form     - e-Tanah Selangor       - Est. Sdn. Bhd.
-  - NetworkX Solvers      - ONNX local run         - SEDA NOVA offsets      - State Land Premiums    - Global SEA licensing
+  - NetworkX Solvers      - Local OCR pipeline     - SEDA NOVA offsets      - State Land Premiums    - Global SEA licensing
  (COMPLETED 100%)         (JUNE - AUG 2026)        (SEPT - OCT 2026)        (OCT - NOV 2026)         (NOV 2026 - BEYOND)
 ```
 
@@ -41,9 +41,9 @@ Our roadmap is structured into 5 logical phases designed to maximize our score a
      * Render the processed scanned PDFs and drawings directly on an interactive web canvas.
      * Render the detected symbol bounding boxes and wire segments as interactive, draggable canvas elements.
      * Allow solar engineers to manually adjust boxes, drag-and-drop missing components (such as an anti-islanding relay), and connect wire lines on the fly, with the canvas automatically updating the coordinate JSON.
-  2. **Local Edge Inference:**
-     * Export the YOLOv8 and PaddleOCR models into local **ONNX / WebNN formats** to run directly inside the user's browser, or wrap them in a local **Python-FastAPI** endpoint.
-     * This ensures the application is **fully offline-capable and highly secure**, matching government and corporate data privacy policies regarding sovereign land records.
+  2. **Local Edge Inference (Future):**
+     * Evaluate local or containerized vision models (e.g. Gemini Vision via Vertex AI endpoints, or exported ONNX vision models) to keep sensitive land-record images within the user's secure environment.
+     * This ensures the application remains **offline-capable and highly secure**, matching government and corporate data privacy policies regarding sovereign land records.
 
 ---
 

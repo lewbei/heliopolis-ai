@@ -61,7 +61,7 @@ We identified, analyzed, and cleared **12 major patent families** from multi-bil
 
 #### 4. Siemens AG (US 6,606,731 B1 — "Intelligent Wiring Diagram System")
 * **Claims:** Automatically converting legacy wiring diagrams (CGM formats) into intelligent wiring diagrams by extracting graphical primitives (lines, circles, text) and applying pattern-matching rules to identify electrical components and their connectivity.
-* **FTO Justification (No Overlap):** This patent covers converting vector drawing formats (CGM) to circuit connectivity databases. Our system parses **raster scan images of SLDs using YOLOv8 bounding boxes and directed graphs in NetworkX specifically to audit TNB MS 1837:2010 safety rules**, which is completely clear of Siemens' general vector parsing claims.
+* **FTO Justification (No Overlap):** This patent covers converting vector drawing formats (CGM) to circuit connectivity databases. Our system parses **raster scan images of SLDs using multimodal vision OCR bounding boxes and directed graphs in NetworkX specifically to audit TNB MS 1837:2010 safety rules**, which is completely clear of Siemens' general vector parsing claims.
 
 ---
 
@@ -128,7 +128,7 @@ We identified, analyzed, and cleared **12 major patent families** from multi-bil
 ### E. Multimedia University (MMU) — Academic Plagiarism Shield
 * **Checked:** All 18+ patents and 70+ copyrights registered under **Prof. Ir. Dr. Sim Kok Swee** (and co-researchers Lew Kai Liang / Dr. Toa Chean Khim).
 * **Findings:** Their patents (e.g. *"SEM Image Processing Using Single-Image Approach and Least Square Regression Analysis"*) are restricted strictly to Scanning Electron Microscope (SEM) noise analysis and CT/MRI medical colorization. They hold **zero patents** on document layout parsing, NetworkX topological graphs, solar financial cashflow engines, or SEDA regulatory manifests.
-* **Plagiarism Clearance:** By writing our script (`solar_agent.py`) using clean-room, standard open-source libraries (PaddleOCR, PyMuPDF, NetworkX, YOLOv8), we have **zero overlap** with MMU-registered proprietary code bases.
+* **Plagiarism Clearance:** By writing our script (`solar_agent.py`) using clean-room, standard open-source libraries (PyMuPDF, NetworkX, Google GenAI), we have **zero overlap** with MMU-registered proprietary code bases.
 
 ---
 
@@ -141,7 +141,7 @@ To ensure no commercial competitor can patent the use of deep learning for singl
    * This research provides a detailed benchmark of **YOLO models** specifically for identifying electrical one-line symbols.
 
 ### **The Legal Result:**
-Because these peer-reviewed, public-domain scientific papers pre-date any current commercial applications, **the use of YOLOv8 for SLD symbol detection is legally classified as "prior art" in the public domain. It is completely ineligible for utility patent protection by any individual firm.**
+Because these peer-reviewed, public-domain scientific papers pre-date any current commercial applications, **the use of deep learning for SLD symbol detection is legally classified as "prior art" in the public domain. It is completely ineligible for utility patent protection by any individual firm.**
 
 ---
 

@@ -16,9 +16,8 @@ Most AI projects in this space are simple "prompt wrappers" that are prone to ha
 ```
                         [ Scanned Deeds / SLDs ]
                                     │
-                         ( Deep Learning Perception )
-                         ├──► PaddleOCR (Layout Tables)
-                         └──► YOLOv8 (Electrical Symbols)
+                         ( Multimodal Vision OCR )
+                         └──► Gemini Vision (Google GenAI / Vertex AI)
                                     │
                          ( Programmatic Symbolic Solver )
                          ├──► Legal Share & Imperial Unit Solver
@@ -29,7 +28,7 @@ Most AI projects in this space are simple "prompt wrappers" that are prone to ha
                        [ Prefilled SEDA & TNB Manifests ]
 ```
 
-1. **Perception (Neural):** Uses deep learning (**YOLOv8** and **PaddleOCR**) strictly for image character recognition and symbol localization coordinates.
+1. **Perception (Multimodal):** Uses **Gemini Vision** (Google GenAI / Vertex AI) to extract structured fields from scanned land titles and electrical single-line diagrams.
 2. **Reasoning (Symbolic):** Delegates all unit conversions, co-owner splits, directed graph parallel safety routing, and cash flows to **deterministic, mathematical Python engines**.
 
 ---
@@ -56,7 +55,6 @@ Uses spatial $\epsilon$-neighbor distance search to connect wire segment vectors
 * **Scale-Invariant Epsilon:** Programmatically calculates matching thresholds as $15\%$ of average inverter bounding box widths, working flawlessly across A4 to A0 drawings.
 * **TNB Substation Capacity Validator:** Audits peak AC solar output against the local substation limits. If it exceeds $15\%$, the agent programmatically sizes and costs a **Lithium Iron Phosphate (LFP) Battery Energy Storage System (BESS)** for peak-shaving.
 * **Newton-Raphson IRR Solver:** Solves lifecycle project Internal Rate of Return (IRR) iteratively with robust boundary clipping to prevent underflow crashes.
-* **Modern SwiGLU PyTorch Model (`HeliopolisDNN`):** Integrates Swish-Gated Linear Units (the same gating activation used in LLaMA) for multi-head site feasibility classification and LCOE regression.
 
 ---
 
@@ -75,8 +73,9 @@ We conducted a rigorous, multi-database patent clearance search across **MyIPO (
 
 * `solar_agent.py`: Core executable backend agent (legal parser, civil slope gradient, SLD topology resolver, yield engine, form pre-filler).
 * `solar_visualizer.py`: Matplotlib plotting script for terrain contours and NetworkX SLD graphs.
-* `rubric_judging_agent.py`: Automated Multi-Agent scoring scorecard.
-* `heliopolis_dnn.py`: Custom SwiGLU PyTorch Multi-Head Neural Network model.
+* `heliopolis_ocr.py`: Gemini Vision OCR wrapper for scanned land titles and SLD images.
+* `app.py`: Streamlit frontend.
+* `app_config.py`, `app_components.py`, `app_logic.py`: Modular UI configuration, HTML components, and business logic.
 * `tests/`: Automated unit testing folder (**5/5 tests passing**).
 * `qrspi/`: Complete Quality & QRSPI Compliance portfolio:
   * `QUESTION_CONTRACT.md`: Measurable success criteria contract.
@@ -85,7 +84,6 @@ We conducted a rigorous, multi-database patent clearance search across **MyIPO (
   * `STRUCTURE_OUTLINE.md`: Map of files, classes, and expected artifacts.
   * `ROOT_PLAN.md`: Complete mathematical and civil engineering formulas.
   * `TEST_OUTPUTS.md`: Verification execution logs.
-  * `JUDGING_SCORECARD.md`: Programmatic **93.33 / 100 Scorecard** from our judges.
   * `PROJECT_SUMMARY.md`: **Mandatory** text for the MAIC Nexus portal submission.
   * `AI_USAGE_DISCLOSURE.md`: **Mandatory** text for the MAIC Nexus portal submission.
 
@@ -94,9 +92,9 @@ We conducted a rigorous, multi-database patent clearance search across **MyIPO (
 ## 💻 Local Execution & Verification Guide
 
 ### 1. Setup Environment
-Ensure you have the required clean-room mathematical libraries installed:
+Ensure you have the required libraries installed:
 ```bash
-pip install numpy networkx matplotlib pydantic pytest torch
+pip install numpy networkx matplotlib pydantic pytest streamlit plotly google-genai python-dotenv Pillow
 ```
 
 ### 2. Run Site Due Diligence Agent
@@ -113,14 +111,7 @@ python solar_visualizer.py
 ```
 *Generates plots under:* `qrspi/plots/`
 
-### 4. Run automated Rubric Judging Agent
-Simulates the official MAIC Nexus independent panel, programmatically scoring your generated report:
-```bash
-python rubric_judging_agent.py
-```
-*Generates scorecard under:* `qrspi/JUDGING_SCORECARD.md`
-
-### 5. Run Automated PyTest Suite
+### 4. Run Automated PyTest Suite
 Runs 100% of the mathematical, topological, and battery-sizing unit tests:
 ```bash
 pytest tests/test_solar_agent.py

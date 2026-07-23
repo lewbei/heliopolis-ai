@@ -1,11 +1,7 @@
 """Pure backend logic, deterministic helpers, and assessment orchestration."""
 
-import os
 import re
-import json
 import numpy as np
-import networkx as nx
-import torch
 
 from solar_agent import (
     LandTitleParser,
@@ -16,7 +12,6 @@ from solar_agent import (
     FormFiller,
     OwnerModel,
 )
-from heliopolis_dnn import HeliopolisDNN
 import app_components
 
 
@@ -306,34 +301,3 @@ def compute_assessment(
         "sld_graph": sld_graph,
         "manifest": manifest,
     }
-
-
-def dnn_inference(raw_features) -> tuple[float, float]:
-    """Run HeliopolisDNN inference and return (feasibility_probability_pct, predicted_lcoe)."""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    norm_path = os.path.join(base_dir, "normalization_constants.json")
-    weights_path = os.path.join(base_dir, "models", "heliopolis_dnn.pt")
-
-    if not os.path.exists(norm_path) or not os.path.exists(weights_path):
-        raise FileNotFoundError(
-            "Model weights or normalization constants missing. "
-            "Ensure 'python heliopolis_dnn.py' has been run to train the network first."
-        )
-
-    with open(norm_path, "r") as f:
-        norm = json.load(f)
-    mean = np.array(norm["mean"])
-    std = np.array(norm["std"])
-
-    raw_features = np.atleast_2d(np.asarray(raw_features, dtype=np.float32))
-    norm_features = (raw_features - mean) / std
-    features_tensor = torch.tensor(norm_features, dtype=torch.float32)
-
-    model = HeliopolisDNN(input_dim=6, hidden_dim=64)
-    model.load_state_dict(torch.load(weights_path))
-    model.eval()
-
-    with torch.no_grad():
-        feasibility_prob, predicted_lcoe = model(features_tensor)
-
-    return feasibility_prob.item() * 100.0, predicted_lcoe.item()

@@ -24,7 +24,7 @@
   * *For example:* Phrasings like *"Sekatan: tanah ini tidak boleh dipindahmilik melainkan setelah mendapat kelulusan khas Kebawah Duli Yang Maha Mulia Sultan"* or *"tiada amanah boleh didaftarkan."*
   * *The Consequence:* Standard regex pattern matchers (`Kaveat`, `Gadaian`, `Rezab Melayu`) will **silently skip** these archaic blocks. Heliopolis-AI will mark the land status as "Approved" instead of "Flagged/Rejected," exposing Solarvest to millions of Ringgit in legal blocking orders post-acquisition.
 * **The Failure-Proofing Shield:**
-  * **Semantic Legal Auditor Fallback:** Integrate a local, fine-tuned lightweight LLM (using our `HeliopolisDNN` metadata embeddings) specifically instructed to perform Named Entity Recognition (NER) on legal land restrictions. 
+  * **Semantic Legal Auditor Fallback:** Integrate a local lightweight LLM or the same Gemini Vision OCR pipeline to perform Named Entity Recognition (NER) on legal land restrictions when pattern-matching confidence is low.
   * If the pattern-matching confidence is low or a non-standard restriction is detected, the agent automatically flags the title for **Human-in-the-Loop (HITL)** legal review on the web canvas.
 
 ---
@@ -55,9 +55,9 @@
 
 ## 5. Failure Mode 5: The "VC Blind Spot" (Over-Engineering the Pitch)
 * **The Vulnerability (Commercial/Pitch):**
-  * The team spends 80% of the presentation explaining the PyTorch SwiGLU activation, NetworkX directed graph algorithms, and the 2D finite difference slope gradients, and only 20% explaining the commercial cash impact.
-  * *The Consequence:* C-level judges (Venture Capitalists and Solarvest's CEO) will tune out. They do not care about SwiGLU; they care about **Margin, Customer Acquisition Costs (CAC), and Internal Rate of Return (IRR)**. They will assume you are "academic researchers" who cannot run a business, and give the prize to a less-technical team with a slicker commercial story.
+  * The team spends 80% of the presentation explaining the NetworkX directed graph algorithms and 2D finite difference slope gradients, and only 20% explaining the commercial cash impact.
+  * *The Consequence:* C-level judges (Venture Capitalists and Solarvest's CEO) will tune out. They care about **Margin, Customer Acquisition Costs (CAC), and Internal Rate of Return (IRR)**. They will assume you are "academic researchers" who cannot run a business, and give the prize to a less-technical team with a slicker commercial story.
 * **The Failure-Proofing Shield:**
   * **The 80/20 Pitch Rule:**
-    * **20% Technical (The Mic Drop):** Show the NetworkX graph and PyTorch inference as a 10-second demo. This proves you have an unassailable technical moat.
+    * **20% Technical (The Mic Drop):** Show the NetworkX graph and regulatory manifest generation as a 10-second demo. This proves you have an unassailable technical moat.
     * **80% Commercial (The Value):** Focus entirely on how Heliopolis-AI directly **slashes site acquisition times by 98%, reduces site due-diligence costs by RM 50,000 per project, and accelerates their CGPP/LSS pipeline closure rate by 40%**.

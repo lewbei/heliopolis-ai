@@ -23,7 +23,7 @@ Clean energy developers face immense operational friction during project intake:
 Heliopolis-AI implements a **Hybrid Neural-Symbolic Architecture** that separates perception from reasoning to achieve 100% data integrity:
 1. **Legal Parser Unit:** Automatically extracts metadata from scanned land titles, programmatically converts British imperial measurements (*Ekar, Rood, Pole*) to metric *hectares* and *square meters*, and calculates co-owner fractional share matrices to verify if a controlling interest ($\ge 51\%$) exists.
 2. **Civil Slope Analyzer:** Uses 2D spatial finite differences (`np.gradient`) on topography grids to compute slope gradients, classifying terrain and automatically adjusting CAPEX budgets with soil retention and earthworks premiums.
-3. **SLD Graph Resolver:** Detects electrical symbols using YOLOv8, segments branches, and runs an $\epsilon$-neighbor search algorithm to construct a directed graph in **NetworkX**. It programmatically audits the netlist against TNB anti-islanding grid guidelines.
+3. **SLD Graph Resolver:** Detects electrical symbols using **Gemini Vision OCR**, segments branches, and runs an $\epsilon$-neighbor search algorithm to construct a directed graph in **NetworkX**. It programmatically audits the netlist against TNB anti-islanding grid guidelines.
 4. **Financial Sizing Engine:** Simulates tropical temperature operating losses ($12\%$ cell derating) and annual performance degradation ($0.5\%$), solving Levelized Cost of Electricity (LCOE), Net Present Value (NPV), and Internal Rate of Return (IRR) via a Newton-Raphson solver.
 5. **Regulatory Manifest Generator:** Prefills SEDA Rakyat/NOVA forms and automatically flags mandatory **SEDA NEMAS** study requirements if generation exceeds **72 kWac**.
 

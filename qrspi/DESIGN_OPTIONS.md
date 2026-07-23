@@ -12,7 +12,7 @@ We evaluated three architectural designs for the **Solar Project Intelligence Ag
 | **Math Integrity** | Low (Catastrophic IRR/NPV hallucinations) | High (Deterministic math) | **High (Deterministic math & fractional solvers)** |
 | **Grid Code Verification** | Low (Fails path routing and safety constraints) | Low (Fails to handle multi-scale component variations) | **High (Graph algorithms verify TNB codes programmatically)** |
 | **Offline Feasibility** | Low (Requires expensive cloud API gateways) | High (Can run fully local/embedded) | **High (Can run on local consumer GPUs/CPUs)** |
-| **Implementation Complexity** | Low (Simple prompting) | High (Months of fine-tuning CV filters) | **Medium (Clean-room Python, YOLOv8, and NetworkX)** |
+| **Implementation Complexity** | Low (Simple prompting) | High (Months of fine-tuning CV filters) | **Medium (Clean-room Python, Gemini Vision OCR, and NetworkX)** |
 
 ---
 
@@ -31,7 +31,7 @@ We evaluated three architectural designs for the **Solar Project Intelligence Ag
   * *Cons:* Highly fragile. If a scan of a land title is slightly rotated (skewed) or a schematic is printed on a darker blueprint background, traditional CV algorithms collapse.
 
 ### Option 3 (SELECTED): Hybrid Neural-Symbolic Architecture
-* **Description:** Leveraging deep learning strictly for what it excels at (perception: **YOLOv8** for electrical symbol bounding boxes and **PaddleOCR** for text segment coordinates), while delegating all reasoning, math, and verification to **deterministic symbolic engines** (NetworkX for graph routing, Pydantic for validation, and pure Python for engineering-grade math).
+* **Description:** Leveraging **Gemini Vision OCR** for perception (structured extraction from scanned land titles and SLD images), while delegating all reasoning, math, and verification to **deterministic symbolic engines** (NetworkX for graph routing, Pydantic for validation, and pure Python for engineering-grade math).
 * **Trade-off:**
   * *Pros:* 
     * **100% immune to hallucinations.** Every financial cash flow, metric conversion, and co-owner share split is computed programmatically.

@@ -14,14 +14,11 @@ Heliopolis-AI utilizes artificial intelligence exclusively for **visual percepti
 ## 2. Upstream AI Models & Frameworks Used
 We declare the following open-source, industry-standard models and libraries used within our pipeline:
 
-1. **YOLOv8 (Ultralytics - AGPL License):** 
-   * **Role:** Detects and classifies 2D electrical symbol bounding boxes (PV Arrays, Inverters, Transformers, Protective Relays, Grid Connection points) in Single-Line Diagram raster images.
-   * **Customization:** Fine-tuned on standard electrical symbol datasets.
-2. **PaddleOCR / PP-StructureV3 (Baidu - Apache 2.0 License):**
-   * **Role:** Segments the structural layout of land title searches (*Geran*), detecting table boundaries and extracting raw text coordinates.
-3. **NetworkX (BSD License):**
+1. **Gemini Vision (Google GenAI / Vertex AI):**
+   * **Role:** Extracts structured metadata and electrical symbol bounding boxes from scanned land titles (*Geran*) and Single-Line Diagram raster images via multimodal prompting.
+2. **NetworkX (BSD License):**
    * **Role:** Constructs directed topological graphs from symbol coordinates and wiring line segments (resolved via Euclidean spatial $\epsilon$-search), solving path routing programmatically.
-4. **Pydantic V2 (MIT License):**
+3. **Pydantic V2 (MIT License):**
    * **Role:** Enforces runtime type-safety and JSON schemas for all output data models.
 
 ---
@@ -37,5 +34,4 @@ The following modules represent our team's original, clean-room implementation, 
 
 ## 4. Intellectual Property & Freedom-to-Operate (FTO)
 We have audited local and global patent databases. We declare that Heliopolis-AI does not violate any active utility patents or copyrights:
-* Broad computer vision frameworks (YOLO/PaddleOCR) are public domain assets, and using deep learning to recognize single-line diagram symbols is documented academic **Prior Art** (*Bhanbhro et al., 2023*).
 * All financial equations and administrative conversions are mathematical abstractions, which are legally non-patentable.
