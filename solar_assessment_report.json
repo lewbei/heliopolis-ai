@@ -11,20 +11,20 @@
         "area_sq_meters": 93036.51,
         "owners": [
             {
-                "name": "Owner 1",
-                "ic_or_co_no": "ID-1",
+                "name": "Solarvest Development Sdn Bhd",
+                "ic_or_co_no": "1234567-U",
                 "share_fraction": "16/120",
                 "calculated_share_float": 0.1333
             },
             {
-                "name": "Owner 2",
-                "ic_or_co_no": "ID-2",
+                "name": "Lim Binti Hassan",
+                "ic_or_co_no": "640203-05-2918",
                 "share_fraction": "27/120",
                 "calculated_share_float": 0.225
             },
             {
-                "name": "Owner 3",
-                "ic_or_co_no": "ID-3",
+                "name": "Muthu Bin Ahmad",
+                "ic_or_co_no": "870518-06-2741",
                 "share_fraction": "77/120",
                 "calculated_share_float": 0.6417
             }
@@ -79,6 +79,7 @@
         "base_capex_rm": 20691810.3,
         "grading_adjusted_capex_rm": 20691810.3,
         "lcoe_rm_kwh": 0.2599,
+        "ppa_tariff_rm_kwh": 0.27,
         "npv_rm": 963710.59,
         "irr_percent": 7.08,
         "payback_years": 10.03,
@@ -105,17 +106,17 @@
     },
     "regulatory_manifest": {
         "seda_application": {
-            "Part_A_Applicant_Name": "Owner 3",
-            "Part_A_Company_Registration": "ID-3",
+            "Part_A_Applicant_Name": "Muthu Bin Ahmad",
+            "Part_A_Company_Registration": "870518-06-2741",
             "Part_B_Site_Title_Number": "GRN 85948",
             "Part_B_Site_Lot_Number": "Lot 7330",
             "Part_B_Mukim_Daerah_Negeri": "Johor Bahru, Johor Bahru, Johor",
             "Part_C_Proposed_DC_Capacity_kWp": 6897.0,
             "Part_C_Proposed_AC_Capacity_kWac": 5862.45,
-            "Part_D_PPA_Tariff_Rate_RM_kWh": 0.2599
+            "Part_D_PPA_Tariff_Rate_RM_kWh": 0.27
         },
         "tnb_grid_request": {
-            "Applicant_Company": "Owner 3",
+            "Applicant_Company": "Muthu Bin Ahmad",
             "Interconnection_Voltage_Level_kV": 33.0,
             "Total_Generation_Capacity_MWac": 5.86245,
             "Inverter_Compliance_Standards": [

@@ -1,6 +1,6 @@
 # QRSPI Design Options: Architectural Trade-offs
 
-We evaluated three architectural designs for the **Solar Project Intelligence Agent** to ensure absolute data integrity and alignment with the hackathon's technical evaluation metrics.
+We evaluated three architectural designs for the **Solar Project Intelligence Agent** to ensure robust data integrity and alignment with the hackathon's technical evaluation metrics.
 
 ---
 
@@ -27,14 +27,14 @@ We evaluated three architectural designs for the **Solar Project Intelligence Ag
 ### Option 2: Traditional OpenCV & Rule-Based Heuristics
 * **Description:** Using traditional computer vision (Canny Edge Detection, Hough Line Transforms, Contour Matching) and Regex text matching.
 * **Trade-off:**
-  * *Pros:* 100% deterministic, very low compute footprint, fully local.
+  * *Pros:* Fully deterministic, very low compute footprint, fully local.
   * *Cons:* Highly fragile. If a scan of a land title is slightly rotated (skewed) or a schematic is printed on a darker blueprint background, traditional CV algorithms collapse.
 
 ### Option 3 (SELECTED): Hybrid Neural-Symbolic Architecture
 * **Description:** Leveraging **Gemini Vision OCR** for perception (structured extraction from scanned land titles and SLD images), while delegating all reasoning, math, and verification to **deterministic symbolic engines** (NetworkX for graph routing, Pydantic for validation, and pure Python for engineering-grade math).
 * **Trade-off:**
   * *Pros:* 
-    * **100% immune to hallucinations.** Every financial cash flow, metric conversion, and co-owner share split is computed programmatically.
+    * **Immune to LLM hallucinations on math.** Every financial cash flow, metric conversion, and co-owner share split is computed programmatically, not inferred by a language model.
     * **TNB compliance is audited programmatically.** NetworkX solves and verifies that the directed paths between elements (e.g., Inverter $\rightarrow$ Anti-Islanding Relay $\rightarrow$ Transformer $\rightarrow$ Grid) are logically complete.
     * **Pixel-Perfect Audit Trail:** Every extracted number is anchored back to a physical coordinate segment, enabling an interactive frontend verification editor.
-  * *Cons:* Requires orchestrating a multi-module pipeline, but this complexity forms an unbreachable competitive moat.
+  * *Cons:* Requires orchestrating a multi-module pipeline, which increases engineering effort but also raises the barrier to entry for competitors.

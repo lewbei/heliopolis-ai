@@ -602,7 +602,7 @@ with tabs[3]:
     seda.Part_B_Mukim_Daerah_Negeri = f"Mukim Asam Kumbang, Larut dan Matang, {in_state}"
     seda.Part_C_Proposed_DC_Capacity_kWp = float(feasibility.capacity_mwp * 1000.0)
     seda.Part_C_Proposed_AC_Capacity_kWac = float(in_ac_capacity * 1000.0)
-    seda.Part_D_PPA_Tariff_Rate_RM_kWh = float(feasibility.lcoe_rm_kwh)
+    seda.Part_D_PPA_Tariff_Rate_RM_kWh = float(feasibility.ppa_tariff_rm_kwh)
 
     col_man_left, col_man_right = st.columns(2)
 

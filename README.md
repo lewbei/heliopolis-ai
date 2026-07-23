@@ -5,13 +5,13 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Track](https://img.shields.io/badge/Track-T1%20(Clean%20Energy)-orange.svg)](https://maicnexus.com/)
 
-An engineering-grade, hybrid neural-symbolic software agent designed to reduce clean energy site selection, legal land search due diligence, and electrical grid parallel compliance times from **30 days to 5 minutes** for Utility-Scale Solar (LSS) and Commercial & Industrial (C&I) project developers in Malaysia.
+An engineering-grade, hybrid neural-symbolic software agent designed to accelerate clean energy site selection, legal land search due diligence, and electrical grid parallel compliance for Utility-Scale Solar (LSS) and Commercial & Industrial (C&I) project developers in Malaysia.
 
 ---
 
 ## 🚀 The Core Innovation: Neural-Symbolic Hybrid Design
 
-Most AI projects in this space are simple "prompt wrappers" that are prone to hallucinating complex engineering specifications, land conversions, and financial IRR models. **Heliopolis-AI separates perception from reasoning to achieve 100% mathematical and topological integrity:**
+Most AI projects in this space are simple "prompt wrappers" that are prone to hallucinating complex engineering specifications, land conversions, and financial IRR models. **Heliopolis-AI separates perception from reasoning so that all engineering math, unit conversions, and graph audits are deterministic and auditable:**
 
 ```
                         [ Scanned Deeds / SLDs ]
@@ -35,7 +35,7 @@ Most AI projects in this space are simple "prompt wrappers" that are prone to ha
 
 ## 📊 Visual Analytics & Performance
 
-Heliopolis-AI generates publication-grade plots suitable for inclusion inside pitch decks:
+Heliopolis-AI generates high-resolution visual plots for pitch decks and technical review:
 
 ### A. 2D Terrain Elevation & Slope Risk Map (Perak Site)
 Using 2D spatial finite differences ($\theta_{deg} = \arctan(\sqrt{f'_x^2 + f'_y^2}) \times 180/\pi$), Heliopolis-AI analyzes topography contours and automatically applies earthworks cost premiums and safety warnings for severe slopes ($>30^\circ$).
@@ -58,9 +58,9 @@ Uses spatial $\epsilon$-neighbor distance search to connect wire segment vectors
 
 ---
 
-## 🔒 100% Freedom-to-Operate (FTO) Patent Clearance
+## 🔒 Freedom-to-Operate (FTO) Patent Clearance Assessment
 
-We conducted a rigorous, multi-database patent clearance search across **MyIPO (Malaysia), IPOS (Singapore), WIPO, and Google Patents**, proving absolute, unassailable FTO against **12 major patent families**:
+We conducted a multi-database patent clearance search across **MyIPO (Malaysia), IPOS (Singapore), WIPO, and Google Patents** and found no obvious overlap with the following patent families for our specific implementation:
 * **PVcase / Anderson Optimization (2024):** No overlap. Their patents protect active 3D layout string routing. We perform offline civil risk and regulatory compliance.
 * **Tesla, Inc. (Powerwall/Opticaster):** No overlap. Their patents cover active, real-time power electronic hardware and microgrid master computers.
 * **CoreLogic & First American Financial:** No overlap. Their patents protect US-specific property data and title insurance plants. Our systems are engineered specifically for Peninsular Malaysia's **National Land Code 1965 (Act 828)**.

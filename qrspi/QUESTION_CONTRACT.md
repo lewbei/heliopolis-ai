@@ -7,7 +7,7 @@
 ---
 
 ## 1. Goal Definition
-The objective of this goal is to design, implement, and verify a production-grade, offline-capable **Solar Project Intelligence Agent** (`solar_agent.py`) that automates dual-layer compliance and technical prospecting for ground-mounted Utility-Scale Solar (LSS) and large Commercial & Industrial (C&I) solar site developments in Malaysia.
+The objective of this goal is to design, implement, and verify a production-oriented **Solar Project Intelligence Agent** (`solar_agent.py`) that automates dual-layer compliance and technical prospecting for ground-mounted Utility-Scale Solar (LSS) and large Commercial & Industrial (C&I) solar site developments in Malaysia. The current pipeline uses cloud-based Gemini Vision for OCR; a local edge-OCR mode is a future roadmap item.
 
 ---
 

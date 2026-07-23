@@ -7,7 +7,7 @@
 ---
 
 ## 1. Executive Summary
-Heliopolis-AI is an engineering-grade, neural-symbolic software agent designed to reduce clean energy site selection, legal due diligence, and electrical grid compliance times from **30 days to 5 minutes** for Utility-Scale Solar (LSS) and Commercial & Industrial (C&I) project developers in Malaysia. By replacing manual, error-prone administrative workflows with automated, deterministic parsing, Heliopolis-AI directly accelerates Malaysia's green transition under the **National Energy Transition Roadmap (NETR)**.
+Heliopolis-AI is an engineering-grade, neural-symbolic software agent designed to accelerate clean energy site selection, legal due diligence, and electrical grid compliance for Utility-Scale Solar (LSS) and Commercial & Industrial (C&I) project developers in Malaysia. By replacing manual, error-prone administrative workflows with automated, deterministic parsing, Heliopolis-AI supports Malaysia's green transition under the **National Energy Transition Roadmap (NETR)**.
 
 ---
 
@@ -20,7 +20,7 @@ Clean energy developers face immense operational friction during project intake:
 ---
 
 ## 3. Our Technological Solution
-Heliopolis-AI implements a **Hybrid Neural-Symbolic Architecture** that separates perception from reasoning to achieve 100% data integrity:
+Heliopolis-AI implements a **Hybrid Neural-Symbolic Architecture** that separates perception from reasoning so that engineering, legal, and financial computations are deterministic and auditable:
 1. **Legal Parser Unit:** Automatically extracts metadata from scanned land titles, programmatically converts British imperial measurements (*Ekar, Rood, Pole*) to metric *hectares* and *square meters*, and calculates co-owner fractional share matrices to verify if a controlling interest ($\ge 51\%$) exists.
 2. **Civil Slope Analyzer:** Uses 2D spatial finite differences (`np.gradient`) on topography grids to compute slope gradients, classifying terrain and automatically adjusting CAPEX budgets with soil retention and earthworks premiums.
 3. **SLD Graph Resolver:** Detects electrical symbols using **Gemini Vision OCR**, segments branches, and runs an $\epsilon$-neighbor search algorithm to construct a directed graph in **NetworkX**. It programmatically audits the netlist against TNB anti-islanding grid guidelines.

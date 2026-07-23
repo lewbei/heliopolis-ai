@@ -17,6 +17,74 @@ DEFAULT_DEGRADATION_RATE = 0.005
 DEFAULT_TARIFF_RM_KWH = 0.27
 DEFAULT_WACC = 0.065
 
+# --- Deterministic owner-name helper (used by CLI and Streamlit) ---
+
+def deterministic_hash(string_val: str) -> int:
+    """Return a deterministic 32-bit hash for a string."""
+    h = 0
+    for char in string_val:
+        h = (31 * h + ord(char)) & 0xFFFFFFFF
+    return h
+
+
+def generate_co_owners(count: int, site_id: str) -> list[dict[str, str]]:
+    """Generate a deterministic list of co-owner dicts for a site."""
+    np.random.seed(sum(ord(c) for c in site_id))
+    first_names = ["Ahmad", "Mohamad", "Siti", "Tan", "Lim", "Lee", "Ramasamy", "Muthu", "Karthik", "Abdul", "Wan", "Che", "Chong"]
+    last_names = ["Bin Ismail", "Binti Ali", "Bin Ahmad", "Kah Seng", "Wei", "Meng", "Anak Nysem", "Bin Kassim", "Binti Hassan", "a/l Subramaniam", "a/p Devian"]
+
+    owners: list[dict[str, str]] = []
+
+    if count == 1:
+        shares = [120]
+    elif count == 2:
+        shares = [80, 40]
+    else:
+        raw_shares = np.random.dirichlet(np.ones(count)) * 120
+        shares = np.round(raw_shares).astype(int)
+        diff = 120 - sum(shares)
+        shares[0] += diff
+        for idx in range(count):
+            if shares[idx] <= 0:
+                max_idx = np.argmax(shares)
+                shares[max_idx] -= 1
+                shares[idx] = 1
+
+    used_names = set()
+    for i in range(count):
+        share_str = f"{shares[i]}/120"
+
+        if i == 0 and count >= 3:
+            name = "Solarvest Development Sdn Bhd"
+            ic_co = "1234567-U"
+        else:
+            salt = 0
+            while True:
+                fn = first_names[deterministic_hash(f"fn_{i}_{site_id}_{salt}") % len(first_names)]
+                ln = last_names[deterministic_hash(f"ln_{i}_{site_id}_{salt}") % len(last_names)]
+                candidate = f"{fn} {ln}"
+                if candidate not in used_names:
+                    used_names.add(candidate)
+                    break
+                salt += 1
+            name = candidate
+
+            birth_yr = deterministic_hash(f"yr_{i}_{site_id}_{salt}") % 50 + 50
+            birth_mo = deterministic_hash(f"mo_{i}_{site_id}_{salt}") % 12 + 1
+            birth_dy = deterministic_hash(f"dy_{i}_{site_id}_{salt}") % 28 + 1
+            state_code = deterministic_hash(f"st_{i}_{site_id}_{salt}") % 14 + 1
+            unique_code = deterministic_hash(f"un_{i}_{site_id}_{salt}") % 9000 + 1000
+            ic_co = f"{birth_yr:02d}{birth_mo:02d}{birth_dy:02d}-{state_code:02d}-{unique_code:d}"
+
+        owners.append({
+            "name": name,
+            "id": ic_co,
+            "share": share_str
+        })
+
+    return owners
+
+
 # --- Core Relational & Structured Data Models (Pydantic V2) ---
 
 class OwnerModel(BaseModel):
@@ -78,6 +146,7 @@ class TechnicalFeasibilityModel(BaseModel):
     base_capex_rm: float = Field(description="Base capital expenditure in Malaysian Ringgit (RM).")
     grading_adjusted_capex_rm: float = Field(description="Final CAPEX including civil grading premiums.")
     lcoe_rm_kwh: float = Field(description="Levelized Cost of Electricity (RM/kWh).")
+    ppa_tariff_rm_kwh: float = Field(description="Assumed PPA or displaced energy tariff used for revenue projection (RM/kWh).")
     npv_rm: float = Field(description="Net Present Value (RM) over the project lifecycle.")
     irr_percent: float = Field(description="Project Internal Rate of Return (%).")
     payback_years: float = Field(description="Estimated capital payback period in years.")
@@ -216,31 +285,14 @@ class LandTitleParser:
                 ))
             return owners
 
-        seed = sum(ord(c) for c in site_id)
-        np.random.seed(seed)
-        count = co_owners_count
-
-        if count == 1:
-            shares = [120]
-        elif count == 2:
-            shares = [80, 40]
-        else:
-            raw_shares = np.random.dirichlet(np.ones(count)) * 120
-            shares = np.round(raw_shares).astype(int)
-            shares[0] += 120 - sum(shares)
-            for idx in range(count):
-                if shares[idx] <= 0:
-                    shares[np.argmax(shares)] -= 1
-                    shares[idx] = 1
-
+        owner_dicts = generate_co_owners(co_owners_count, site_id)
         owners = []
-        for i in range(count):
-            frac_str = f"{shares[i]}/120"
-            float_val = cls.parse_fraction(frac_str)
+        for o in owner_dicts:
+            float_val = cls.parse_fraction(o["share"])
             owners.append(OwnerModel(
-                name=f"Owner {i+1}",
-                ic_or_co_no=f"ID-{i+1}",
-                share_fraction=frac_str,
+                name=o["name"],
+                ic_or_co_no=o["id"],
+                share_fraction=o["share"],
                 calculated_share_float=round(float_val, 4)
             ))
         return owners
@@ -873,6 +925,7 @@ class YieldFeasibilityEngine:
             base_capex_rm=round(base_capex, 2),
             grading_adjusted_capex_rm=round(adjusted_capex, 2),
             lcoe_rm_kwh=round(lcoe_rm_kwh, 4),
+            ppa_tariff_rm_kwh=round(tariff_rm_kwh, 4),
             npv_rm=round(npv, 2),
             irr_percent=round(r * 100.0, 2),
             payback_years=round(payback, 2),
@@ -928,7 +981,7 @@ class FormFiller:
             Part_B_Mukim_Daerah_Negeri=f"{land.mukim}, {land.district}, {land.state}",
             Part_C_Proposed_DC_Capacity_kWp=float(tech.capacity_mwp * 1000.0),
             Part_C_Proposed_AC_Capacity_kWac=ac_capacity_kw,
-            Part_D_PPA_Tariff_Rate_RM_kWh=tech.lcoe_rm_kwh
+            Part_D_PPA_Tariff_Rate_RM_kWh=tech.ppa_tariff_rm_kwh
         )
 
         tnb = TNBConnectionSchema(

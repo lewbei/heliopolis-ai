@@ -2,7 +2,7 @@
 
 **Project Name:** Heliopolis-AI (Solar Project Intelligence Agent)  
 **Track Selected:** Track T1 — AI for Clean Energy (Solarvest Holdings Berhad)  
-**Security / IP Status:** 100% Cleared (Freedom-to-Operate Confirmed)  
+**Security / IP Status:** Freedom-to-Operate assessment completed; no obvious overlap identified in reviewed patent families.  
 
 ---
 
@@ -24,11 +24,11 @@ We declare the following open-source, industry-standard models and libraries use
 ---
 
 ## 3. Proprietary Clean-Room Code & Logic (Built From Scratch)
-The following modules represent our team's original, clean-room implementation, containing no copyrighted, patented, or plagiarized university codebases:
-* **`LandTitleParser` (Imperial-to-Metric & Share Splits):** 100% original coordinate translation math and fractional share matrix co-ownership logic conforming to the **National Land Code 1965**.
-* **`CivilSlopeAnalyzer` (2D Spatial Gradient):** 100% original elevation contour slope solver using finite differences.
-* **`SLDTopologyResolver` ($\epsilon$-Search Solver):** 100% original wire segment proximity-neighbor matcher and TNB protection relay flow checker.
-* **`YieldFeasibilityEngine` (Newton-Raphson Solver):** 100% original tropical temperature derating cashflow model and iterative IRR solver.
+The following modules represent our team's original, clean-room implementation, built on open-source libraries and containing no copied university codebases:
+* **`LandTitleParser` (Imperial-to-Metric & Share Splits):** Original coordinate translation math and fractional share matrix co-ownership logic conforming to the **National Land Code 1965**.
+* **`CivilSlopeAnalyzer` (2D Spatial Gradient):** Original elevation contour slope solver using finite differences.
+* **`SLDTopologyResolver` ($\epsilon$-Search Solver):** Original wire segment proximity-neighbor matcher and TNB protection relay flow checker.
+* **`YieldFeasibilityEngine` (Newton-Raphson Solver):** Original tropical temperature derating cashflow model and iterative IRR solver.
 
 ---
 

@@ -14,6 +14,8 @@ from solar_agent import (
     project_lifecycle_cashflows,
     generate_precise_terrain,
     _synthetic_elevation_grid,
+    deterministic_hash,
+    generate_co_owners,
 )
 import app_components
 
@@ -54,64 +56,6 @@ def _sld_node_style(category: str, node_id: str) -> dict:
     else:
         style["label"] = node_id
     return style
-
-
-def deterministic_hash(string_val: str) -> int:
-    """Return a deterministic 32-bit hash for a string."""
-    h = 0
-    for char in string_val:
-        h = (31 * h + ord(char)) & 0xFFFFFFFF
-    return h
-
-
-def generate_co_owners(count: int, site_id: str) -> list:
-    """Generate a deterministic list of co-owner dicts for a site."""
-    np.random.seed(sum(ord(c) for c in site_id))
-    first_names = ["Ahmad", "Mohamad", "Siti", "Tan", "Lim", "Lee", "Ramasamy", "Muthu", "Karthik", "Abdul", "Wan", "Che", "Chong"]
-    last_names = ["Bin Ismail", "Binti Ali", "Bin Ahmad", "Kah Seng", "Wei", "Meng", "Anak Nysem", "Bin Kassim", "Binti Hassan", "a/l Subramaniam", "a/p Devian"]
-
-    owners = []
-
-    if count == 1:
-        shares = [120]
-    elif count == 2:
-        shares = [80, 40]
-    else:
-        raw_shares = np.random.dirichlet(np.ones(count)) * 120
-        shares = np.round(raw_shares).astype(int)
-        diff = 120 - sum(shares)
-        shares[0] += diff
-        for idx in range(count):
-            if shares[idx] <= 0:
-                max_idx = np.argmax(shares)
-                shares[max_idx] -= 1
-                shares[idx] = 1
-
-    for i in range(count):
-        share_str = f"{shares[i]}/120"
-
-        if i == 0 and count >= 3:
-            name = "Solarvest Development Sdn Bhd"
-            ic_co = "1234567-U"
-        else:
-            fn = first_names[deterministic_hash(f"fn_{i}_{site_id}") % len(first_names)]
-            ln = last_names[deterministic_hash(f"ln_{i}_{site_id}") % len(last_names)]
-            name = f"{fn} {ln}"
-
-            birth_yr = deterministic_hash(f"yr_{i}_{site_id}") % 50 + 50
-            birth_mo = deterministic_hash(f"mo_{i}_{site_id}") % 12 + 1
-            birth_dy = deterministic_hash(f"dy_{i}_{site_id}") % 28 + 1
-            state_code = deterministic_hash(f"st_{i}_{site_id}") % 14 + 1
-            unique_code = deterministic_hash(f"un_{i}_{site_id}") % 9000 + 1000
-            ic_co = f"{birth_yr:02d}{birth_mo:02d}{birth_dy:02d}-{state_code:02d}-{unique_code:d}"
-
-        owners.append({
-            "name": name,
-            "id": ic_co,
-            "share": share_str
-        })
-
-    return owners
 
 
 def _imperial_string_to_parts(area_imperial: str) -> tuple[float, float, float]:

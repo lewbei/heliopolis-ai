@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 
 class HeliopolisVisualizer:
     """
-    Reads the solar assessment report and generates high-resolution,
-    publication-grade visual diagrams (2D terrain slope maps and SLD network topology graphs)
-    suitable for inclusion inside the Pitch Deck.
+    Reads the solar assessment report and generates high-resolution
+    visual diagrams (2D terrain slope maps and SLD network topology graphs)
+    suitable for inclusion inside pitch decks and technical review documents.
     """
     def __init__(self, report_path: str, output_dir: str):
         self.report_path = report_path

@@ -23,7 +23,7 @@ We conducted a comprehensive, multi-layer search to verify that our **Heliopolis
 
 ## 2. Examined Global & Local Patent Families
 
-We identified, analyzed, and cleared **12 major patent families** from multi-billion dollar clean-tech and automation giants. Below is our formal legal justification proving **zero overlap / 100% Freedom-to-Operate (FTO)**:
+We identified and analyzed **12 major patent families** from multi-billion dollar clean-tech and automation giants. Below is our legal justification for why we believe there is no obvious overlap with our specific implementation:
 
 ### Category A: Solar Site Selection & Design Automation
 
@@ -146,4 +146,4 @@ Because these peer-reviewed, public-domain scientific papers pre-date any curren
 ---
 
 ## 5. Final FTO Clearance Statement
-We declare that **Heliopolis-AI** has **100% Freedom-to-Operate** in Malaysia, Singapore, and internationally. There are **zero** patent, copyright, or academic plagiarism overlaps. We are clear to build, pitch, and scale.
+Based on our review of the patent families listed above, we believe **Heliopolis-AI** has no obvious Freedom-to-Operate barriers in Malaysia, Singapore, or the jurisdictions searched. This is a preliminary clearance assessment, not formal legal advice, and we recommend a professional IP attorney review before commercial scale-up.

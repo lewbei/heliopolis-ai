@@ -3,7 +3,7 @@
 **Document Ref:** RED-MAIC-NEXUS-T1-01  
 **Lead Auditor:** Senior Deep Learning & Clean Energy Systems Architect  
 **Classification:** Proprietary / Legal Compliance  
-**Objective:** Identify the 5 critical failure modes of Heliopolis-AI and provide the technical and commercial shields to guarantee absolute stability.  
+**Objective:** Identify the 5 critical failure modes of Heliopolis-AI and provide the technical and commercial shields to improve robustness.  
 
 ---
 
@@ -59,5 +59,5 @@
   * *The Consequence:* C-level judges (Venture Capitalists and Solarvest's CEO) will tune out. They care about **Margin, Customer Acquisition Costs (CAC), and Internal Rate of Return (IRR)**. They will assume you are "academic researchers" who cannot run a business, and give the prize to a less-technical team with a slicker commercial story.
 * **The Failure-Proofing Shield:**
   * **The 80/20 Pitch Rule:**
-    * **20% Technical (The Mic Drop):** Show the NetworkX graph and regulatory manifest generation as a 10-second demo. This proves you have an unassailable technical moat.
-    * **80% Commercial (The Value):** Focus entirely on how Heliopolis-AI directly **slashes site acquisition times by 98%, reduces site due-diligence costs by RM 50,000 per project, and accelerates their CGPP/LSS pipeline closure rate by 40%**.
+    * **20% Technical (The Mic Drop):** Show the NetworkX graph and regulatory manifest generation as a 10-second demo. This demonstrates a credible technical moat.
+    * **80% Commercial (The Value):** Focus on how Heliopolis-AI can reduce land and grid due-diligence effort, cut administrative rework, and accelerate pipeline screening for Solarvest's CGPP/LSS projects. Quote specific savings only after a pilot validates them.
