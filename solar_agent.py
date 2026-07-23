@@ -609,7 +609,7 @@ class SLDTopologyResolver:
     Processes symbol bounding boxes and wire layout lines to construct a directed
     topological graph, validating compliance with TNB interconnection protection rules.
     """
-    def resolve(self, symbols: List[Dict[str, Any]], lines: List[tuple]) -> nx.DiGraph:
+    def resolve(self, symbols: List[Dict[str, Any]], lines: List[tuple], junction_dots: Optional[List[tuple]] = None) -> nx.DiGraph:
         print("[SLDTopologyResolver] Constructing directed topology graph...")
         g = nx.DiGraph()
 
@@ -631,8 +631,22 @@ class SLDTopologyResolver:
             epsilon = 15.0
             print(f" [Resolver] No inverters found to gauge scale. Falling back to default Epsilon: {epsilon:.2f}px.")
 
-        # Match lines to bounding boxes based on Euclidean distance boundaries (epsilon-neighbor search).
-        # For each line endpoint we pick the *nearest* symbol within epsilon, not the last one.
+        # Add virtual junction-dot nodes and split lines at junctions.
+        # Junction dots represent intentional electrical connections; crossing lines
+        # without a dot are ignored and stay as independent nets.
+        if junction_dots:
+            print(f" [Resolver] {len(junction_dots)} junction dot(s) detected; splitting lines at junctions.")
+            junction_radius = max(5.0, epsilon * 0.3)
+            for i, (jx, jy) in enumerate(junction_dots):
+                g.add_node(
+                    f"JUNCTION_{i}",
+                    category="Junction_Dot",
+                    bbox=[jy - junction_radius, jx - junction_radius, jy + junction_radius, jx + junction_radius]
+                )
+            lines = self._split_lines_at_junctions(lines, junction_dots, epsilon)
+
+        # Match line endpoints to the nearest symbol or junction node within epsilon.
+        # For each line endpoint we pick the *nearest* node, not the last one.
         for line in lines:
             pt1, pt2 = line
             nearest_u, nearest_v = None, None
@@ -664,6 +678,42 @@ class SLDTopologyResolver:
         dx = max(b_xmin - px, 0, px - b_xmax)
         dy = max(b_ymin - py, 0, py - b_ymax)
         return np.sqrt(dx**2 + dy**2)
+
+    @staticmethod
+    def _point_segment_projection(pt: tuple, a: tuple, b: tuple) -> tuple[float, float]:
+        """Return perpendicular distance from pt to segment ab and parametric t (0..1)."""
+        ax, ay = a
+        bx, by = b
+        px, py = pt
+        seg_len_sq = (bx - ax) ** 2 + (by - ay) ** 2
+        if seg_len_sq == 0.0:
+            return np.hypot(px - ax, py - ay), 0.0
+        t = max(0.0, min(1.0, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / seg_len_sq))
+        proj_x = ax + t * (bx - ax)
+        proj_y = ay + t * (by - ay)
+        dist = np.hypot(px - proj_x, py - proj_y)
+        return dist, t
+
+    @classmethod
+    def _split_segment_at_junctions(cls, seg: tuple, junction_dots: List[tuple], epsilon: float) -> List[tuple]:
+        """Split a single line segment at all interior junction dots within epsilon."""
+        a, b = seg
+        split_points = [(0.0, a)]
+        for dot in junction_dots:
+            dist, t = cls._point_segment_projection(dot, a, b)
+            if dist <= epsilon and 0.0 < t < 1.0:
+                split_points.append((t, dot))
+        split_points.append((1.0, b))
+        split_points.sort(key=lambda x: x[0])
+        return [(split_points[i][1], split_points[i + 1][1]) for i in range(len(split_points) - 1)]
+
+    @classmethod
+    def _split_lines_at_junctions(cls, lines: List[tuple], junction_dots: List[tuple], epsilon: float) -> List[tuple]:
+        """Split every line segment at every interior junction dot."""
+        split_lines = []
+        for line in lines:
+            split_lines.extend(cls._split_segment_at_junctions(line, junction_dots, epsilon))
+        return split_lines
 
     def validate_tnb_compliance(self, g: nx.DiGraph) -> dict:
         print("[SLDTopologyResolver] Auditing electrical safety against TNB ESAG grid codes...")
@@ -727,7 +777,11 @@ class SLDTopologyResolver:
             ]
             return self.resolve(symbols, lines)
 
-        return self.resolve(ocr_result.get("symbols", []), ocr_result.get("lines", []))
+        return self.resolve(
+            ocr_result.get("symbols", []),
+            ocr_result.get("lines", []),
+            ocr_result.get("junction_dots", [])
+        )
 
 
 class TNBSubstationCapacityValidator:

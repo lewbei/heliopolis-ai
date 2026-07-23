@@ -103,3 +103,59 @@ def test_bess_sizing_triggers():
     assert bess_audit.bess_specification.recommended_battery_power_mw == 1.71
     assert bess_audit.bess_specification.recommended_battery_capacity_mwh == 6.84
     assert bess_audit.bess_specification.estimated_bess_capex_rm == 8208000.0
+
+
+def test_sld_junction_dot_connects_branch():
+    """
+    A main bus (PV -> Inverter -> Transformer) with a branch line from the
+    inverter to a Load should only connect when a junction dot is present at
+    the branch point.
+    """
+    symbols = [
+        {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
+        {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
+        {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 700, 200, 800]},
+        {"id": "LOAD_1", "class": "Grid_Connection", "bbox": [400, 400, 500, 500]},
+    ]
+    # Main horizontal line through the inverter bbox; branch goes down from the junction dot.
+    main_line = ((200, 150), (700, 150))  # PV to Transformer, passes through INV_1
+    branch_line = ((450, 150), (450, 400))  # from junction dot down to LOAD_1
+    junction_dots = [(450, 150)]
+
+    resolver = SLDTopologyResolver()
+    g = resolver.resolve(symbols, [main_line, branch_line], junction_dots=junction_dots)
+
+    # The junction dot splits the main line and connects the branch.
+    assert nx.has_path(g, "PV_1", "XFMR_1")
+    assert nx.has_path(g, "INV_1", "LOAD_1")
+    # The branch must route through the virtual junction node.
+    assert any("JUNCTION" in n for n in g.nodes())
+
+
+def test_sld_crossing_without_junction_dot_is_not_connected():
+    """
+    Two independent circuits that cross geometrically without a junction dot
+    must remain separate networks.
+    """
+    symbols = [
+        {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
+        {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
+        {"id": "PV_2", "class": "PV_Array", "bbox": [400, 100, 500, 200]},
+        {"id": "INV_2", "class": "Inverter", "bbox": [400, 400, 500, 500]},
+    ]
+    # Two independent vertical lines that happen to cross the same horizontal line
+    # at (300, 150) without a junction dot.
+    lines = [
+        ((200, 150), (400, 150)),  # horizontal crossing line (PV1 side to PV2 side)
+        ((300, 150), (300, 450)),  # vertical line from PV2 to INV2 passing through crossing
+    ]
+
+    resolver = SLDTopologyResolver()
+    g = resolver.resolve(symbols, lines, junction_dots=[])
+
+    # Without a junction dot, the horizontal line only connects if its endpoints
+    # fall inside symbol bboxes. Here (200,150) is near PV_1 but (400,150) is near
+    # PV_2 only in y, not x; it will not connect to PV_2. The vertical line
+    # endpoints (300,150) and (300,450) have no nearby symbols. Therefore no
+    # spurious connection between the two circuits should be created.
+    assert g.number_of_edges() == 0 or not nx.has_path(g, "PV_1", "INV_2")

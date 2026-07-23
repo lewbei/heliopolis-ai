@@ -51,14 +51,19 @@ You are an electrical engineering drawing OCR extractor.  Read the attached sing
 Use these keys exactly:
 {
   "symbols": [
-    {"id": "unique_id", "class": "One of: PV_Array, Inverter, Anti_Islanding_Relay, Transformer, Grid_Connection", "bbox": [ymin, xmin, ymax, xmax]}
+    {"id": "unique_id", "class": "One of: PV_Array, Inverter, Anti_Islanding_Relay, Transformer, Grid_Connection, Junction_Dot", "bbox": [ymin, xmin, ymax, xmax]}
   ],
   "lines": [
     [[x1, y1], [x2, y2]]
+  ],
+  "junction_dots": [
+    [x, y]
   ]
 }
 
 The bbox values should be integer pixel coordinates [top, left, bottom, right].  Lines should connect symbol bounding boxes in the direction of power flow (PV -> Inverter -> Relay -> Transformer -> Grid).  If the relay is not drawn, omit the Anti_Islanding_Relay symbol and skip that segment.
+
+Junction dots (small filled circles) are electrical connection points.  Return a junction dot coordinate wherever two or more line segments are physically joined.  Do NOT return a junction dot where two lines simply cross without an explicit connection.  If the SLD contains a Junction_Dot symbol, include it in the symbols list instead of junction_dots.
 """
 
 
@@ -183,7 +188,7 @@ def parse_sld_image(image_path: str | Path) -> Optional[dict[str, Any]]:
     if result is None:
         return None
 
-    # Normalise line endpoints from nested lists to tuples for downstream code.
+    # Normalise line endpoints and junction dot coordinates from nested lists to tuples for downstream code.
     raw_lines = result.get("lines", [])
     normalised_lines = []
     for line in raw_lines:
@@ -192,4 +197,8 @@ def parse_sld_image(image_path: str | Path) -> Optional[dict[str, Any]]:
                 ((float(line[0][0]), float(line[0][1])), (float(line[1][0]), float(line[1][1])))
             )
     result["lines"] = normalised_lines
+
+    raw_dots = result.get("junction_dots", [])
+    normalised_dots = [(float(dot[0]), float(dot[1])) for dot in raw_dots if len(dot) == 2]
+    result["junction_dots"] = normalised_dots
     return result
