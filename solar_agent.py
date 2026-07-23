@@ -875,7 +875,23 @@ def main():
     with open(registry_path, "r", encoding="utf-8") as f:
         registry = json.load(f)
 
-    site_data = registry[0] # Pick the first site as a production run example
+    # Pick the most attractive demo site: non-reserve, non-encumbered, large area,
+    # but still below the 15% substation injection threshold so BESS is not triggered.
+    def _injection_ratio(s: dict) -> float:
+        ac_peak = (s["area_sq_meters"] * 0.9 / 12140.0) * 0.85
+        return (ac_peak / s["substation_capacity_mva"]) * 100.0
+
+    viable_sites = [
+        s for s in registry
+        if not s.get("is_malay_reserve", False)
+        and not s.get("has_caveats", False)
+        and not s.get("has_charges", False)
+        and _injection_ratio(s) < 15.0
+    ]
+    if viable_sites:
+        site_data = max(viable_sites, key=lambda s: s["area_sq_meters"])
+    else:
+        site_data = registry[0]
     print(f"[*] Processing Real Site: {site_data['site_id']} - {site_data['title_no']} ({site_data['region']})")
 
     # 1. Map Land Title dynamically from registry or from an OCR-scanned image.

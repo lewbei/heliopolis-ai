@@ -1,75 +1,46 @@
 {
     "land_title_analysis": {
-        "title_no": "GRN 77221",
-        "lot_no": "Lot 869",
-        "state": "Kedah",
-        "district": "Kubang Pasu",
-        "mukim": "Kubang Pasu",
+        "title_no": "GRN 85948",
+        "lot_no": "Lot 7330",
+        "state": "Johor",
+        "district": "Johor Bahru",
+        "mukim": "Johor Bahru",
         "zoning": "Pertanian",
-        "area_imperial": "35 Ekar 3 Rood 19 Pole",
-        "area_hectares": 14.5159,
-        "area_sq_meters": 145159.21,
+        "area_imperial": "22 Ekar 3 Rood 38 Pole",
+        "area_hectares": 9.3037,
+        "area_sq_meters": 93036.51,
         "owners": [
             {
                 "name": "Owner 1",
                 "ic_or_co_no": "ID-1",
-                "share_fraction": "9/120",
-                "calculated_share_float": 0.075
-            },
-            {
-                "name": "Owner 2",
-                "ic_or_co_no": "ID-2",
-                "share_fraction": "20/120",
-                "calculated_share_float": 0.1667
-            },
-            {
-                "name": "Owner 3",
-                "ic_or_co_no": "ID-3",
                 "share_fraction": "16/120",
                 "calculated_share_float": 0.1333
             },
             {
-                "name": "Owner 4",
-                "ic_or_co_no": "ID-4",
-                "share_fraction": "15/120",
-                "calculated_share_float": 0.125
+                "name": "Owner 2",
+                "ic_or_co_no": "ID-2",
+                "share_fraction": "27/120",
+                "calculated_share_float": 0.225
             },
             {
-                "name": "Owner 5",
-                "ic_or_co_no": "ID-5",
-                "share_fraction": "9/120",
-                "calculated_share_float": 0.075
-            },
-            {
-                "name": "Owner 6",
-                "ic_or_co_no": "ID-6",
-                "share_fraction": "46/120",
-                "calculated_share_float": 0.3833
-            },
-            {
-                "name": "Owner 7",
-                "ic_or_co_no": "ID-7",
-                "share_fraction": "5/120",
-                "calculated_share_float": 0.0417
+                "name": "Owner 3",
+                "ic_or_co_no": "ID-3",
+                "share_fraction": "77/120",
+                "calculated_share_float": 0.6417
             }
         ],
         "has_caveats": false,
         "has_charges": false,
-        "is_malay_reserve": true,
+        "is_malay_reserve": false,
         "legal_assessment": {
-            "status": "Rejected",
+            "status": "Approved",
             "findings": [
-                "Category 'Pertanian' requires NLC Section 124 land conversion to 'Perindustrian' or special state temporary permit.",
-                "Tanah Rezab Melayu (Malay Reserve) detected. Absolute transaction blocker for public-listed entities."
+                "Category 'Pertanian' requires NLC Section 124 land conversion to 'Perindustrian' or special state temporary permit."
             ],
             "poa_compliance": {
-                "is_poa_required": true,
-                "min_co_owners_needed": 2,
-                "required_deeds": [
-                    "Joint Venture Lease Agreement executed by registered co-owners",
-                    "Power of Attorney (Surat Kuasa Wakil) co-signed by at least 2 co-owners to secure controlling 51% land rights",
-                    "Form 14A (Pindahmilik Tanah) or Form 15A (Pajakan Tanah) registered at Land Office / Pejabat Tanah dan Galian"
-                ]
+                "is_poa_required": false,
+                "min_co_owners_needed": 1,
+                "required_deeds": []
             }
         }
     },
@@ -103,60 +74,57 @@
         }
     },
     "technical_financial_feasibility": {
-        "capacity_mwp": 10.761,
-        "annual_yield_mwh": 14169.55,
-        "base_capex_rm": 32284173.56,
-        "grading_adjusted_capex_rm": 67852173.56,
-        "lcoe_rm_kwh": 0.5286,
-        "npv_rm": -45944369.87,
-        "irr_percent": -4.89,
-        "payback_years": 30.27,
+        "capacity_mwp": 6.897,
+        "annual_yield_mwh": 8788.22,
+        "base_capex_rm": 20691810.3,
+        "grading_adjusted_capex_rm": 20691810.3,
+        "lcoe_rm_kwh": 0.2599,
+        "npv_rm": -2853631.72,
+        "irr_percent": 4.69,
+        "payback_years": 12.09,
         "terrain_profile": {
-            "mean_slope_degrees": 1.94,
-            "optimal_area_percent": 100.0,
-            "manageable_area_percent": 0.0,
+            "mean_slope_degrees": 4.54,
+            "optimal_area_percent": 59.0,
+            "manageable_area_percent": 41.0,
             "critical_area_percent": 0.0,
             "landslide_risk": "Low (Optimal plain terrain)",
             "grading_capex_premium_multiplier": 1.0
         },
         "grid_capacity_audit": {
-            "upstream_substation_capacity_mva": 11.56,
-            "substation_injection_percent": 79.13,
-            "reverse_power_risk": "Severe (Reverse power flows will trip substation safety relays)",
+            "upstream_substation_capacity_mva": 51.23,
+            "substation_injection_percent": 11.44,
+            "reverse_power_risk": "Negligible",
             "bess_specification": {
-                "is_bess_required": true,
-                "recommended_battery_power_mw": 7.41,
-                "recommended_battery_capacity_mwh": 29.64,
-                "estimated_bess_capex_rm": 35568000.0,
-                "reasons": [
-                    "Peak solar AC output (9.15 MW) exceeds the 15% TNB substation thermal threshold (1.73 MVA) by 7.41 MW.",
-                    "To secure SEDA NEM/NOVA approval, a Battery Energy Storage System (BESS) must be integrated at the Point of Common Coupling (PCC) to execute dynamic peak-shaving."
-                ]
+                "is_bess_required": false,
+                "recommended_battery_power_mw": 0.0,
+                "recommended_battery_capacity_mwh": 0.0,
+                "estimated_bess_capex_rm": 0.0,
+                "reasons": []
             }
         }
     },
     "regulatory_manifest": {
         "seda_application": {
-            "Part_A_Applicant_Name": "Owner 6",
-            "Part_A_Company_Registration": "ID-6",
-            "Part_B_Site_Title_Number": "GRN 77221",
-            "Part_B_Site_Lot_Number": "Lot 869",
-            "Part_B_Mukim_Daerah_Negeri": "Kubang Pasu, Kubang Pasu, Kedah",
-            "Part_C_Proposed_DC_Capacity_kWp": 10761.0,
-            "Part_C_Proposed_AC_Capacity_kWac": 9146.85,
-            "Part_D_PPA_Tariff_Rate_RM_kWh": 0.5286
+            "Part_A_Applicant_Name": "Owner 3",
+            "Part_A_Company_Registration": "ID-3",
+            "Part_B_Site_Title_Number": "GRN 85948",
+            "Part_B_Site_Lot_Number": "Lot 7330",
+            "Part_B_Mukim_Daerah_Negeri": "Johor Bahru, Johor Bahru, Johor",
+            "Part_C_Proposed_DC_Capacity_kWp": 6897.0,
+            "Part_C_Proposed_AC_Capacity_kWac": 5862.45,
+            "Part_D_PPA_Tariff_Rate_RM_kWh": 0.2599
         },
         "tnb_grid_request": {
-            "Applicant_Company": "Owner 6",
+            "Applicant_Company": "Owner 3",
             "Interconnection_Voltage_Level_kV": 33.0,
-            "Total_Generation_Capacity_MWac": 9.14685,
+            "Total_Generation_Capacity_MWac": 5.86245,
             "Inverter_Compliance_Standards": [
                 "IEC 62116",
                 "IEC 61727",
                 "MS 1837:2010"
             ],
-            "Point_of_Common_Coupling": "TNB Substation - Mukim Kubang Pasu",
-            "Transformer_Capacity_MVA": 12.913199999999998
+            "Point_of_Common_Coupling": "TNB Substation - Mukim Johor Bahru",
+            "Transformer_Capacity_MVA": 8.2764
         },
         "nemas_checklist": {
             "is_nemas_required": true,
