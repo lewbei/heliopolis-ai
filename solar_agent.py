@@ -115,21 +115,28 @@ class ImageOrientationCorrector:
     def deskew_image(image_metadata: dict) -> dict:
         print("[ImageOrientationCorrector] Running dominant Radon transform peaks to check document skew...")
         detected_skew_deg = image_metadata.get("raw_skew_degrees", 0.0)
-        
+
+        # Initialise to identity so it is always returned, even for a perfectly aligned page.
+        rotation_matrix = np.eye(2)
+
         if abs(detected_skew_deg) > 0.1:
             print(f" [Corrector] SKEW DETECTED: {detected_skew_deg:.2f}°. Computing affine homography rotation matrix...")
-            # Simulate affine de-skewing math
+            angle = np.radians(-detected_skew_deg)
             rotation_matrix = np.array([
-                [np.cos(np.radians(-detected_skew_deg)), -np.sin(np.radians(-detected_skew_deg))],
-                [np.sin(np.radians(-detected_skew_deg)), np.cos(np.radians(-detected_skew_deg))]
+                [np.cos(angle), -np.sin(angle)],
+                [np.sin(angle), np.cos(angle)]
             ])
             corrected_skew = 0.0
             print(" [Corrector] Flawless alignment achieved: 0.00° skew.")
         else:
             print(" [Corrector] Document is perfectly aligned (0.0° skew). Skipping affine warping.")
             corrected_skew = 0.0
-            
-        return {"corrected_skew_degrees": corrected_skew, "alignment": "Aligned"}
+
+        return {
+            "corrected_skew_degrees": corrected_skew,
+            "alignment": "Aligned",
+            "rotation_matrix": rotation_matrix.tolist()
+        }
 
 
 class LandTitleParser:
@@ -163,73 +170,110 @@ class LandTitleParser:
         except ValueError:
             return 0.0
 
-    def parse(self, raw_ocr_text: str) -> LandTitleMetadata:
-        print("[LandTitleParser] Executing layout-aware NLP metadata extraction...")
-        
-        title_no = "GRN 45293"
-        lot_no = "Lot 8192"
-        state = "Perak"
-        district = "Larut dan Matang"
-        mukim = "Mukim Asam Kumbang"
-        zoning = "Pertanian"
-        
-        hectares, sq_meters = self.convert_imperial_to_metric(acres=12.0, roods=2.0, poles=15.0)
-        
-        # Scenario: Multiple co-owners with fragmented fractional shares
-        owners_raw = [
-            {"name": "Ahmad Bin Ismail", "id": "650212-08-5431", "share": "11/120"}, # 9.17%
-            {"name": "Wan Fatimah Binti Wan Ali", "id": "701103-08-5222", "share": "15/120"}, # 12.5%
-            {"name": "Siti Aminah Binti Ahmad", "id": "930415-08-6112", "share": "14/120"}, # 11.67%
-            {"name": "Solarvest Development Sdn Bhd", "id": "1234567-U", "share": "40/120"}, # 33.33% (largest single, but <50%)
-            {"name": "Lee Chong Wei", "id": "821021-10-5431", "share": "40/120"} # 33.33%
-        ]
-        
+    @classmethod
+    def _convert_metric_to_imperial(cls, area_sq_meters: float) -> str:
+        """
+        Reverse-converts square meters into a plausible Ekar/Rood/Pole string.
+        Uses the same conversion factors as convert_imperial_to_metric inverted:
+        1 Pole = 0.00252928 ha = 25.2928 m2.
+        """
+        total_poles = round(area_sq_meters / 25.2928)
+        acres = int(total_poles // 160)
+        roods = int((total_poles % 160) // 40)
+        poles = int(total_poles % 40)
+        return f"{acres} Ekar {roods} Rood {poles} Pole"
+
+    @classmethod
+    def _build_owners(cls, co_owners_count: int, site_id: str, owner_info: Optional[List[Dict[str, str]]] = None) -> List[OwnerModel]:
+        """
+        Builds the list of registered owners.
+
+        If owner_info (list of dicts with keys name, ic_or_co_no, share) is supplied,
+        those exact owner records are used. Otherwise, deterministic fractional owners
+        are generated from co_owners_count and a seed derived from site_id.
+        """
+        if owner_info:
+            owners = []
+            for o in owner_info:
+                share = o["share"]
+                float_val = cls.parse_fraction(share)
+                owners.append(OwnerModel(
+                    name=o["name"],
+                    ic_or_co_no=o["ic_or_co_no"],
+                    share_fraction=share,
+                    calculated_share_float=round(float_val, 4)
+                ))
+            return owners
+
+        seed = sum(ord(c) for c in site_id)
+        np.random.seed(seed)
+        count = co_owners_count
+
+        if count == 1:
+            shares = [120]
+        elif count == 2:
+            shares = [80, 40]
+        else:
+            raw_shares = np.random.dirichlet(np.ones(count)) * 120
+            shares = np.round(raw_shares).astype(int)
+            shares[0] += 120 - sum(shares)
+            for idx in range(count):
+                if shares[idx] <= 0:
+                    shares[np.argmax(shares)] -= 1
+                    shares[idx] = 1
+
         owners = []
-        for o in owners_raw:
-            float_val = self.parse_fraction(o["share"])
+        for i in range(count):
+            frac_str = f"{shares[i]}/120"
+            float_val = cls.parse_fraction(frac_str)
             owners.append(OwnerModel(
-                name=o["name"],
-                ic_or_co_no=o["id"],
-                share_fraction=o["share"],
+                name=f"Owner {i+1}",
+                ic_or_co_no=f"ID-{i+1}",
+                share_fraction=frac_str,
                 calculated_share_float=round(float_val, 4)
             ))
-            
-        is_malay_reserve = "Tanah Rezab Melayu" in raw_ocr_text or "Rezab Melayu" in raw_ocr_text
-        has_caveats = "Kaveat" in raw_ocr_text
-        has_charges = "Gadaian" in raw_ocr_text or "Dichaj" in raw_ocr_text
-        
-        # --- Improvised Feature: Power of Attorney & Joint-Execution Evaluator ---
-        # Sort owners descending to calculate minimum co-owners required to reach 51% controlling interest
+        return owners
+
+    @classmethod
+    def _compute_poa(cls, owners: List[OwnerModel]) -> PowerOfAttorneyModel:
+        """
+        Computes the Power-of-Attorney / joint-execution requirements for the given owners.
+        """
         sorted_owners = sorted(owners, key=lambda x: x.calculated_share_float, reverse=True)
         running_sum = 0.0
-        poa_co_sign_count = 0
+        min_co_owners_needed = 0
         is_poa_required = True
-        
+
         for owner in sorted_owners:
             running_sum += owner.calculated_share_float
-            poa_co_sign_count += 1
+            min_co_owners_needed += 1
             if owner.calculated_share_float >= 0.50:
-                is_poa_required = False # Single controlling owner exists
+                is_poa_required = False  # Single controlling owner exists
             if running_sum >= 0.51:
                 break
-                
+
         required_deeds = []
         if is_poa_required:
             required_deeds = [
                 "Joint Venture Lease Agreement executed by registered co-owners",
-                f"Power of Attorney (Surat Kuasa Wakil) co-signed by at least {poa_co_sign_count} co-owners to secure controlling 51% land rights",
+                f"Power of Attorney (Surat Kuasa Wakil) co-signed by at least {min_co_owners_needed} co-owners to secure controlling 51% land rights",
                 "Form 14A (Pindahmilik Tanah) or Form 15A (Pajakan Tanah) registered at Land Office / Pejabat Tanah dan Galian"
             ]
-            
-        poa_model = PowerOfAttorneyModel(
+
+        return PowerOfAttorneyModel(
             is_poa_required=is_poa_required,
-            min_co_owners_needed=poa_co_sign_count,
+            min_co_owners_needed=min_co_owners_needed,
             required_deeds=required_deeds
         )
-        
+
+    @classmethod
+    def _compute_legal_assessment(cls, zoning: str, has_caveats: bool, has_charges: bool, is_malay_reserve: bool, poa: PowerOfAttorneyModel) -> LegalAssessmentModel:
+        """
+        Derives the legal status and findings, including the POA compliance verdict.
+        """
         legal_status = "Approved"
         findings = []
-        
+
         if zoning == "Pertanian":
             findings.append("Category 'Pertanian' requires NLC Section 124 land conversion to 'Perindustrian' or special state temporary permit.")
         if has_caveats:
@@ -241,27 +285,95 @@ class LandTitleParser:
         if is_malay_reserve:
             legal_status = "Rejected"
             findings.append("Tanah Rezab Melayu (Malay Reserve) detected. Absolute transaction blocker for public-listed entities.")
-            
+
+        return LegalAssessmentModel(
+            status=legal_status,
+            findings=findings,
+            poa_compliance=poa
+        )
+
+    @classmethod
+    def from_registry(cls, site_data: dict) -> LandTitleMetadata:
+        """
+        Builds a proper LandTitleMetadata object from the real_malaysian_sites_registry.json fields.
+        """
+        print("[LandTitleParser] Building LandTitleMetadata from real production registry...")
+
+        region = site_data["region"]
+        if "(" in region and ")" in region:
+            state = region.split("(")[0].strip()
+            district = region.split("(")[1].split(")")[0].strip()
+        else:
+            state = region
+            district = ""
+
+        mukim = site_data.get("mukim")
+        if not mukim:
+            mukim = district
+
+        area_sq_meters = float(site_data["area_sq_meters"])
+        area_hectares = area_sq_meters / 10000.0
+        area_imperial = cls._convert_metric_to_imperial(area_sq_meters)
+
+        zoning = site_data["zoning"]
+        owners = cls._build_owners(site_data["co_owners_count"], site_data["site_id"], owner_info=site_data.get("owner_templates"))
+
+        has_caveats = bool(site_data.get("has_caveats", False))
+        has_charges = bool(site_data.get("has_charges", False))
+        is_malay_reserve = bool(site_data.get("is_malay_reserve", False))
+
+        poa = cls._compute_poa(owners)
+        legal = cls._compute_legal_assessment(zoning, has_caveats, has_charges, is_malay_reserve, poa)
+
         return LandTitleMetadata(
-            title_no=title_no,
-            lot_no=lot_no,
+            title_no=site_data["title_no"],
+            lot_no=site_data["lot_no"],
             state=state,
             district=district,
             mukim=mukim,
             zoning=zoning,
-            area_imperial="12 Ekar 2 Rood 15 Pole",
-            area_hectares=hectares,
-            area_sq_meters=sq_meters,
+            area_imperial=area_imperial,
+            area_hectares=round(area_hectares, 4),
+            area_sq_meters=round(area_sq_meters, 2),
             owners=owners,
             has_caveats=has_caveats,
             has_charges=has_charges,
             is_malay_reserve=is_malay_reserve,
-            legal_assessment=LegalAssessmentModel(
-                status=legal_status, 
-                findings=findings,
-                poa_compliance=poa_model
-            )
+            legal_assessment=legal
         )
+
+    def parse(self, raw_ocr_text: str) -> LandTitleMetadata:
+        print("[LandTitleParser] Executing layout-aware NLP metadata extraction...")
+
+        # Demo fallback dataset; preserves the original sandbox title and ownership profile.
+        is_malay_reserve = "Tanah Rezab Melayu" in raw_ocr_text or "Rezab Melayu" in raw_ocr_text
+        has_caveats = "Kaveat" in raw_ocr_text
+        has_charges = "Gadaian" in raw_ocr_text or "Dichaj" in raw_ocr_text
+
+        _, sq_meters = self.convert_imperial_to_metric(acres=12.0, roods=2.0, poles=15.0)
+
+        demo_site = {
+            "site_id": "DEMO-GRN-45293",
+            "region": "Perak (Larut dan Matang)",
+            "title_no": "GRN 45293",
+            "lot_no": "Lot 8192",
+            "zoning": "Pertanian",
+            "area_sq_meters": sq_meters,
+            "mukim": "Mukim Asam Kumbang",
+            "co_owners_count": 5,
+            "is_malay_reserve": is_malay_reserve,
+            "has_caveats": has_caveats,
+            "has_charges": has_charges,
+            "owner_templates": [
+                {"name": "Ahmad Bin Ismail", "ic_or_co_no": "650212-08-5431", "share": "11/120"},
+                {"name": "Wan Fatimah Binti Wan Ali", "ic_or_co_no": "701103-08-5222", "share": "15/120"},
+                {"name": "Siti Aminah Binti Ahmad", "ic_or_co_no": "930415-08-6112", "share": "14/120"},
+                {"name": "Solarvest Development Sdn Bhd", "ic_or_co_no": "1234567-U", "share": "40/120"},
+                {"name": "Lee Chong Wei", "ic_or_co_no": "821021-10-5431", "share": "40/120"}
+            ]
+        }
+
+        return self.from_registry(demo_site)
 
 
 class CivilSlopeAnalyzer:
@@ -272,27 +384,27 @@ class CivilSlopeAnalyzer:
     @staticmethod
     def analyze_topography(elevation_grid_2d: np.ndarray, cell_resolution_meters: float = 10.0) -> TerrainProfileModel:
         print("[CivilSlopeAnalyzer] Computing 2D spatial elevation gradients for slope profiling...")
-        
+
         # Calculate gradients in X and Y directions using finite differences
         grad_y, grad_x = np.gradient(elevation_grid_2d, cell_resolution_meters)
-        
+
         # Calculate slope in radians and convert to degrees: theta = arctan(sqrt(dz/dx^2 + dz/dy^2))
         slope_rad = np.arctan(np.sqrt(grad_x**2 + grad_y**2))
         slope_deg = np.degrees(slope_rad)
-        
+
         mean_slope = float(np.mean(slope_deg))
         total_cells = slope_deg.size
-        
+
         # Classify cells into slope categories
         optimal_cells = np.sum(slope_deg < 5.0)
         manageable_cells = np.sum((slope_deg >= 5.0) & (slope_deg <= 15.0))
         critical_cells = np.sum(slope_deg > 15.0)
         max_slope = float(np.max(slope_deg))
-        
+
         optimal_percent = float((optimal_cells / total_cells) * 100.0)
         manageable_percent = float((manageable_cells / total_cells) * 100.0)
         critical_percent = float((critical_cells / total_cells) * 100.0)
-        
+
         # Landslide risk evaluation
         if max_slope >= 30.0:
             landslide_risk = "High (Unbuildable / Severe Slope)"
@@ -303,7 +415,7 @@ class CivilSlopeAnalyzer:
         else:
             landslide_risk = "Low (Optimal plain terrain)"
             grading_multiplier = 1.00 # No premium
-            
+
         print(f" [Civil] Calculated Mean Slope: {mean_slope:.2f}° | Max Slope: {max_slope:.2f}° | Risk: {landslide_risk}")
         return TerrainProfileModel(
             mean_slope_degrees=round(mean_slope, 2),
@@ -323,10 +435,10 @@ class SLDTopologyResolver:
     def resolve(self, symbols: List[Dict[str, Any]], lines: List[tuple]) -> nx.DiGraph:
         print("[SLDTopologyResolver] Constructing directed topology graph...")
         g = nx.DiGraph()
-        
+
         for sym in symbols:
             g.add_node(sym["id"], category=sym["class"], bbox=sym["bbox"])
-            
+
         # --- Improvised Feature: Dynamic Scale-Invariant Epsilon Resolver ---
         # Instead of hardcoded 15.0px, calculate epsilon as 15% of the average inverter bounding box width!
         inverter_widths = []
@@ -334,48 +446,55 @@ class SLDTopologyResolver:
             if sym["class"] == "Inverter":
                 ymin, xmin, ymax, xmax = sym["bbox"]
                 inverter_widths.append(xmax - xmin)
-                
+
         if inverter_widths:
             epsilon = 0.15 * np.mean(inverter_widths)
             print(f" [Resolver] Dynamic scale-invariant matching active. Resolved Epsilon: {epsilon:.2f}px.")
         else:
             epsilon = 15.0
             print(f" [Resolver] No inverters found to gauge scale. Falling back to default Epsilon: {epsilon:.2f}px.")
-            
-        # Match lines to bounding boxes based on Euclidean distance boundaries (epsilon-neighbor search)
+
+        # Match lines to bounding boxes based on Euclidean distance boundaries (epsilon-neighbor search).
+        # For each line endpoint we pick the *nearest* symbol within epsilon, not the last one.
         for line in lines:
             pt1, pt2 = line
-            u, v = None, None
-            
+            nearest_u, nearest_v = None, None
+            nearest_u_dist, nearest_v_dist = float("inf"), float("inf")
+
             for node_id, data in g.nodes(data=True):
                 bbox = data["bbox"]
-                ymin, xmin, ymax, xmax = bbox
-                
-                def distance_to_box(pt, box):
-                    px, py = pt # Fixed coordinate unpacking bug (X is first, Y is second)
-                    b_ymin, b_xmin, b_ymax, b_xmax = box
-                    dx = max(b_xmin - px, 0, px - b_xmax)
-                    dy = max(b_ymin - py, 0, py - b_ymax)
-                    return np.sqrt(dx**2 + dy**2)
-                
-                if distance_to_box(pt1, bbox) <= epsilon:
-                    u = node_id
-                if distance_to_box(pt2, bbox) <= epsilon:
-                    v = node_id
-                    
-            if u and v and u != v:
-                g.add_edge(u, v)
-                
-        self.validate_tnb_compliance(g)
+                d1 = self._distance_to_box(pt1, bbox)
+                d2 = self._distance_to_box(pt2, bbox)
+
+                if d1 <= epsilon and d1 < nearest_u_dist:
+                    nearest_u_dist = d1
+                    nearest_u = node_id
+                if d2 <= epsilon and d2 < nearest_v_dist:
+                    nearest_v_dist = d2
+                    nearest_v = node_id
+
+            if nearest_u and nearest_v and nearest_u != nearest_v:
+                g.add_edge(nearest_u, nearest_v)
+
+        g.graph["tnb_compliance"] = self.validate_tnb_compliance(g)
         return g
 
-    def validate_tnb_compliance(self, g: nx.DiGraph):
+    @staticmethod
+    def _distance_to_box(pt, box):
+        """Distance from a point to the closest point inside a bounding box."""
+        px, py = pt  # X is first, Y is second
+        b_ymin, b_xmin, b_ymax, b_xmax = box
+        dx = max(b_xmin - px, 0, px - b_xmax)
+        dy = max(b_ymin - py, 0, py - b_ymax)
+        return np.sqrt(dx**2 + dy**2)
+
+    def validate_tnb_compliance(self, g: nx.DiGraph) -> dict:
         print("[SLDTopologyResolver] Auditing electrical safety against TNB ESAG grid codes...")
         nodes_by_cat = {}
         for n, data in g.nodes(data=True):
             cat = data["category"]
             nodes_by_cat.setdefault(cat, []).append(n)
-            
+
         is_islanding_relay_present = "Anti_Islanding_Relay" in nodes_by_cat
         if not is_islanding_relay_present:
             print(" [WARNING] TNB Code Violation: Anti-Islanding Protection Relay missing from schematic.")
@@ -384,13 +503,29 @@ class SLDTopologyResolver:
 
         transformers = nodes_by_cat.get("Transformer", [])
         grid_interconnections = nodes_by_cat.get("Grid_Connection", [])
-        
+
+        disconnected_transformers = []
+        connected_transformers = []
+
         if transformers and grid_interconnections:
             for xfmr in transformers:
-                if not nx.has_path(g, xfmr, grid_interconnections[0]):
-                    print(f" [VIOLATION] Disconnected Flow: No electrical path from Transformer {xfmr} to Grid Interconnection.")
+                reachable = any(nx.has_path(g, xfmr, grid) for grid in grid_interconnections)
+                if not reachable:
+                    disconnected_transformers.append(xfmr)
+                    print(f" [VIOLATION] Disconnected Flow: No electrical path from Transformer {xfmr} to any Grid Interconnection.")
                 else:
-                    print(" [PASS] Transformer connects safely to the TNB Grid Interconnection.")
+                    connected_transformers.append(xfmr)
+
+        if transformers and connected_transformers:
+            print(" [PASS] All Transformers connect safely to a TNB Grid Interconnection.")
+
+        return {
+            "anti_islanding_relay_present": is_islanding_relay_present,
+            "grid_path_valid": not disconnected_transformers and bool(grid_interconnections),
+            "transformer_count": len(transformers),
+            "grid_connection_count": len(grid_interconnections),
+            "disconnected_transformers": disconnected_transformers
+        }
 
 
 class TNBSubstationCapacityValidator:
@@ -402,9 +537,9 @@ class TNBSubstationCapacityValidator:
     @staticmethod
     def audit_injection(proposed_ac_mw: float, upstream_substation_mva: float = 15.0) -> GridCapacityValidationModel:
         print("[TNBSubstationCapacityValidator] Running 15% substation injection audit...")
-        
+
         injection_percent = (proposed_ac_mw / upstream_substation_mva) * 100.0
-        
+
         # Core TNB reverse power and load flow risk threshold
         if injection_percent >= 25.0:
             risk = "Severe (Reverse power flows will trip substation safety relays)"
@@ -415,12 +550,12 @@ class TNBSubstationCapacityValidator:
         else:
             risk = "Negligible"
             is_bess_required = False
-            
+
         reasons = []
         battery_power = 0.0
         battery_capacity = 0.0
         bess_capex = 0.0
-        
+
         if is_bess_required:
             # Sizing formula: Battery power covers the injection peak exceeding 15% threshold
             excess_mw = proposed_ac_mw - (0.15 * upstream_substation_mva)
@@ -429,7 +564,7 @@ class TNBSubstationCapacityValidator:
             battery_capacity = round(float(battery_power * 4.0), 2)
             # Estimated LFP Battery CAPEX standard: RM 1.2M per MWh
             bess_capex = battery_capacity * 1200000.0
-            
+
             reasons = [
                 f"Peak solar AC output ({proposed_ac_mw:.2f} MW) exceeds the 15% TNB substation thermal threshold ({0.15 * upstream_substation_mva:.2f} MVA) by {excess_mw:.2f} MW.",
                 "To secure SEDA NEM/NOVA approval, a Battery Energy Storage System (BESS) must be integrated at the Point of Common Coupling (PCC) to execute dynamic peak-shaving."
@@ -437,7 +572,7 @@ class TNBSubstationCapacityValidator:
             print(f" [Grid Audit] RISK DETECTED: {risk}. Sizing LFP Battery: {battery_power} MW / {battery_capacity} MWh.")
         else:
             print(" [Grid Audit] PASS: Peak solar injection sits safely below the 15% substation thermal rating.")
-            
+
         bess = BESSRecommendationModel(
             is_bess_required=is_bess_required,
             recommended_battery_power_mw=battery_power,
@@ -445,7 +580,7 @@ class TNBSubstationCapacityValidator:
             estimated_bess_capex_rm=bess_capex,
             reasons=reasons
         )
-        
+
         return GridCapacityValidationModel(
             upstream_substation_capacity_mva=upstream_substation_mva,
             substation_injection_percent=round(injection_percent, 2),
@@ -469,16 +604,16 @@ class YieldFeasibilityEngine:
         print("[YieldFeasibilityEngine] Executing financial and clean energy yield models...")
         land_sqm = self.metadata.area_sq_meters
         usable_area = land_sqm * 0.90 # 10% setback buffers
-        
+
         # Engineering parameters for tropical environments
         gcr = 0.45 # Ground Coverage Ratio
         panel_efficiency = 0.215 # 21.5% Mono-PERC modules
         performance_ratio = 0.78 # Standard system loss index
-        
+
         # Dynamically load real meteorological observations from Open-Meteo dataset
         avg_ghi = 1550.0 # Default fallback
         avg_temp_max_c = 30.0 # Default fallback
-        
+
         base_dir = os.path.dirname(os.path.abspath(__file__))
         weather_path = os.path.join(base_dir, "real_malaysian_weather.json")
         if os.path.exists(weather_path):
@@ -486,7 +621,7 @@ class YieldFeasibilityEngine:
                 import json
                 with open(weather_path, "r", encoding="utf-8") as f:
                     weather_data = json.load(f)
-                
+
                 # Match region by looking for the state name in the weather data keys
                 state_name = self.metadata.state.lower()
                 matched_key = None
@@ -494,62 +629,62 @@ class YieldFeasibilityEngine:
                     if state_name in key.lower():
                         matched_key = key
                         break
-                
+
                 if matched_key:
                     avg_ghi = float(weather_data[matched_key]["annual_ghi_kwh_m2_year"])
                     avg_temp_max_c = float(weather_data[matched_key]["avg_temp_max_c"])
                     print(f"[YieldFeasibilityEngine] Grounded meteorological data loaded for '{matched_key}': GHI={avg_ghi:.2f} kWh/m2/year, Max Temp={avg_temp_max_c:.2f}°C")
             except Exception as e:
                 print(f"[Warning] Failed to load real weather data in YieldFeasibilityEngine: {e}")
-                
+
         # Physically-grounded Cell Temperature Derating model
         # standard solar module temperature coefficient of -0.35% / °C
         # cell temperature estimated using standard NOCT formula: T_cell = T_ambient + 20°C under peak tropical irradiance
         t_cell_estimated = avg_temp_max_c + 20.0
         temp_coeff = -0.0035 # -0.35% per degree C
         cell_temperature_derating = max(0.70, min(1.0, 1.0 + (t_cell_estimated - 25.0) * temp_coeff))
-        
+
         capacity_mwp = usable_area / 12140.0
         annual_yield_mwh = capacity_mwp * 1000.0 * avg_ghi * performance_ratio * cell_temperature_derating / 1000.0
-        
+
         # Financial input assumptions (RM)
         capex_per_mwp = 3000000.0 # RM 3.0 Million per MWp base cost
         opex_per_mwp_year = 45000.0 # RM 45k per MWp/year
         project_lifetime = 21 # 21-year SEDA PPA NEM contract
         tariff_rm_kwh = 0.23 # average commercial NEM NOVA rate
         wacc = 0.065 # 6.5% discount rate
-        
+
         # Adjusted CAPEX incorporating Civil Slope Grading premiums and Battery (BESS) additions
         base_capex = capacity_mwp * capex_per_mwp
         bess_addition_capex = self.grid_audit.bess_specification.estimated_bess_capex_rm
         adjusted_capex = (base_capex * self.terrain.grading_capex_premium_multiplier) + bess_addition_capex
-        
+
         discounted_costs = adjusted_capex
         discounted_energy = 0.0
         cash_flows = [-adjusted_capex]
-        
+
         for yr in range(1, project_lifetime + 1):
             degradation = (1.0 - 0.005)**(yr - 1)
             yearly_gen_kwh = annual_yield_mwh * 1000.0 * degradation
-            
+
             # OPEX inflates at 2.0% annually (battery opex includes standard 1.5% maintenance premium if active)
             bess_opex = bess_addition_capex * 0.015 if bess_addition_capex > 0 else 0.0
             yearly_opex = (capacity_mwp * opex_per_mwp_year + bess_opex) * (1.02)**(yr - 1)
             yearly_revenue = yearly_gen_kwh * tariff_rm_kwh
             yearly_net_cash = yearly_revenue - yearly_opex
-            
+
             cash_flows.append(yearly_net_cash)
-            
+
             discounted_costs += yearly_opex / ((1.0 + wacc)**yr)
             discounted_energy += yearly_gen_kwh / ((1.0 + wacc)**yr)
-            
+
         lcoe_rm_kwh = discounted_costs / (discounted_energy + 1e-12) if discounted_energy > 0 else 0.0
-        
+
         # Solve NPV
         npv = -adjusted_capex
         for yr in range(1, project_lifetime + 1):
             npv += cash_flows[yr] / ((1.0 + wacc)**yr)
-            
+
         # --- Blindspot Guarded Newton-Raphson IRR Solver ---
         r = 0.10 # Initial guess of 10%
         for _ in range(100):
@@ -558,22 +693,22 @@ class YieldFeasibilityEngine:
             denom = 1.0 + r
             f_val = sum(cf / ((denom)**t) for t, cf in enumerate(cash_flows))
             f_deriv = sum(-t * cf / ((denom)**(t + 1)) for t, cf in enumerate(cash_flows))
-            
+
             # Prevent Division-by-Zero via eps buffer
             if abs(f_deriv) < 1e-12:
                 f_deriv = 1e-12 if f_deriv >= 0 else -1e-12
-                
+
             r_new = r - f_val / f_deriv
             if abs(r_new - r) < 1e-6:
                 r = r_new
                 break
             r = r_new
-            
+
         r = np.clip(r, -0.95, 5.0)
-        
+
         # --- Blindspot Guarded Payback Solver ---
         payback = adjusted_capex / cash_flows[1] if cash_flows[1] > 0 else 999.0
-        
+
         return TechnicalFeasibilityModel(
             capacity_mwp=round(capacity_mwp, 3),
             annual_yield_mwh=round(annual_yield_mwh, 2),
@@ -596,15 +731,15 @@ class FormFiller:
     @staticmethod
     def generate_manifest(land: LandTitleMetadata, tech: TechnicalFeasibilityModel) -> RegulatoryFilingManifest:
         print("[FormFiller] Generating pre-filled SEDA & TNB grid application manifest...")
-        
+
         ac_capacity_kw = float(tech.capacity_mwp * 1000.0 * 0.85)
-        
+
         # --- Improvised Feature: SEDA NEMAS Compliance Checklist ---
         is_nemas_required = ac_capacity_kw > 72.0
         mandatory_studies = []
         nemas_fee = 0.0
         processing_days = 15
-        
+
         if is_nemas_required:
             nemas_fee = 8000.0 # Estimated TNB process fee in RM
             processing_days = 90
@@ -614,10 +749,22 @@ class FormFiller:
                 "Protection Coordination & Anti-Islanding Trip Integration Study",
                 "Utility Fault Ride-Through (FRT) Compliance Study"
             ]
-        
+
+        # Pick the largest shareholder as the applicant; fall back gracefully if no owners.
+        if land.owners:
+            applicant = max(land.owners, key=lambda o: o.calculated_share_float)
+            applicant_name = applicant.name
+            applicant_id = applicant.ic_or_co_no
+        else:
+            applicant_name = "N/A"
+            applicant_id = "N/A"
+
+        # Prefer Mukim, fall back to District for the Point of Common Coupling.
+        coupling_location = land.mukim if land.mukim else land.district
+
         seda = SEDAApplicationSchema(
-            Part_A_Applicant_Name=land.owners[3].name, # Solarvest Development Sdn Bhd
-            Part_A_Company_Registration=land.owners[3].ic_or_co_no,
+            Part_A_Applicant_Name=applicant_name,
+            Part_A_Company_Registration=applicant_id,
             Part_B_Site_Title_Number=land.title_no,
             Part_B_Site_Lot_Number=land.lot_no,
             Part_B_Mukim_Daerah_Negeri=f"{land.mukim}, {land.district}, {land.state}",
@@ -625,16 +772,16 @@ class FormFiller:
             Part_C_Proposed_AC_Capacity_kWac=ac_capacity_kw,
             Part_D_PPA_Tariff_Rate_RM_kWh=tech.lcoe_rm_kwh
         )
-        
+
         tnb = TNBConnectionSchema(
-            Applicant_Company=land.owners[3].name,
+            Applicant_Company=applicant_name,
             Interconnection_Voltage_Level_kV=33.0 if tech.capacity_mwp >= 2.0 else 11.0,
             Total_Generation_Capacity_MWac=ac_capacity_kw / 1000.0,
             Inverter_Compliance_Standards=["IEC 62116", "IEC 61727", "MS 1837:2010"],
-            Point_of_Common_Coupling=f"TNB Substation - Mukim {land.district}",
+            Point_of_Common_Coupling=f"TNB Substation - Mukim {coupling_location}",
             Transformer_Capacity_MVA=float(tech.capacity_mwp * 1.2)
         )
-        
+
         nemas = NEMASChecklistSchema(
             is_nemas_required=is_nemas_required,
             voltage_rise_study_required=ac_capacity_kw >= 250.0, # required above 250kW under TNB code
@@ -642,9 +789,9 @@ class FormFiller:
             estimated_processing_days=processing_days,
             mandatory_technical_studies=mandatory_studies
         )
-        
+
         return RegulatoryFilingManifest(
-            seda_application=seda, 
+            seda_application=seda,
             tnb_grid_request=tnb,
             nemas_checklist=nemas
         )
@@ -655,91 +802,18 @@ def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = base_dir
     os.makedirs(output_dir, exist_ok=True)
-    
+
     # 0. Load Real Production Registry
     registry_path = os.path.join(base_dir, "real_malaysian_sites_registry.json")
     with open(registry_path, "r", encoding="utf-8") as f:
         registry = json.load(f)
-    
+
     site_data = registry[0] # Pick the first site as a production run example
     print(f"[*] Processing Real Site: {site_data['site_id']} - {site_data['title_no']} ({site_data['region']})")
-    
+
     # 1. Map Land Title dynamically from registry
-    parser = LandTitleParser()
-    dummy_meta = parser.parse("") # Generate base template structure
-    
-    # Patch with real production data
-    dummy_meta.title_no = site_data["title_no"]
-    dummy_meta.lot_no = site_data["lot_no"]
-    dummy_meta.state = site_data["region"].split("(")[0].strip()
-    dummy_meta.district = site_data["region"].split("(")[1].replace(")", "") if "(" in site_data["region"] else ""
-    dummy_meta.zoning = site_data["zoning"]
-    dummy_meta.area_sq_meters = site_data["area_sq_meters"]
-    dummy_meta.area_hectares = site_data["area_sq_meters"] / 10000.0
-    dummy_meta.is_malay_reserve = site_data["is_malay_reserve"]
-    dummy_meta.has_caveats = site_data["has_caveats"]
-    dummy_meta.has_charges = site_data["has_charges"]
-    
-    # Generate deterministic co-owners
-    np.random.seed(sum(ord(c) for c in site_data["site_id"]))
-    count = site_data["co_owners_count"]
-    if count == 1:
-        shares = [120]
-    elif count == 2:
-        shares = [80, 40]
-    else:
-        raw_shares = np.random.dirichlet(np.ones(count)) * 120
-        shares = np.round(raw_shares).astype(int)
-        shares[0] += 120 - sum(shares)
-        for idx in range(count):
-            if shares[idx] <= 0:
-                shares[np.argmax(shares)] -= 1
-                shares[idx] = 1
-                
-    owners = []
-    for i in range(count):
-        frac_str = f"{shares[i]}/120"
-        owners.append(OwnerModel(
-            name=f"Owner {i+1}",
-            ic_or_co_no=f"ID-{i+1}",
-            share_fraction=frac_str,
-            calculated_share_float=parser.parse_fraction(frac_str)
-        ))
-    dummy_meta.owners = owners
-    
-    legal_status = "Approved"
-    findings = []
-    if dummy_meta.zoning == "Pertanian":
-        findings.append("Category 'Pertanian' requires NLC Section 124 land conversion.")
-    if dummy_meta.has_caveats:
-        legal_status = "Flagged/Risky"
-        findings.append("Active Private Caveat detected.")
-    if dummy_meta.has_charges:
-        legal_status = "Flagged/Risky"
-        findings.append("Active Bank Charge (Gadaian) detected.")
-    if dummy_meta.is_malay_reserve:
-        legal_status = "Rejected"
-        findings.append("Tanah Rezab Melayu detected.")
-        
-    sorted_owners = sorted(owners, key=lambda x: x.calculated_share_float, reverse=True)
-    running_sum = 0.0
-    poa_co_sign_count = 0
-    is_poa_required = True
-    for owner in sorted_owners:
-        running_sum += owner.calculated_share_float
-        poa_co_sign_count += 1
-        if owner.calculated_share_float >= 0.50:
-            is_poa_required = False
-        if running_sum >= 0.51:
-            break
-            
-    dummy_meta.legal_assessment.status = legal_status
-    dummy_meta.legal_assessment.findings = findings
-    dummy_meta.legal_assessment.poa_compliance.is_poa_required = is_poa_required
-    dummy_meta.legal_assessment.poa_compliance.min_co_owners_needed = poa_co_sign_count
-    
-    land_metadata = dummy_meta
-    
+    land_metadata = LandTitleParser.from_registry(site_data)
+
     # 2. Analyze Civil Topography & Slope Profile Dynamically
     print("[CivilSlopeAnalyzer] Computing 2D spatial elevation gradients for slope profiling...")
     target_slope = site_data["mean_slope_degrees"]
@@ -758,11 +832,11 @@ def main():
             high = mid
     elevation_grid = 120.0 + ((low + high)/2.0) * base_var
     terrain_model = CivilSlopeAnalyzer.analyze_topography(elevation_grid, cell_resolution_meters=10.0)
-    
+
     # 3. Audit Local Substation Capacity Limits & Size BESS
     ac_peak_mw = (site_data["area_sq_meters"] * 0.9 / 12140.0) * 0.85
     grid_capacity_audit = TNBSubstationCapacityValidator.audit_injection(proposed_ac_mw=ac_peak_mw, upstream_substation_mva=site_data["substation_capacity_mva"])
-    
+
     # 4. Resolve SLD Topology
     symbols = [
         {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
@@ -779,29 +853,30 @@ def main():
     ]
     resolver = SLDTopologyResolver()
     sld_graph = resolver.resolve(symbols, lines)
-    
+
     # 5. Compute Yield and Financials
     feasibility_engine = YieldFeasibilityEngine(land_metadata, terrain_model, grid_capacity_audit)
     tech_results = feasibility_engine.calculate()
-    
+
     # 6. Generate SEDA/TNB Prefilled Manifest
     regulatory_manifest = FormFiller.generate_manifest(land_metadata, tech_results)
-    
+
     # Compile final execution package
     final_output = {
         "land_title_analysis": land_metadata.model_dump(),
         "sld_topology_analysis": {
             "node_count": sld_graph.number_of_nodes(),
             "edge_count": sld_graph.number_of_edges(),
-            "graph_paths": list(sld_graph.edges())
+            "graph_paths": list(sld_graph.edges()),
+            "tnb_compliance": sld_graph.graph.get("tnb_compliance", {})
         },
         "technical_financial_feasibility": tech_results.model_dump(),
         "regulatory_manifest": regulatory_manifest.model_dump()
     }
-    
+
     report_path = os.path.join(output_dir, "solar_assessment_report.json")
     tmp_path = report_path + ".tmp"
-    
+
     try:
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(final_output, f, indent=4, ensure_ascii=False)
@@ -811,7 +886,7 @@ def main():
             os.remove(tmp_path)
         print(f" [ERROR] Atomic file write failed: {e}")
         sys.exit(1)
-        
+
     print(f"\n[Success] Complete Solar Assessment Report successfully written to: {report_path}")
     print(f"Calculated Capacity: {tech_results.capacity_mwp:.3f} MWp")
     print(f"Base CAPEX Cost: RM {tech_results.base_capex_rm:,.2f}")

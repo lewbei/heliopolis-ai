@@ -15,6 +15,22 @@ from solar_agent import (
     YieldFeasibilityEngine
 )
 
+# Shared SLD fixture used by the resolver test (kept in one place).
+SAMPLE_SLD_SYMBOLS = [
+    {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
+    {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
+    {"id": "RELAY_1", "class": "Anti_Islanding_Relay", "bbox": [100, 700, 200, 800]},
+    {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 1000, 200, 1100]},
+    {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]}
+]
+
+SAMPLE_SLD_LINES = [
+    ((200, 150), (400, 150)),
+    ((500, 150), (700, 150)),
+    ((800, 150), (1000, 150)),
+    ((1100, 150), (1300, 150))
+]
+
 def test_imperial_conversions():
     """
     Verifies that the imperial-to-metric converter correctly transforms
@@ -60,26 +76,17 @@ def test_sld_topology_resolver():
     Verifies that coordinate epsilon-proximity matching correctly connects nodes,
     and programmatically detects TNB grid code compliance.
     """
-    symbols = [
-        {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
-        {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
-        {"id": "RELAY_1", "class": "Anti_Islanding_Relay", "bbox": [100, 700, 200, 800]},
-        {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 1000, 200, 1100]},
-        {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]}
-    ]
-    # Connect everything linearly
-    lines = [
-        ((200, 150), (400, 150)),
-        ((500, 150), (700, 150)),
-        ((800, 150), (1000, 150)),
-        ((1100, 150), (1300, 150))
-    ]
     resolver = SLDTopologyResolver()
-    g = resolver.resolve(symbols, lines)
-    
+    g = resolver.resolve(SAMPLE_SLD_SYMBOLS, SAMPLE_SLD_LINES)
+
     assert g.number_of_nodes() == 5
     assert g.number_of_edges() == 4
     assert nx.has_path(g, "XFMR_1", "GRID_1")
+
+    # TNB compliance metadata should be attached to the graph.
+    compliance = g.graph.get("tnb_compliance", {})
+    assert compliance.get("anti_islanding_relay_present") is True
+    assert compliance.get("grid_path_valid") is True
 
 def test_bess_sizing_triggers():
     """

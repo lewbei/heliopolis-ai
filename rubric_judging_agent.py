@@ -29,6 +29,10 @@ class RubricJudgingAgent:
             print(f" [Error] Failed to read report: {e}")
             return False
 
+    @staticmethod
+    def _average(values: list) -> float:
+        return sum(values) / len(values) if values else 0.0
+
     def execute_evaluation(self):
         print("[RubricJudgingAgent] Initiating Multi-Agent Rubric-Judging Panel...")
         if not self.load_report():
@@ -38,47 +42,51 @@ class RubricJudgingAgent:
         sld = self.report_data.get("sld_topology_analysis", {})
         tech = self.report_data.get("technical_financial_feasibility", {})
         manifest = self.report_data.get("regulatory_manifest", {})
-        
+
+        # Flatten frequently accessed nested values to avoid message chains.
+        grid_audit = tech.get("grid_capacity_audit", {})
+        bess_spec = grid_audit.get("bess_specification", {})
+        nemas_checklist = manifest.get("nemas_checklist", {})
+
         # --- Programmatic Judging Calculations (Out of 10) ---
-        
+
         # 1. Problem & Market Fit (Weight: 20%)
         # Judges score highly if we solve both SEDA NEMAS bottlenecks and land conversions
-        j1_fit = 9.0 if (land.get("has_caveats") and manifest.get("nemas_checklist", {}).get("is_nemas_required")) else 7.0
-        j2_fit = 10.0 # High value for Solarvest LSS site acquisition pipelines
+        j1_fit = 9.0 if (land.get("has_caveats") and nemas_checklist.get("is_nemas_required")) else 7.0
+        j2_fit = 10.0  # High value for Solarvest LSS site acquisition pipelines
         j3_fit = 9.0
-        
+
         # 2. Technical Innovation (Weight: 25%)
         # Highly influenced by NetworkX edge connections, scale-invariant epsilon, and PyTorch SwiGLU models
         has_networkx_paths = sld.get("edge_count", 0) > 0
-        j1_tech = 10.0 if has_networkx_paths else 6.0 # Technical judge loves the NetworkX topology graph resolver
-        j2_tech = 9.0 # Venture judge loves the AI perspective-rotation/Radon de-skewing
+        j1_tech = 10.0 if has_networkx_paths else 6.0  # Technical judge values the NetworkX topology resolver
+        j2_tech = 9.0
         j3_tech = 9.0
-        
+
         # 3. Solution Maturity & Demo (Weight: 20%)
         # Evaluates the complete executable code and JSON schema outputs
         j1_maturity = 9.0
         j2_maturity = 9.0
-        j3_maturity = 10.0 # Regulatory judge loves the complete, pre-filled TNB/SEDA manifest
-        
+        j3_maturity = 10.0  # Regulatory judge values the complete, pre-filled TNB/SEDA manifest
+
         # 4. Team & Execution (Weight: 15%)
-        # Reflects the academic and domain grounding (e.g. MMU & SEDA ESAG standards)
         j1_team = 9.0
-        j2_team = 10.0 # Excellent execution timeline (6 progressive Git commits)
+        j2_team = 10.0
         j3_team = 9.0
-        
+
         # 5. Business Model & Impact (Weight: 20%)
         # Solves LCOE, NPV, and includes BESS (Battery) sizing for grid parallel stability
-        has_bess = tech.get("grid_capacity_audit", {}).get("bess_specification", {}).get("is_bess_required")
+        has_bess = bess_spec.get("is_bess_required", False)
         j1_impact = 9.0
-        j2_impact = 10.0 if has_bess else 7.0 # VC loves BESS peak-shaving addition (high-value asset)
+        j2_impact = 10.0 if has_bess else 7.0  # VC values BESS peak-shaving addition
         j3_impact = 9.0
-        
+
         # Average score calculations (1-10 scale)
-        avg_fit = (j1_fit + j2_fit + j3_fit) / 3.0
-        avg_tech = (j1_tech + j2_tech + j3_tech) / 3.0
-        avg_maturity = (j1_maturity + j2_maturity + j3_maturity) / 3.0
-        avg_team = (j1_team + j2_team + j3_team) / 3.0
-        avg_impact = (j1_impact + j2_impact + j3_impact) / 3.0
+        avg_fit = self._average([j1_fit, j2_fit, j3_fit])
+        avg_tech = self._average([j1_tech, j2_tech, j3_tech])
+        avg_maturity = self._average([j1_maturity, j2_maturity, j3_maturity])
+        avg_team = self._average([j1_team, j2_team, j3_team])
+        avg_impact = self._average([j1_impact, j2_impact, j3_impact])
         
         # Weighted 100-Point Score:
         # Score = (Fit * 2.0) + (Tech * 2.5) + (Maturity * 2.0) + (Team * 1.5) + (Impact * 2.0)
@@ -148,7 +156,8 @@ This project represents a highly sophisticated, clean-room **Hybrid Neural-Symbo
 
 
 if __name__ == "__main__":
-    report = r"C:\Users\lewka\deep_learning\MAIC Nexus Challenge\solar_assessment_report.json"
-    scorecard = r"C:\Users\lewka\deep_learning\MAIC Nexus Challenge\qrspi\JUDGING_SCORECARD.md"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    report = os.path.join(base_dir, "solar_assessment_report.json")
+    scorecard = os.path.join(base_dir, "qrspi", "JUDGING_SCORECARD.md")
     agent = RubricJudgingAgent(report, scorecard)
     agent.execute_evaluation()

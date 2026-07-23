@@ -59,19 +59,40 @@ class HeliopolisDNN(nn.Module):
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # Process shared representations
-        h = self.shared_layer1(x)
-        h = self.dropout1(h)
-        h = self.shared_layer2(h)
-        h = self.dropout2(h)
-        
+        hidden = self.shared_layer1(x)
+        hidden = self.dropout1(hidden)
+        hidden = self.shared_layer2(hidden)
+        hidden = self.dropout2(hidden)
+
         # Get head-specific predictions
-        feasibility_prob = self.classifier_head(h)
-        predicted_lcoe = self.regressor_head(h)
-        
+        feasibility_prob = self.classifier_head(hidden)
+        predicted_lcoe = self.regressor_head(hidden)
+
         return feasibility_prob, predicted_lcoe
 
 
 # --- Dataset Generation & Training Pipeline ---
+
+def _grading_multiplier(max_slope: float) -> float:
+    """Civil slope earthwork grading multiplier used in both DNN and solar_agent."""
+    if max_slope >= 30.0:
+        return 1.35
+    if max_slope > 15.0:
+        return 1.15
+    return 1.00
+
+
+def _bess_capex(ac_capacity_mw: float, substation_mva: float) -> tuple[float, float, float]:
+    """Return (bess_power_mw, bess_energy_mwh, bess_capex_rm)."""
+    injection_percent = (ac_capacity_mw / substation_mva) * 100.0
+    if injection_percent <= 15.0:
+        return 0.0, 0.0, 0.0
+    excess_mw = ac_capacity_mw - (0.15 * substation_mva)
+    bess_power = excess_mw
+    bess_energy = bess_power * 4.0
+    bess_capex = (bess_power * 1200000.0) + (bess_energy * 1000000.0)
+    return bess_power, bess_energy, bess_capex
+
 
 def load_real_grounded_malaysian_solar_data() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -91,9 +112,9 @@ def load_real_grounded_malaysian_solar_data() -> tuple[np.ndarray, np.ndarray, n
     print(f"[Data Loader] Loading {len(registry_data)} real grounded Malaysian site records...")
     
     features = []
-    feasibility = []
-    lcoes = []
-    
+    feasibility_targets = []
+    lcoe_targets = []
+
     for item in registry_data:
         area = float(item["area_sq_meters"])
         mean_slope = float(item["mean_slope_degrees"])
@@ -102,117 +123,103 @@ def load_real_grounded_malaysian_solar_data() -> tuple[np.ndarray, np.ndarray, n
         owners_count = float(item["co_owners_count"])
         ghi = float(item["annual_ghi_kwh_m2_year"])
         temp_max = float(item["avg_temp_max_c"])
-        
+
         is_malay_reserve = item["is_malay_reserve"]
         has_caveats = item["has_caveats"]
         has_charges = item["has_charges"]
-        
+
         # 6-dimensional input vector: Area, Mean Slope, Max Slope, Grid Proximity, Co-owners, GHI
-        feat_vector = [area, mean_slope, max_slope, grid_dist, owners_count, ghi]
-        features.append(feat_vector)
-        
+        feature_vector = [area, mean_slope, max_slope, grid_dist, owners_count, ghi]
+        features.append(feature_vector)
+
         # Feasibility classification: site must be physically buildable (mean slope < 15),
         # close to grid (< 6.0 km), manageable legal status (owners count < 5),
         # and free from absolute transaction blocks like Malay Reserve Land, caveats, or charges.
         is_feasible = 1.0 if (
-            mean_slope < 15.0 and 
-            grid_dist < 6.0 and 
-            owners_count < 5.0 and 
-            not is_malay_reserve and 
-            not has_caveats and 
+            mean_slope < 15.0 and
+            grid_dist < 6.0 and
+            owners_count < 5.0 and
+            not is_malay_reserve and
+            not has_caveats and
             not has_charges
         ) else 0.0
-        feasibility.append(is_feasible)
-        
+        feasibility_targets.append(is_feasible)
+
         # Physical Clean-Energy yield and financial LCOE simulation
         usable_area = area * 0.90
         capacity_mwp = usable_area / 12140.0
-        
+
         # Tropical cell temperature derating
         t_cell_estimated = temp_max + 20.0
         temp_coeff = -0.0035
         cell_temperature_derating = max(0.70, min(1.0, 1.0 + (t_cell_estimated - 25.0) * temp_coeff))
-        
+
         performance_ratio = 0.78
         annual_yield_mwh = capacity_mwp * 1000.0 * ghi * performance_ratio * cell_temperature_derating / 1000.0
-        
+
         # Costs
         capex_per_mwp = 3000000.0
         opex_per_mwp_year = 45000.0
         project_lifetime = 21
         wacc = 0.065
-        
-        # Civil slope earthwork grading multiplier
-        if max_slope >= 30.0:
-            grading_multiplier = 1.35
-        elif max_slope > 15.0:
-            grading_multiplier = 1.15
-        else:
-            grading_multiplier = 1.00
-            
-        # Grid battery storage (BESS) sizing
+
+        grading_multiplier = _grading_multiplier(max_slope)
+
         ac_capacity = capacity_mwp * 0.85
         substation_mva = float(item["substation_capacity_mva"])
-        injection_percent = (ac_capacity / substation_mva) * 100.0
-        
-        bess_capex = 0.0
-        bess_opex = 0.0
-        if injection_percent > 15.0:
-            excess_mw = ac_capacity - (0.15 * substation_mva)
-            bess_power = excess_mw
-            bess_energy = bess_power * 4.0
-            bess_capex = (bess_power * 1200000.0) + (bess_energy * 1000000.0)
-            bess_opex = bess_capex * 0.015
-            
+        bess_power, bess_energy, bess_capex = _bess_capex(ac_capacity, substation_mva)
+        bess_opex = bess_capex * 0.015 if bess_capex > 0 else 0.0
+
         adjusted_capex = (capacity_mwp * capex_per_mwp * grading_multiplier) + bess_capex
-        
+
         discounted_costs = adjusted_capex
         discounted_energy = 0.0
-        
+
         for yr in range(1, project_lifetime + 1):
             degradation = (1.0 - 0.005)**(yr - 1)
             yearly_gen_kwh = annual_yield_mwh * 1000.0 * degradation
             yearly_opex = (capacity_mwp * opex_per_mwp_year + bess_opex) * (1.02)**(yr - 1)
-            
+
             discounted_costs += yearly_opex / ((1.0 + wacc)**yr)
             discounted_energy += yearly_gen_kwh / ((1.0 + wacc)**yr)
-            
+
         lcoe = discounted_costs / (discounted_energy + 1e-12) if discounted_energy > 0 else 0.0
-        lcoes.append(lcoe)
-        
-    X = np.array(features, dtype=np.float32)
-    y_class = np.array(feasibility, dtype=np.float32).reshape(-1, 1)
-    y_reg = np.array(lcoes, dtype=np.float32).reshape(-1, 1)
-    
+        lcoe_targets.append(lcoe)
+
+    feature_matrix = np.array(features, dtype=np.float32)
+    feasibility_labels = np.array(feasibility_targets, dtype=np.float32).reshape(-1, 1)
+    lcoe_labels = np.array(lcoe_targets, dtype=np.float32).reshape(-1, 1)
+
     # Clip extreme LCOE outliers for model training stability
-    y_reg = np.clip(y_reg, 0.15, 0.85)
-    
+    lcoe_labels = np.clip(lcoe_labels, 0.15, 0.85)
+
     # Normalize features using z-score
-    X_mean = np.mean(X, axis=0)
-    X_std = np.std(X, axis=0) + 1e-12
-    X_normalized = (X - X_mean) / X_std
-    
+    feature_mean = np.mean(feature_matrix, axis=0)
+    feature_std = np.std(feature_matrix, axis=0) + 1e-12
+    features_normalized = (feature_matrix - feature_mean) / feature_std
+
     # Save normalization constants
-    norm_constants = {"mean": X_mean.tolist(), "std": X_std.tolist()}
+    norm_constants = {"mean": feature_mean.tolist(), "std": feature_std.tolist()}
     norm_dest = os.path.join(base_dir, "normalization_constants.json")
     with open(norm_dest, "w") as f:
         json.dump(norm_constants, f, indent=4)
-        
+
     print(f"[Success] Processed real-world features and saved normalization constants to: {norm_dest}")
-    return X_normalized, y_class, y_reg
+    return features_normalized, feasibility_labels, lcoe_labels
 
 
 def train_model():
     print("=== HELIOPOLIS-AI DEEP LEARNING TRAINING PIPELINE ===\n")
-    models_dir = r"C:\Users\lewka\deep_learning\MAIC Nexus Challenge\models"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.join(base_dir, "models")
     os.makedirs(models_dir, exist_ok=True)
     
     # 1. Load real-world grounded training data
-    X, y_class, y_reg = load_real_grounded_malaysian_solar_data()
-    
-    X_tensor = torch.tensor(X, dtype=torch.float32)
-    y_class_tensor = torch.tensor(y_class, dtype=torch.float32)
-    y_reg_tensor = torch.tensor(y_reg, dtype=torch.float32)
+    features_normalized, feasibility_labels, lcoe_labels = load_real_grounded_malaysian_solar_data()
+
+    features_tensor = torch.tensor(features_normalized, dtype=torch.float32)
+    feasibility_tensor = torch.tensor(feasibility_labels, dtype=torch.float32)
+    lcoe_tensor = torch.tensor(lcoe_labels, dtype=torch.float32)
     
     # 2. Instantiate our multi-head network
     model = HeliopolisDNN(input_dim=6, hidden_dim=64)
@@ -228,15 +235,15 @@ def train_model():
     for epoch in range(1, epochs + 1):
         model.train()
         optimizer.zero_grad()
-        
+
         # Forward pass through our shared-representation networks
-        pred_class, pred_reg = model(X_tensor)
-        
+        pred_feasibility, pred_lcoe = model(features_tensor)
+
         # Compute joint multi-task loss
-        loss_class = bce_loss_fn(pred_class, y_class_tensor)
-        loss_reg = mse_loss_fn(pred_reg, y_reg_tensor)
-        joint_loss = loss_class + 10.0 * loss_reg # scale reg loss to align magnitudes
-        
+        loss_class = bce_loss_fn(pred_feasibility, feasibility_tensor)
+        loss_reg = mse_loss_fn(pred_lcoe, lcoe_tensor)
+        joint_loss = loss_class + 10.0 * loss_reg  # scale reg loss to align magnitudes
+
         # Backward pass & weight updates
         joint_loss.backward()
         optimizer.step()
@@ -263,7 +270,8 @@ def train_model():
     raw_perak_features = np.array([[50965.0, 37.76, 70.38, 2.5, 5.0, 1550.0]])
     
     # Load normalization constants
-    with open(r"C:\Users\lewka\deep_learning\MAIC Nexus Challenge\normalization_constants.json", "r") as f:
+    norm_path = os.path.join(base_dir, "normalization_constants.json")
+    with open(norm_path, "r") as f:
         norm = json.load(f)
     mean = np.array(norm["mean"])
     std = np.array(norm["std"])

@@ -1,5 +1,6 @@
 import os
 import json
+from typing import List
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -27,6 +28,39 @@ class HeliopolisVisualizer:
         except Exception as e:
             print(f" [Error] Failed to read report: {e}")
             return False
+
+    @staticmethod
+    def _sld_category(node_id: str) -> str:
+        """Map a node id string to its SLD component category."""
+        if "PV" in node_id:
+            return "PV_Array"
+        if "INV" in node_id:
+            return "Inverter"
+        if "RELAY" in node_id:
+            return "Anti_Islanding_Relay"
+        if "XFMR" in node_id:
+            return "Transformer"
+        if "GRID" in node_id:
+            return "Grid_Connection"
+        return "Other"
+
+    @staticmethod
+    def _sld_style(category: str) -> dict:
+        """Return visualization style (color, size, label) for an SLD category."""
+        styles = {
+            "PV_Array": {"color": "#34d399", "size": 2500, "label": "PV Array"},
+            "Inverter": {"color": "#60a5fa", "size": 2500, "label": "Inverter"},
+            "Anti_Islanding_Relay": {"color": "#fbbf24", "size": 2800, "label": "Anti-Islanding Relay"},
+            "Transformer": {"color": "#f87171", "size": 2500, "label": "Transformer"},
+            "Grid_Connection": {"color": "#a78bfa", "size": 2500, "label": "TNB Grid"},
+            "Other": {"color": "#9ca3af", "size": 2000, "label": ""},
+        }
+        return styles.get(category, styles["Other"])
+
+    @staticmethod
+    def _horizontal_layout(node_ids: List[str]) -> dict:
+        """Generate a left-to-right linear layout for the SLD graph."""
+        return {node: (i + 1, 1) for i, node in enumerate(node_ids)}
 
     def plot_terrain_and_graph(self):
         print("[HeliopolisVisualizer] Generating visual diagrams...")
@@ -72,53 +106,28 @@ class HeliopolisVisualizer:
         print(f" [Visual] 2D Slope Risk Contour successfully plotted at: {terrain_plot_path}")
         
         # 2. Plot Directed SLD Network Topology Graph
-        sld_paths = self.report_data.get("sld_topology_analysis", {}).get("graph_paths", [])
-        
+        edge_list = self.report_data.get("sld_topology_analysis", {}).get("graph_paths", [])
+
         g = nx.DiGraph()
-        for edge in sld_paths:
+        for edge in edge_list:
             g.add_edge(edge[0], edge[1])
-            
+
         # Set node categories and custom styling colors
         node_colors = []
         node_sizes = []
         labels = {}
-        
+
         for node in g.nodes():
-            if "PV" in node:
-                node_colors.append("#34d399") # Green for PV Array
-                node_sizes.append(2500)
-                labels[node] = f"PV Array\n({node})"
-            elif "INV" in node:
-                node_colors.append("#60a5fa") # Blue for Inverter
-                node_sizes.append(2500)
-                labels[node] = f"Inverter\n({node})"
-            elif "RELAY" in node:
-                node_colors.append("#fbbf24") # Yellow for Anti-Islanding Relay
-                node_sizes.append(2800)
-                labels[node] = f"Anti-Islanding\nRelay"
-            elif "XFMR" in node:
-                node_colors.append("#f87171") # Red for Transformer
-                node_sizes.append(2500)
-                labels[node] = f"Transformer\n({node})"
-            elif "GRID" in node:
-                node_colors.append("#a78bfa") # Purple for TNB Grid
-                node_sizes.append(2500)
-                labels[node] = f"TNB Grid\n({node})"
-            else:
-                node_colors.append("#9ca3af")
-                node_sizes.append(2000)
-                labels[node] = node
+            category = self._sld_category(node)
+            style = self._sld_style(category)
+            node_colors.append(style["color"])
+            node_sizes.append(style["size"])
+            labels[node] = f"{style['label']}\n({node})" if style["label"] else node
                 
         plt.figure(figsize=(12, 6))
         # Use a horizontal linear layout for the single line diagram representation
-        pos = {
-            "PV_1": (1, 1),
-            "INV_1": (2, 1),
-            "RELAY_1": (3, 1),
-            "XFMR_1": (4, 1),
-            "GRID_1": (5, 1)
-        }
-        
+        pos = self._horizontal_layout(list(g.nodes()))
+
         nx.draw_networkx_nodes(g, pos, node_color=node_colors, node_size=node_sizes, alpha=0.9, edgecolors="black")
         nx.draw_networkx_edges(g, pos, width=2, arrowsize=20, edge_color="black", min_source_margin=15, min_target_margin=15)
         nx.draw_networkx_labels(g, pos, labels=labels, font_size=9, font_family="sans-serif", font_weight="bold")
@@ -133,7 +142,8 @@ class HeliopolisVisualizer:
 
 
 if __name__ == "__main__":
-    report = r"C:\Users\lewka\deep_learning\MAIC Nexus Challenge\solar_assessment_report.json"
-    plots_dir = r"C:\Users\lewka\deep_learning\MAIC Nexus Challenge\qrspi\plots"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    report = os.path.join(base_dir, "solar_assessment_report.json")
+    plots_dir = os.path.join(base_dir, "qrspi", "plots")
     visualizer = HeliopolisVisualizer(report, plots_dir)
     visualizer.plot_terrain_and_graph()

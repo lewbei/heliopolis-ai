@@ -390,6 +390,47 @@ def generate_precise_terrain(target_mean_slope: float, cell_resolution_meters: f
     mid_k = (low + high) / 2.0
     return 120.0 + mid_k * base_variation
 
+def _synthetic_elevation_grid(profile_label: str) -> np.ndarray:
+    """Generate a synthetic elevation grid for a named slope profile."""
+    np.random.seed(42)
+    y, x = np.mgrid[0:100:10, 0:100:10]
+
+    profile_params = {
+        "Optimal": (0.3, 0.2, 0.0),
+        "Rolling": (1.2, 1.5, 0.0),
+        "Severe": (3.0, 12.0, 25.0),
+    }
+
+    # Default to the Severe ridge parameters.
+    x_amp, y_amp, ridge_boost = profile_params.get("Severe")
+    for key in profile_params:
+        if key in profile_label:
+            x_amp, y_amp, ridge_boost = profile_params[key]
+            break
+
+    elevation_grid = 120.0 + x_amp * np.sin(x / 15.0) + y_amp * np.sin(y / 12.0)
+    if ridge_boost:
+        elevation_grid[:, -1] += ridge_boost
+    return elevation_grid
+
+
+def _sld_node_style(category: str, node_id: str) -> dict:
+    """Return color, size and label for a node based on its SLD category."""
+    styles = {
+        "PV_Array": {"color": "#34d399", "size": 1500, "label": "PV Array"},
+        "Inverter": {"color": "#60a5fa", "size": 1500, "label": "Inverter"},
+        "Anti_Islanding_Relay": {"color": "#fbbf24", "size": 1800, "label": "Anti-Islanding Relay"},
+        "Transformer": {"color": "#f87171", "size": 1500, "label": "Transformer"},
+        "Grid_Connection": {"color": "#a78bfa", "size": 1500, "label": "TNB Grid"},
+    }
+    style = styles.get(category, {"color": "#9ca3af", "size": 1200, "label": ""}).copy()
+    if style["label"]:
+        style["label"] = f"{style['label']}\n({node_id})"
+    else:
+        style["label"] = node_id
+    return style
+
+
 # Deterministic hash helper
 def deterministic_hash(string_val: str) -> int:
     h = 0
@@ -564,10 +605,10 @@ with st.sidebar:
         zoning_list.append(current_zoning)
     in_zoning = st.selectbox("Zoning (Kategori)", zoning_list, index=zoning_list.index(current_zoning))
     
-    c_ac, c_rd, c_pl = st.columns(3)
-    with c_ac: in_acres = st.number_input("Ekar (Acres)", value=st.session_state.get("in_acres", 12.0), step=1.0)
-    with c_rd: in_roods = st.number_input("Rood", value=st.session_state.get("in_roods", 2.0), step=1.0)
-    with c_pl: in_poles = st.number_input("Pole", value=st.session_state.get("in_poles", 15.0), step=1.0)
+    col_acres, col_roods, col_poles = st.columns(3)
+    with col_acres: in_acres = st.number_input("Ekar (Acres)", value=st.session_state.get("in_acres", 12.0), step=1.0)
+    with col_roods: in_roods = st.number_input("Rood", value=st.session_state.get("in_roods", 2.0), step=1.0)
+    with col_poles: in_poles = st.number_input("Pole", value=st.session_state.get("in_poles", 15.0), step=1.0)
     
     st.markdown('<div class="card-title">Legal Restrictions</div>', unsafe_allow_html=True)
     in_caveats = st.checkbox("Active Private Caveat (Kaveat)", value=st.session_state.get("in_caveats", True))
@@ -602,55 +643,37 @@ else:
         {"name": "Lee Chong Wei", "id": "821021-10-5431", "share": "40/120"}
     ]
 
-total_share = 0.0
-owner_rows = ""
-for o in owners_list:
-    val = LandTitleParser.parse_fraction(o["share"])
-    total_share += val
-    owner_rows += f"""
+# Render owner rows and build OwnerModel objects once.
+owner_models = [
+    OwnerModel(
+        name=o["name"],
+        ic_or_co_no=o["id"],
+        share_fraction=o["share"],
+        calculated_share_float=LandTitleParser.parse_fraction(o["share"])
+    )
+    for o in owners_list
+]
+
+owner_rows = "".join(
+    f"""
     <tr>
-        <td>{o["name"]}</td>
-        <td><code>{o["id"]}</code></td>
-        <td><strong>{o["share"]}</strong></td>
-        <td>{(val * 100.0):.2f}%</td>
+        <td>{o.name}</td>
+        <td><code>{o.ic_or_co_no}</code></td>
+        <td><strong>{o.share_fraction}</strong></td>
+        <td>{(o.calculated_share_float * 100.0):.2f}%</td>
     </tr>
     """
+    for o in owner_models
+)
 
-# Sort and evaluate POA count
-sorted_owners = sorted(owners_list, key=lambda x: LandTitleParser.parse_fraction(x["share"]), reverse=True)
-running_sum = 0.0
-poa_co_sign_count = 0
-is_poa_required = True
-for o in sorted_owners:
-    val = LandTitleParser.parse_fraction(o["share"])
-    running_sum += val
-    poa_co_sign_count += 1
-    if val >= 0.50:
-        is_poa_required = False
-    if running_sum >= 0.51:
-        break
-
-required_deeds = []
-if is_poa_required:
-    required_deeds = [
-        "Joint Venture Lease Agreement executed by registered co-owners",
-        f"Power of Attorney (Surat Kuasa Wakil) co-signed by at least {poa_co_sign_count} co-owners to secure controlling 51% land rights",
-        "Form 14A (Pindahmilik Tanah) or Form 15A (Pajakan Tanah) registered at Pejabat Tanah"
-    ]
-
-legal_status = "Approved"
-findings = []
-if in_zoning == "Pertanian":
-    findings.append("Category 'Pertanian' requires NLC Section 124 land conversion to 'Perindustrian' or special state temporary permit.")
-if in_caveats:
-    legal_status = "Flagged/Risky"
-    findings.append("Active Private Caveat detected. Land transactions are legally frozen until formal withdrawal is filed.")
-if in_charges:
-    legal_status = "Flagged/Risky"
-    findings.append("Active Bank Charge (Gadaian) detected. Requires bank letter of consent prior to registering lease.")
-if in_reserve:
-    legal_status = "Rejected"
-    findings.append("Tanah Rezab Melayu (Malay Reserve) detected. Absolute transaction blocker for public-listed entities.")
+# Reuse the deterministic legal assessment helpers from solar_agent.
+poa_model = LandTitleParser._compute_poa(owner_models)
+legal_assessment = LandTitleParser._compute_legal_assessment(
+    in_zoning, in_caveats, in_charges, in_reserve, poa_model
+)
+legal_status = legal_assessment.status
+findings = legal_assessment.findings
+required_deeds = legal_assessment.poa_compliance.required_deeds
 
 # --- Build Grounded Land Metadata Object ---
 land_meta = LandTitleParser().parse("")
@@ -658,24 +681,14 @@ land_meta.title_no = in_title
 land_meta.lot_no = in_lot
 land_meta.state = in_state
 land_meta.zoning = in_zoning
+land_meta.area_imperial = f"{int(in_acres)} Ekar {int(in_roods)} Rood {in_poles} Pole"
 land_meta.area_hectares = hectares
 land_meta.area_sq_meters = sq_meters
 land_meta.is_malay_reserve = in_reserve
 land_meta.has_caveats = in_caveats
 land_meta.has_charges = in_charges
-land_meta.owners = [
-    OwnerModel(
-        name=o["name"],
-        ic_or_co_no=o["id"],
-        share_fraction=o["share"],
-        calculated_share_float=LandTitleParser.parse_fraction(o["share"])
-    ) for o in owners_list
-]
-land_meta.legal_assessment.status = legal_status
-land_meta.legal_assessment.findings = findings
-land_meta.legal_assessment.poa_compliance.is_poa_required = is_poa_required
-land_meta.legal_assessment.poa_compliance.min_co_owners_needed = poa_co_sign_count
-land_meta.legal_assessment.poa_compliance.required_deeds = required_deeds
+land_meta.owners = owner_models
+land_meta.legal_assessment = legal_assessment
 
 
 # --- Civil Terrain Grid Generator ---
@@ -683,15 +696,7 @@ if site_mode == "Real Malaysian Sites (500)":
     target_slope = parse_mean_slope(in_slope_profile)
     elevation_grid = generate_precise_terrain(target_slope)
 else:
-    np.random.seed(42)
-    y, x = np.mgrid[0:100:10, 0:100:10]
-    if "Optimal" in in_slope_profile:
-        elevation_grid = 120.0 + 0.3 * np.sin(x / 15.0) + 0.2 * np.sin(y / 12.0)
-    elif "Rolling" in in_slope_profile:
-        elevation_grid = 120.0 + 1.2 * np.sin(x / 15.0) + 1.5 * np.sin(y / 12.0)
-    else: # Severe
-        elevation_grid = 120.0 + 3.0 * np.sin(x / 15.0) + 12.0 * np.sin(y / 12.0)
-        elevation_grid[:, -1] += 25.0 # Steep border
+    elevation_grid = _synthetic_elevation_grid(in_slope_profile)
 
 
 terrain_model = CivilSlopeAnalyzer.analyze_topography(elevation_grid, cell_resolution_meters=10.0)
@@ -895,44 +900,15 @@ with tabs[1]:
         node_sizes = []
         labels = {}
         for node, data in g.nodes(data=True):
-            cat = data.get("category", "")
-            if cat == "PV_Array":
-                node_colors.append("#34d399")
-                node_sizes.append(1500)
-                labels[node] = f"PV Array\n({node})"
-            elif cat == "Inverter":
-                node_colors.append("#60a5fa")
-                node_sizes.append(1500)
-                labels[node] = f"Inverter\n({node})"
-            elif cat == "Anti_Islanding_Relay":
-                node_colors.append("#fbbf24")
-                node_sizes.append(1800)
-                labels[node] = f"Anti-Islanding\nRelay"
-            elif cat == "Transformer":
-                node_colors.append("#f87171")
-                node_sizes.append(1500)
-                labels[node] = f"Transformer\n({node})"
-            elif cat == "Grid_Connection":
-                node_colors.append("#a78bfa")
-                node_sizes.append(1500)
-                labels[node] = f"TNB Grid\n({node})"
-            else:
-                node_colors.append("#9ca3af")
-                node_sizes.append(1200)
-                labels[node] = node
-                
+            style = _sld_node_style(data.get("category", ""), node)
+            node_colors.append(style["color"])
+            node_sizes.append(style["size"])
+            labels[node] = style["label"]
+
         fig, ax = plt.subplots(figsize=(10, 5), facecolor="none")
         ax.set_facecolor("none")
-        
-        pos = {
-            "PV_1": (1, 1),
-            "INV_1": (2, 1),
-            "RELAY_1": (3, 1) if "RELAY_1" in g.nodes() else None,
-            "XFMR_1": (4, 1),
-            "GRID_1": (5, 1)
-        }
-        # Clean null values
-        pos = {k: v for k, v in pos.items() if v is not None}
+
+        pos = {node: (i + 1, 1) for i, node in enumerate(g.nodes())}
         
         nx.draw_networkx_nodes(g, pos, ax=ax, node_color=node_colors, node_size=node_sizes, alpha=0.9, edgecolors="white" if IS_DARK else "black")
         nx.draw_networkx_edges(g, pos, ax=ax, width=2, arrowsize=20, edge_color="white" if IS_DARK else "black", min_source_margin=15, min_target_margin=15)
@@ -1073,12 +1049,14 @@ with tabs[3]:
         tech=feasibility
     )
     # Patch values from sidebar
-    manifest.seda_application.Part_B_Site_Title_Number = in_title
-    manifest.seda_application.Part_B_Site_Lot_Number = in_lot
-    manifest.seda_application.Part_B_Mukim_Daerah_Negeri = f"Mukim Asam Kumbang, Larut dan Matang, {in_state}"
-    manifest.seda_application.Part_C_Proposed_DC_Capacity_kWp = float(feasibility.capacity_mwp * 1000.0)
-    manifest.seda_application.Part_C_Proposed_AC_Capacity_kWac = float(in_ac_capacity * 1000.0)
-    manifest.seda_application.Part_D_PPA_Tariff_Rate_RM_kWh = float(feasibility.lcoe_rm_kwh)
+    seda = manifest.seda_application
+    tnb = manifest.tnb_grid_request
+    seda.Part_B_Site_Title_Number = in_title
+    seda.Part_B_Site_Lot_Number = in_lot
+    seda.Part_B_Mukim_Daerah_Negeri = f"Mukim Asam Kumbang, Larut dan Matang, {in_state}"
+    seda.Part_C_Proposed_DC_Capacity_kWp = float(feasibility.capacity_mwp * 1000.0)
+    seda.Part_C_Proposed_AC_Capacity_kWac = float(in_ac_capacity * 1000.0)
+    seda.Part_D_PPA_Tariff_Rate_RM_kWh = float(feasibility.lcoe_rm_kwh)
     
     col_man_left, col_man_right = st.columns(2)
     
@@ -1092,31 +1070,31 @@ with tabs[3]:
                 <tbody>
                     <tr>
                         <td style="width: 40%;">Part A: Applicant Corporate Name</td>
-                        <td><strong>{manifest.seda_application.Part_A_Applicant_Name}</strong></td>
+                        <td><strong>{seda.Part_A_Applicant_Name}</strong></td>
                     </tr>
                     <tr>
                         <td>Part A: SSM Company No</td>
-                        <td><code>{manifest.seda_application.Part_A_Company_Registration}</code></td>
+                        <td><code>{seda.Part_A_Company_Registration}</code></td>
                     </tr>
                     <tr>
                         <td>Part B: Registered Title Reference</td>
-                        <td><strong>{manifest.seda_application.Part_B_Site_Title_Number} ({manifest.seda_application.Part_B_Site_Lot_Number})</strong></td>
+                        <td><strong>{seda.Part_B_Site_Title_Number} ({seda.Part_B_Site_Lot_Number})</strong></td>
                     </tr>
                     <tr>
                         <td>Part B: Site Mukim & State</td>
-                        <td><strong>{manifest.seda_application.Part_B_Mukim_Daerah_Negeri}</strong></td>
+                        <td><strong>{seda.Part_B_Mukim_Daerah_Negeri}</strong></td>
                     </tr>
                     <tr>
                         <td>Part C: Proposed DC Capacity</td>
-                        <td><strong>{manifest.seda_application.Part_C_Proposed_DC_Capacity_kWp:,.2f} kWp</strong></td>
+                        <td><strong>{seda.Part_C_Proposed_DC_Capacity_kWp:,.2f} kWp</strong></td>
                     </tr>
                     <tr>
                         <td>Part C: Proposed AC Capacity</td>
-                        <td><strong>{manifest.seda_application.Part_C_Proposed_AC_Capacity_kWac:,.2f} kWac</strong></td>
+                        <td><strong>{seda.Part_C_Proposed_AC_Capacity_kWac:,.2f} kWac</strong></td>
                     </tr>
                     <tr>
                         <td>Part D: Proposed PPA Tariff Rate</td>
-                        <td><strong>RM {manifest.seda_application.Part_D_PPA_Tariff_Rate_RM_kWh:.4f} / kWh (LCOE-based)</strong></td>
+                        <td><strong>RM {seda.Part_D_PPA_Tariff_Rate_RM_kWh:.4f} / kWh (LCOE-based)</strong></td>
                     </tr>
                 </tbody>
             </table>
@@ -1132,23 +1110,23 @@ with tabs[3]:
                 <tbody>
                     <tr>
                         <td style="width: 40%;">Interconnection Voltage Level</td>
-                        <td><strong>{manifest.tnb_grid_request.Interconnection_Voltage_Level_kV:.1f} kV (Medium Voltage)</strong></td>
+                        <td><strong>{tnb.Interconnection_Voltage_Level_kV:.1f} kV (Medium Voltage)</strong></td>
                     </tr>
                     <tr>
                         <td>Total Generation Capacity</td>
-                        <td><strong>{(manifest.seda_application.Part_C_Proposed_AC_Capacity_kWac / 1000.0):.2f} MWac</strong></td>
+                        <td><strong>{(seda.Part_C_Proposed_AC_Capacity_kWac / 1000.0):.2f} MWac</strong></td>
                     </tr>
                     <tr>
                         <td>Inverter Compliance Standards</td>
-                        <td><strong>{", ".join(manifest.tnb_grid_request.Inverter_Compliance_Standards)}</strong></td>
+                        <td><strong>{", ".join(tnb.Inverter_Compliance_Standards)}</strong></td>
                     </tr>
                     <tr>
                         <td>Point of Common Coupling (PCC)</td>
-                        <td><strong>{manifest.tnb_grid_request.Point_of_Common_Coupling}</strong></td>
+                        <td><strong>{tnb.Point_of_Common_Coupling}</strong></td>
                     </tr>
                     <tr>
                         <td>Sized Transformer Capacity</td>
-                        <td><strong>{(manifest.seda_application.Part_C_Proposed_AC_Capacity_kWac / 1000.0 * 1.25):.2f} MVA</strong></td>
+                        <td><strong>{(seda.Part_C_Proposed_AC_Capacity_kWac / 1000.0 * 1.25):.2f} MVA</strong></td>
                     </tr>
                 </tbody>
             </table>
