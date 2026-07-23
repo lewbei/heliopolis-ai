@@ -80,11 +80,6 @@ def _get_client() -> tuple[Any, str]:
     location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
-    # Vertex AI Gemini models are regional; "global" is not a valid location.
-    if location and location.lower() == "global":
-        print("[HeliopolisOCR] GOOGLE_CLOUD_LOCATION=global is invalid for Vertex AI Gemini. Falling back to us-central1.")
-        location = "us-central1"
-
     if project:
         return (
             genai.Client(vertexai=True, project=project, location=location),
