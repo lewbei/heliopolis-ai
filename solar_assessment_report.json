@@ -79,9 +79,9 @@
         "base_capex_rm": 20691810.3,
         "grading_adjusted_capex_rm": 20691810.3,
         "lcoe_rm_kwh": 0.2599,
-        "npv_rm": -2853631.72,
-        "irr_percent": 4.69,
-        "payback_years": 12.09,
+        "npv_rm": 963710.59,
+        "irr_percent": 7.08,
+        "payback_years": 10.03,
         "terrain_profile": {
             "mean_slope_degrees": 4.54,
             "optimal_area_percent": 59.0,

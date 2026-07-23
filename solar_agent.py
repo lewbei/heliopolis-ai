@@ -8,6 +8,15 @@ from typing import List, Dict, Any, Optional
 
 import heliopolis_ocr
 
+# --- Shared Financial Constants ---
+DEFAULT_PROJECT_LIFETIME = 21
+DEFAULT_OPEX_PER_MWP_YEAR = 45000.0
+DEFAULT_BESS_OPEX_RATE = 0.015
+DEFAULT_OPEX_INFLATION = 0.02
+DEFAULT_DEGRADATION_RATE = 0.005
+DEFAULT_TARIFF_RM_KWH = 0.27
+DEFAULT_WACC = 0.065
+
 # --- Core Relational & Structured Data Models (Pydantic V2) ---
 
 class OwnerModel(BaseModel):
@@ -706,13 +715,13 @@ def project_lifecycle_cashflows(
     annual_yield_mwh: float,
     adjusted_capex_rm: float,
     bess_capex_rm: float,
-    project_lifetime: int = 21,
-    opex_per_mwp_year: float = 45000.0,
-    bess_opex_rate: float = 0.015,
-    opex_inflation: float = 0.02,
-    degradation_rate: float = 0.005,
-    tariff_rm_kwh: float = 0.23,
-    wacc: float = 0.065,
+    project_lifetime: int = DEFAULT_PROJECT_LIFETIME,
+    opex_per_mwp_year: float = DEFAULT_OPEX_PER_MWP_YEAR,
+    bess_opex_rate: float = DEFAULT_BESS_OPEX_RATE,
+    opex_inflation: float = DEFAULT_OPEX_INFLATION,
+    degradation_rate: float = DEFAULT_DEGRADATION_RATE,
+    tariff_rm_kwh: float = DEFAULT_TARIFF_RM_KWH,
+    wacc: float = DEFAULT_WACC,
 ) -> dict[str, Any]:
     """
     Project annual cash flows, discounted costs, and discounted energy for a solar site.
@@ -803,10 +812,10 @@ class YieldFeasibilityEngine:
 
         # Financial input assumptions (RM)
         capex_per_mwp = 3000000.0 # RM 3.0 Million per MWp base cost
-        opex_per_mwp_year = 45000.0 # RM 45k per MWp/year
-        project_lifetime = 21 # 21-year SEDA PPA NEM contract
-        tariff_rm_kwh = 0.23 # average commercial NEM NOVA rate
-        wacc = 0.065 # 6.5% discount rate
+        opex_per_mwp_year = DEFAULT_OPEX_PER_MWP_YEAR
+        project_lifetime = DEFAULT_PROJECT_LIFETIME
+        tariff_rm_kwh = DEFAULT_TARIFF_RM_KWH
+        wacc = DEFAULT_WACC
 
         # Adjusted CAPEX incorporating Civil Slope Grading premiums and Battery (BESS) additions
         base_capex = capacity_mwp * capex_per_mwp
