@@ -1,0 +1,174 @@
+{
+    "land_title_analysis": {
+        "title_no": "GRN 77221",
+        "lot_no": "Lot 869",
+        "state": "Kedah",
+        "district": "Kubang Pasu",
+        "mukim": "Kubang Pasu",
+        "zoning": "Pertanian",
+        "area_imperial": "35 Ekar 3 Rood 19 Pole",
+        "area_hectares": 14.5159,
+        "area_sq_meters": 145159.21,
+        "owners": [
+            {
+                "name": "Owner 1",
+                "ic_or_co_no": "ID-1",
+                "share_fraction": "9/120",
+                "calculated_share_float": 0.075
+            },
+            {
+                "name": "Owner 2",
+                "ic_or_co_no": "ID-2",
+                "share_fraction": "20/120",
+                "calculated_share_float": 0.1667
+            },
+            {
+                "name": "Owner 3",
+                "ic_or_co_no": "ID-3",
+                "share_fraction": "16/120",
+                "calculated_share_float": 0.1333
+            },
+            {
+                "name": "Owner 4",
+                "ic_or_co_no": "ID-4",
+                "share_fraction": "15/120",
+                "calculated_share_float": 0.125
+            },
+            {
+                "name": "Owner 5",
+                "ic_or_co_no": "ID-5",
+                "share_fraction": "9/120",
+                "calculated_share_float": 0.075
+            },
+            {
+                "name": "Owner 6",
+                "ic_or_co_no": "ID-6",
+                "share_fraction": "46/120",
+                "calculated_share_float": 0.3833
+            },
+            {
+                "name": "Owner 7",
+                "ic_or_co_no": "ID-7",
+                "share_fraction": "5/120",
+                "calculated_share_float": 0.0417
+            }
+        ],
+        "has_caveats": false,
+        "has_charges": false,
+        "is_malay_reserve": true,
+        "legal_assessment": {
+            "status": "Rejected",
+            "findings": [
+                "Category 'Pertanian' requires NLC Section 124 land conversion to 'Perindustrian' or special state temporary permit.",
+                "Tanah Rezab Melayu (Malay Reserve) detected. Absolute transaction blocker for public-listed entities."
+            ],
+            "poa_compliance": {
+                "is_poa_required": true,
+                "min_co_owners_needed": 2,
+                "required_deeds": [
+                    "Joint Venture Lease Agreement executed by registered co-owners",
+                    "Power of Attorney (Surat Kuasa Wakil) co-signed by at least 2 co-owners to secure controlling 51% land rights",
+                    "Form 14A (Pindahmilik Tanah) or Form 15A (Pajakan Tanah) registered at Land Office / Pejabat Tanah dan Galian"
+                ]
+            }
+        }
+    },
+    "sld_topology_analysis": {
+        "node_count": 5,
+        "edge_count": 4,
+        "graph_paths": [
+            [
+                "PV_1",
+                "INV_1"
+            ],
+            [
+                "INV_1",
+                "RELAY_1"
+            ],
+            [
+                "RELAY_1",
+                "XFMR_1"
+            ],
+            [
+                "XFMR_1",
+                "GRID_1"
+            ]
+        ],
+        "tnb_compliance": {
+            "anti_islanding_relay_present": true,
+            "grid_path_valid": true,
+            "transformer_count": 1,
+            "grid_connection_count": 1,
+            "disconnected_transformers": []
+        }
+    },
+    "technical_financial_feasibility": {
+        "capacity_mwp": 10.761,
+        "annual_yield_mwh": 14169.55,
+        "base_capex_rm": 32284173.56,
+        "grading_adjusted_capex_rm": 67852173.56,
+        "lcoe_rm_kwh": 0.5286,
+        "npv_rm": -45944369.87,
+        "irr_percent": -4.89,
+        "payback_years": 30.27,
+        "terrain_profile": {
+            "mean_slope_degrees": 1.94,
+            "optimal_area_percent": 100.0,
+            "manageable_area_percent": 0.0,
+            "critical_area_percent": 0.0,
+            "landslide_risk": "Low (Optimal plain terrain)",
+            "grading_capex_premium_multiplier": 1.0
+        },
+        "grid_capacity_audit": {
+            "upstream_substation_capacity_mva": 11.56,
+            "substation_injection_percent": 79.13,
+            "reverse_power_risk": "Severe (Reverse power flows will trip substation safety relays)",
+            "bess_specification": {
+                "is_bess_required": true,
+                "recommended_battery_power_mw": 7.41,
+                "recommended_battery_capacity_mwh": 29.64,
+                "estimated_bess_capex_rm": 35568000.0,
+                "reasons": [
+                    "Peak solar AC output (9.15 MW) exceeds the 15% TNB substation thermal threshold (1.73 MVA) by 7.41 MW.",
+                    "To secure SEDA NEM/NOVA approval, a Battery Energy Storage System (BESS) must be integrated at the Point of Common Coupling (PCC) to execute dynamic peak-shaving."
+                ]
+            }
+        }
+    },
+    "regulatory_manifest": {
+        "seda_application": {
+            "Part_A_Applicant_Name": "Owner 6",
+            "Part_A_Company_Registration": "ID-6",
+            "Part_B_Site_Title_Number": "GRN 77221",
+            "Part_B_Site_Lot_Number": "Lot 869",
+            "Part_B_Mukim_Daerah_Negeri": "Kubang Pasu, Kubang Pasu, Kedah",
+            "Part_C_Proposed_DC_Capacity_kWp": 10761.0,
+            "Part_C_Proposed_AC_Capacity_kWac": 9146.85,
+            "Part_D_PPA_Tariff_Rate_RM_kWh": 0.5286
+        },
+        "tnb_grid_request": {
+            "Applicant_Company": "Owner 6",
+            "Interconnection_Voltage_Level_kV": 33.0,
+            "Total_Generation_Capacity_MWac": 9.14685,
+            "Inverter_Compliance_Standards": [
+                "IEC 62116",
+                "IEC 61727",
+                "MS 1837:2010"
+            ],
+            "Point_of_Common_Coupling": "TNB Substation - Mukim Kubang Pasu",
+            "Transformer_Capacity_MVA": 12.913199999999998
+        },
+        "nemas_checklist": {
+            "is_nemas_required": true,
+            "voltage_rise_study_required": true,
+            "estimated_regulatory_fee_rm": 8000.0,
+            "estimated_processing_days": 90,
+            "mandatory_technical_studies": [
+                "Power Quality & Harmonic Distortion Assessment",
+                "Voltage-Rise and Steady State Injections Study",
+                "Protection Coordination & Anti-Islanding Trip Integration Study",
+                "Utility Fault Ride-Through (FRT) Compliance Study"
+            ]
+        }
+    }
+}
