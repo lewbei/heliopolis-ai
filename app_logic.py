@@ -161,6 +161,17 @@ def generate_co_owners(count: int, site_id: str) -> list:
     return owners
 
 
+def _imperial_string_to_parts(area_imperial: str) -> tuple[float, float, float]:
+    """Parse an 'X Ekar Y Rood Z Pole' string into (acres, roods, poles)."""
+    match = re.search(r"(\d+)\s*Ekar", area_imperial, re.IGNORECASE)
+    acres = float(match.group(1)) if match else 0.0
+    match = re.search(r"(\d+)\s*Rood", area_imperial, re.IGNORECASE)
+    roods = float(match.group(1)) if match else 0.0
+    match = re.search(r"([\d.]+)\s*Pole", area_imperial, re.IGNORECASE)
+    poles = float(match.group(1)) if match else 0.0
+    return acres, roods, poles
+
+
 def build_land_metadata(
     title_no: str,
     lot_no: str,
@@ -173,42 +184,51 @@ def build_land_metadata(
     charges: bool,
     reserve: bool,
     owners_list: list,
+    title_image_path: str | None = None,
 ):
-    """Build a fully populated LandTitleMetadata object from raw form inputs."""
-    hectares, sq_meters = LandTitleParser.convert_imperial_to_metric(acres, roods, poles)
+    """Build a fully populated LandTitleMetadata object from raw form inputs or a scanned image."""
+    if title_image_path:
+        print("[app_logic] Building land metadata from OCR image...")
+        land_meta = LandTitleParser.from_image(title_image_path)
+        owner_models = land_meta.owners
+        hectares = land_meta.area_hectares
+        sq_meters = land_meta.area_sq_meters
+        acres, roods, poles = _imperial_string_to_parts(land_meta.area_imperial)
+    else:
+        hectares, sq_meters = LandTitleParser.convert_imperial_to_metric(acres, roods, poles)
 
-    owner_models = [
-        OwnerModel(
-            name=o["name"],
-            ic_or_co_no=o["id"],
-            share_fraction=o["share"],
-            calculated_share_float=LandTitleParser.parse_fraction(o["share"])
+        owner_models = [
+            OwnerModel(
+                name=o["name"],
+                ic_or_co_no=o["id"],
+                share_fraction=o["share"],
+                calculated_share_float=LandTitleParser.parse_fraction(o["share"])
+            )
+            for o in owners_list
+        ]
+
+        poa_model = LandTitleParser._compute_poa(owner_models)
+        legal_assessment = LandTitleParser._compute_legal_assessment(
+            zoning, caveats, charges, reserve, poa_model
         )
-        for o in owners_list
-    ]
 
-    poa_model = LandTitleParser._compute_poa(owner_models)
-    legal_assessment = LandTitleParser._compute_legal_assessment(
-        zoning, caveats, charges, reserve, poa_model
-    )
-
-    # Start from the demo parser output so we inherit sensible district/mukim defaults.
-    land_meta = LandTitleParser().parse("")
-    land_meta.title_no = title_no
-    land_meta.lot_no = lot_no
-    land_meta.state = state
-    land_meta.zoning = zoning
-    land_meta.area_imperial = f"{int(acres)} Ekar {int(roods)} Rood {poles} Pole"
-    land_meta.area_hectares = hectares
-    land_meta.area_sq_meters = sq_meters
-    land_meta.is_malay_reserve = reserve
-    land_meta.has_caveats = caveats
-    land_meta.has_charges = charges
-    land_meta.owners = owner_models
-    land_meta.legal_assessment = legal_assessment
+        # Start from the demo parser output so we inherit sensible district/mukim defaults.
+        land_meta = LandTitleParser().parse("")
+        land_meta.title_no = title_no
+        land_meta.lot_no = lot_no
+        land_meta.state = state
+        land_meta.zoning = zoning
+        land_meta.area_imperial = f"{int(acres)} Ekar {int(roods)} Rood {poles} Pole"
+        land_meta.area_hectares = hectares
+        land_meta.area_sq_meters = sq_meters
+        land_meta.is_malay_reserve = reserve
+        land_meta.has_caveats = caveats
+        land_meta.has_charges = charges
+        land_meta.owners = owner_models
+        land_meta.legal_assessment = legal_assessment
 
     owner_rows_html = app_components.owner_rows_html(owner_models)
-    return land_meta, hectares, sq_meters, owner_rows_html
+    return land_meta, hectares, sq_meters, acres, roods, poles, owner_rows_html
 
 
 def compute_assessment(
@@ -219,6 +239,7 @@ def compute_assessment(
     site_mode: str = "Standard Presets",
     has_relay: bool = True,
     is_xfmr_connected: bool = True,
+    sld_image_path: str | None = None,
 ):
     """Run the full technical assessment pipeline and return a result dict."""
     # --- Civil Terrain Grid Generator ---
@@ -269,7 +290,11 @@ def compute_assessment(
             lines.append(((1100, 150), (1300, 150)))  # Transformer to Grid
 
     resolver = SLDTopologyResolver()
-    sld_graph = resolver.resolve(symbols, lines)
+    if sld_image_path:
+        print("[app_logic] Resolving SLD topology from OCR image...")
+        sld_graph = resolver.resolve_image(sld_image_path)
+    else:
+        sld_graph = resolver.resolve(symbols, lines)
 
     # --- Regulatory Manifest ---
     manifest = FormFiller.generate_manifest(land=land_meta, tech=feasibility)

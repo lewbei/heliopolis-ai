@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import tempfile
 import numpy as np
 import networkx as nx
 import streamlit as st
@@ -235,6 +236,12 @@ with st.sidebar:
     in_ac_capacity = st.number_input("Proposed AC Capacity (MWac)", value=st.session_state.get("in_ac_capacity", 3.21), step=0.1)
     in_substation_mva = st.number_input("Upstream Substation Limit (MVA)", value=st.session_state.get("in_substation_mva", 15.0), step=1.0)
 
+    st.markdown("---")
+    st.markdown('<div class="card-title">Scanned Document OCR</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Upload images to run real Gemini OCR. Leave blank to use the form values above.</div>', unsafe_allow_html=True)
+    title_image_file = st.file_uploader("Land Title Scan (PNG/JPG)", type=["png", "jpg", "jpeg"])
+    sld_image_file = st.file_uploader("SLD Diagram Scan (PNG/JPG)", type=["png", "jpg", "jpeg"])
+
 # --- Compute Ownership Splits ---
 if site_mode == "Real Malaysian Sites (500)":
     active_site_id = st.session_state.get("prev_selected_site", "MY-SITE-0001")
@@ -244,8 +251,22 @@ if site_mode == "Real Malaysian Sites (500)":
 else:
     owners_list = SAMPLE_OWNERS
 
+# --- Persist uploaded images to temp files for OCR ---
+title_image_path = None
+sld_image_path = None
+if title_image_file:
+    suffix = os.path.splitext(title_image_file.name)[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(title_image_file.getvalue())
+        title_image_path = tmp.name
+if sld_image_file:
+    suffix = os.path.splitext(sld_image_file.name)[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(sld_image_file.getvalue())
+        sld_image_path = tmp.name
+
 # --- Build Grounded Land Metadata Object ---
-land_meta, hectares, sq_meters, owner_rows = build_land_metadata(
+land_meta, hectares, sq_meters, in_acres, in_roods, in_poles, owner_rows = build_land_metadata(
     title_no=in_title,
     lot_no=in_lot,
     state=in_state,
@@ -257,6 +278,7 @@ land_meta, hectares, sq_meters, owner_rows = build_land_metadata(
     charges=in_charges,
     reserve=in_reserve,
     owners_list=owners_list,
+    title_image_path=title_image_path,
 )
 
 legal_status = land_meta.legal_assessment.status
@@ -272,6 +294,7 @@ assessment = compute_assessment(
     ac_capacity=in_ac_capacity,
     substation_mva=in_substation_mva,
     site_mode=site_mode,
+    sld_image_path=sld_image_path,
 )
 terrain_model = assessment["terrain_model"]
 grid_audit = assessment["grid_audit"]
@@ -423,7 +446,7 @@ with tabs[1]:
         has_relay = st.toggle("Include Anti-Islanding Protection Relay", value=True)
         is_xfmr_connected = st.toggle("Connect Transformer safely to Grid Incomer", value=True)
 
-        # Recompute SLD graph based on user switches
+        # Recompute SLD graph based on user switches or uploaded OCR image
         sld_assessment = compute_assessment(
             land_meta=land_meta,
             slope_profile=in_slope_profile,
@@ -432,6 +455,7 @@ with tabs[1]:
             site_mode=site_mode,
             has_relay=has_relay,
             is_xfmr_connected=is_xfmr_connected,
+            sld_image_path=sld_image_path,
         )
         g = sld_assessment["sld_graph"]
 

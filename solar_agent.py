@@ -6,6 +6,8 @@ import json
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
+import heliopolis_ocr
+
 # --- Core Relational & Structured Data Models (Pydantic V2) ---
 
 class OwnerModel(BaseModel):
@@ -342,6 +344,46 @@ class LandTitleParser:
             legal_assessment=legal
         )
 
+    @classmethod
+    def from_image(cls, image_path: str) -> LandTitleMetadata:
+        """
+        Builds a LandTitleMetadata object by OCR-ing a scanned land title image
+        via the Gemini-powered heliopolis_ocr module.  Falls back to the demo
+        parser if OCR is unavailable or fails.
+        """
+        ocr_result = heliopolis_ocr.parse_land_title_image(image_path)
+        if ocr_result is None:
+            print("[LandTitleParser] OCR failed; falling back to demo parser.")
+            return cls().parse("")
+
+        acres = float(ocr_result.get("area_acres") or 0.0)
+        roods = float(ocr_result.get("area_roods") or 0.0)
+        poles = float(ocr_result.get("area_poles") or 0.0)
+        hectares, sq_meters = cls.convert_imperial_to_metric(acres, roods, poles)
+
+        state = ocr_result.get("state") or "Perak"
+        district = ocr_result.get("district") or ""
+        mukim = ocr_result.get("mukim") or district
+
+        owner_templates = ocr_result.get("owners") or []
+
+        site_data = {
+            "site_id": f"OCR-{ocr_result.get('title_no') or 'UNKNOWN'}",
+            "region": f"{state} ({district})" if district else state,
+            "title_no": ocr_result.get("title_no") or "OCR-UNKNOWN",
+            "lot_no": ocr_result.get("lot_no") or "OCR-UNKNOWN",
+            "zoning": ocr_result.get("zoning") or "Pertanian",
+            "area_sq_meters": sq_meters,
+            "mukim": mukim,
+            "co_owners_count": len(owner_templates) or 1,
+            "is_malay_reserve": bool(ocr_result.get("is_malay_reserve", False)),
+            "has_caveats": bool(ocr_result.get("has_caveats", False)),
+            "has_charges": bool(ocr_result.get("has_charges", False)),
+            "owner_templates": owner_templates,
+        }
+
+        return cls.from_registry(site_data)
+
     def parse(self, raw_ocr_text: str) -> LandTitleMetadata:
         print("[LandTitleParser] Executing layout-aware NLP metadata extraction...")
 
@@ -526,6 +568,31 @@ class SLDTopologyResolver:
             "grid_connection_count": len(grid_interconnections),
             "disconnected_transformers": disconnected_transformers
         }
+
+    def resolve_image(self, image_path: str) -> nx.DiGraph:
+        """
+        OCR an SLD image via Gemini and then resolve the topology graph.
+        Falls back to the default hard-coded symbols/lines if OCR fails.
+        """
+        ocr_result = heliopolis_ocr.parse_sld_image(image_path)
+        if ocr_result is None:
+            print("[SLDTopologyResolver] SLD OCR failed; falling back to default schematic.")
+            symbols = [
+                {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
+                {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
+                {"id": "RELAY_1", "class": "Anti_Islanding_Relay", "bbox": [100, 700, 200, 800]},
+                {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 1000, 200, 1100]},
+                {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]}
+            ]
+            lines = [
+                ((200, 150), (400, 150)),
+                ((500, 150), (700, 150)),
+                ((800, 150), (1000, 150)),
+                ((1100, 150), (1300, 150))
+            ]
+            return self.resolve(symbols, lines)
+
+        return self.resolve(ocr_result.get("symbols", []), ocr_result.get("lines", []))
 
 
 class TNBSubstationCapacityValidator:
@@ -811,8 +878,13 @@ def main():
     site_data = registry[0] # Pick the first site as a production run example
     print(f"[*] Processing Real Site: {site_data['site_id']} - {site_data['title_no']} ({site_data['region']})")
 
-    # 1. Map Land Title dynamically from registry
-    land_metadata = LandTitleParser.from_registry(site_data)
+    # 1. Map Land Title dynamically from registry or from an OCR-scanned image.
+    title_image_path = os.environ.get("LAND_TITLE_IMAGE")
+    if title_image_path:
+        print(f"[*] Using OCR land title image: {title_image_path}")
+        land_metadata = LandTitleParser.from_image(title_image_path)
+    else:
+        land_metadata = LandTitleParser.from_registry(site_data)
 
     # 2. Analyze Civil Topography & Slope Profile Dynamically
     target_slope = site_data["mean_slope_degrees"]
@@ -837,21 +909,26 @@ def main():
     grid_capacity_audit = TNBSubstationCapacityValidator.audit_injection(proposed_ac_mw=ac_peak_mw, upstream_substation_mva=site_data["substation_capacity_mva"])
 
     # 4. Resolve SLD Topology
-    symbols = [
-        {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
-        {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
-        {"id": "RELAY_1", "class": "Anti_Islanding_Relay", "bbox": [100, 700, 200, 800]},
-        {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 1000, 200, 1100]},
-        {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]}
-    ]
-    lines = [
-        ((200, 150), (400, 150)),
-        ((500, 150), (700, 150)),
-        ((800, 150), (1000, 150)),
-        ((1100, 150), (1300, 150))
-    ]
     resolver = SLDTopologyResolver()
-    sld_graph = resolver.resolve(symbols, lines)
+    sld_image_path = os.environ.get("SLD_IMAGE")
+    if sld_image_path:
+        print(f"[*] Using OCR SLD image: {sld_image_path}")
+        sld_graph = resolver.resolve_image(sld_image_path)
+    else:
+        symbols = [
+            {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
+            {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
+            {"id": "RELAY_1", "class": "Anti_Islanding_Relay", "bbox": [100, 700, 200, 800]},
+            {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 1000, 200, 1100]},
+            {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]}
+        ]
+        lines = [
+            ((200, 150), (400, 150)),
+            ((500, 150), (700, 150)),
+            ((800, 150), (1000, 150)),
+            ((1100, 150), (1300, 150))
+        ]
+        sld_graph = resolver.resolve(symbols, lines)
 
     # 5. Compute Yield and Financials
     feasibility_engine = YieldFeasibilityEngine(land_metadata, terrain_model, grid_capacity_audit)
