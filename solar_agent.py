@@ -815,7 +815,6 @@ def main():
     land_metadata = LandTitleParser.from_registry(site_data)
 
     # 2. Analyze Civil Topography & Slope Profile Dynamically
-    print("[CivilSlopeAnalyzer] Computing 2D spatial elevation gradients for slope profiling...")
     target_slope = site_data["mean_slope_degrees"]
     np.random.seed(42)
     y, x = np.mgrid[0:100:10, 0:100:10]
