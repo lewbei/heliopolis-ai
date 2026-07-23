@@ -76,17 +76,14 @@ def _get_client() -> tuple[Any, str]:
             "google-genai is not installed. Run: pip install google-genai"
         ) from exc
 
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
     location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
     # Vertex AI Gemini models are regional; "global" is not a valid location.
     if location and location.lower() == "global":
         print("[HeliopolisOCR] GOOGLE_CLOUD_LOCATION=global is invalid for Vertex AI Gemini. Falling back to us-central1.")
         location = "us-central1"
-
-    if api_key:
-        return genai.Client(api_key=api_key), "api_key"
 
     if project:
         return (
@@ -94,9 +91,12 @@ def _get_client() -> tuple[Any, str]:
             "vertex",
         )
 
+    if api_key:
+        return genai.Client(api_key=api_key), "api_key"
+
     raise RuntimeError(
-        "No Gemini credentials found. Set GEMINI_API_KEY / GOOGLE_API_KEY for "
-        "AI Studio, or GOOGLE_CLOUD_PROJECT (+ GOOGLE_CLOUD_LOCATION) for Vertex AI."
+        "No Gemini credentials found. Set GOOGLE_CLOUD_PROJECT (+ GOOGLE_CLOUD_LOCATION) "
+        "for Vertex AI, or GEMINI_API_KEY / GOOGLE_API_KEY for AI Studio."
     )
 
 
