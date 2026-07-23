@@ -1,0 +1,10 @@
+numpy
+networkx
+matplotlib
+pydantic
+pytest
+streamlit
+plotly
+google-genai
+python-dotenv
+Pillow
