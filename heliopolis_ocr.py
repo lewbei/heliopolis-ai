@@ -1,5 +1,12 @@
-"""Gemini-powered OCR for Malaysian land title scans and single-line diagrams (SLD)."""
+"""Gemini-powered OCR for Malaysian land title scans and single-line diagrams (SLD).
 
+Authentication order:
+  1. AI Studio / API key: GEMINI_API_KEY or GOOGLE_API_KEY
+  2. Vertex AI: GOOGLE_CLOUD_PROJECT (+ optional GOOGLE_CLOUD_LOCATION, default us-central1)
+  3. Fallback to None (caller should use registry / demo data)
+"""
+
+import io
 import json
 import os
 import re
@@ -11,10 +18,7 @@ from PIL import Image
 
 load_dotenv()
 
-# Use gemini-1.5-flash as the stable multimodal model.  The model name can be
-# overridden via the GEMINI_MODEL environment variable.
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-002")
 
 _LAND_TITLE_PROMPT = """
 You are an expert Malaysian land-title (Geran) OCR extractor.  Read the attached scanned land title image and return ONLY a JSON object with no markdown, no explanation, and no code fences.
@@ -58,39 +62,61 @@ The bbox values should be integer pixel coordinates [top, left, bottom, right]. 
 """
 
 
-def _get_model():
-    """Configure and return a Gemini generative model."""
+def _get_client() -> tuple[Any, str]:
+    """
+    Build and return a google-genai Client plus a short label describing the
+    authentication backend ("api_key" or "vertex").  Raises RuntimeError if no
+    usable credentials are found.
+    """
     try:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types
     except ImportError as exc:
         raise RuntimeError(
-            "google-generativeai is not installed. Run: pip install google-generativeai"
+            "google-genai is not installed. Run: pip install google-genai"
         ) from exc
 
-    if not API_KEY:
-        raise RuntimeError(
-            "No Gemini API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your environment or .env file."
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    project = os.getenv("GOOGLE_CLOUD_PROJECT")
+    location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+
+    if api_key:
+        return genai.Client(api_key=api_key), "api_key"
+
+    if project:
+        return (
+            genai.Client(vertexai=True, project=project, location=location),
+            "vertex",
         )
 
-    genai.configure(api_key=API_KEY)
-    return genai.GenerativeModel(DEFAULT_MODEL)
+    raise RuntimeError(
+        "No Gemini credentials found. Set GEMINI_API_KEY / GOOGLE_API_KEY for "
+        "AI Studio, or GOOGLE_CLOUD_PROJECT (+ GOOGLE_CLOUD_LOCATION) for Vertex AI."
+    )
 
 
-def _extract_json(text: str) -> Optional[dict]:
+def _image_to_part(image: Image.Image):
+    """Convert a PIL image to a google-genai Part with PNG bytes."""
+    from google.genai import types
+
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    return types.Part.from_bytes(data=buf.getvalue(), mime_type="image/png")
+
+
+def _extract_json(text: str) -> Optional[dict[str, Any]]:
     """Try to parse JSON from model output, stripping markdown fences if present."""
     if not text:
         return None
 
-    # Strip markdown code fences
     cleaned = text.strip()
     if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"\s*```$", "", cleaned)
 
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        # Last resort: grab the first {...} block
         match = re.search(r"\{.*\}", cleaned, re.DOTALL)
         if match:
             try:
@@ -100,12 +126,29 @@ def _extract_json(text: str) -> Optional[dict]:
     return None
 
 
-def _load_image(image_path: str | Path) -> Image.Image:
-    """Open and convert an image to RGB for the Gemini API."""
-    path = Path(image_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Image not found: {image_path}")
-    return Image.open(path).convert("RGB")
+def _generate_json(prompt: str, image: Image.Image) -> Optional[dict[str, Any]]:
+    """Send one prompt + image to Gemini and parse JSON from the response."""
+    from google.genai import types
+
+    try:
+        client, backend = _get_client()
+    except RuntimeError as exc:
+        print(f"[HeliopolisOCR] {exc}")
+        return None
+
+    print(f"[HeliopolisOCR] Using Gemini backend: {backend} ({DEFAULT_MODEL})")
+
+    try:
+        response = client.models.generate_content(
+            model=DEFAULT_MODEL,
+            contents=[prompt, _image_to_part(image)],
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
+        )
+    except Exception as exc:
+        print(f"[HeliopolisOCR] Gemini generation failed: {exc}")
+        return None
+
+    return _extract_json(response.text)
 
 
 def parse_land_title_image(image_path: str | Path) -> Optional[dict[str, Any]]:
@@ -113,22 +156,15 @@ def parse_land_title_image(image_path: str | Path) -> Optional[dict[str, Any]]:
     Extract structured land-title metadata from an image using Gemini.
 
     Returns a dict with the fields requested in _LAND_TITLE_PROMPT, or None if
-    the API call fails or the response cannot be parsed.
+    the call fails or the response cannot be parsed.
     """
     print(f"[HeliopolisOCR] Sending land title image to Gemini ({DEFAULT_MODEL})...")
-    model = _get_model()
-    image = _load_image(image_path)
-
-    try:
-        response = model.generate_content(
-            [_LAND_TITLE_PROMPT, image],
-            generation_config={"response_mime_type": "application/json"},
-        )
-    except Exception as exc:
-        print(f"[HeliopolisOCR] Gemini API call failed: {exc}")
+    path = Path(image_path)
+    if not path.exists():
+        print(f"[HeliopolisOCR] Image not found: {image_path}")
         return None
-
-    return _extract_json(response.text)
+    image = Image.open(path).convert("RGB")
+    return _generate_json(_LAND_TITLE_PROMPT, image)
 
 
 def parse_sld_image(image_path: str | Path) -> Optional[dict[str, Any]]:
@@ -138,19 +174,12 @@ def parse_sld_image(image_path: str | Path) -> Optional[dict[str, Any]]:
     Returns a dict with keys 'symbols' and 'lines', or None on failure.
     """
     print(f"[HeliopolisOCR] Sending SLD image to Gemini ({DEFAULT_MODEL})...")
-    model = _get_model()
-    image = _load_image(image_path)
-
-    try:
-        response = model.generate_content(
-            [_SLD_PROMPT, image],
-            generation_config={"response_mime_type": "application/json"},
-        )
-    except Exception as exc:
-        print(f"[HeliopolisOCR] Gemini API call failed: {exc}")
+    path = Path(image_path)
+    if not path.exists():
+        print(f"[HeliopolisOCR] Image not found: {image_path}")
         return None
-
-    result = _extract_json(response.text)
+    image = Image.open(path).convert("RGB")
+    result = _generate_json(_SLD_PROMPT, image)
     if result is None:
         return None
 
@@ -159,6 +188,8 @@ def parse_sld_image(image_path: str | Path) -> Optional[dict[str, Any]]:
     normalised_lines = []
     for line in raw_lines:
         if len(line) == 2:
-            normalised_lines.append(((float(line[0][0]), float(line[0][1])), (float(line[1][0]), float(line[1][1]))))
+            normalised_lines.append(
+                ((float(line[0][0]), float(line[0][1])), (float(line[1][0]), float(line[1][1])))
+            )
     result["lines"] = normalised_lines
     return result
