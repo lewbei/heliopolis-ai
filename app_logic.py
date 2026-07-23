@@ -84,6 +84,8 @@ def build_land_metadata(
     reserve: bool,
     owners_list: list,
     title_image_path: str | None = None,
+    project_company_name: str = "",
+    project_company_reg_no: str = "",
 ):
     """Build a fully populated LandTitleMetadata object from raw form inputs or a scanned image."""
     if title_image_path:
@@ -124,6 +126,8 @@ def build_land_metadata(
         land_meta.has_caveats = caveats
         land_meta.has_charges = charges
         land_meta.owners = owner_models
+        land_meta.project_company_name = project_company_name
+        land_meta.project_company_reg_no = project_company_reg_no
         land_meta.legal_assessment = legal_assessment
 
     owner_rows_html = app_components.owner_rows_html(owner_models)

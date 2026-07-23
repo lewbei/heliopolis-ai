@@ -134,6 +134,8 @@ class LandTitleMetadata(BaseModel):
     area_hectares: float = Field(description="Converted area in metric Hectares.")
     area_sq_meters: float = Field(description="Converted area in metric Square Meters.")
     owners: List[OwnerModel] = Field(default=[], description="Registered landowners with share allocations.")
+    project_company_name: str = Field(default="", description="Name of the project development company applying for SEDA/TNB permits.")
+    project_company_reg_no: str = Field(default="", description="Company registration number of the project development company.")
     has_caveats: bool = Field(description="True if an active Caveat is detected on the title.")
     has_charges: bool = Field(description="True if an active Bank Charge (Gadaian) is detected.")
     is_malay_reserve: bool = Field(description="True if designated as Tanah Rezab Melayu.")
@@ -410,6 +412,9 @@ class LandTitleParser:
         poa = cls._compute_poa(owners)
         legal = cls._compute_legal_assessment(zoning, has_caveats, has_charges, is_malay_reserve, poa)
 
+        project_company_name = site_data.get("project_company_name", "Solarvest Development Sdn Bhd")
+        project_company_reg_no = site_data.get("project_company_reg_no", "1234567-U")
+
         return LandTitleMetadata(
             title_no=site_data["title_no"],
             lot_no=site_data["lot_no"],
@@ -421,6 +426,8 @@ class LandTitleParser:
             area_hectares=round(area_hectares, 4),
             area_sq_meters=round(area_sq_meters, 2),
             owners=owners,
+            project_company_name=project_company_name,
+            project_company_reg_no=project_company_reg_no,
             has_caveats=has_caveats,
             has_charges=has_charges,
             is_malay_reserve=is_malay_reserve,
@@ -986,8 +993,12 @@ class FormFiller:
                 "Utility Fault Ride-Through (FRT) Compliance Study"
             ]
 
-        # Pick the largest shareholder as the applicant; fall back gracefully if no owners.
-        if land.owners:
+        # Use the project development company as the applicant when available;
+        # otherwise fall back to the largest landowner.
+        if land.project_company_name:
+            applicant_name = land.project_company_name
+            applicant_id = land.project_company_reg_no or "N/A"
+        elif land.owners:
             applicant = max(land.owners, key=lambda o: o.calculated_share_float)
             applicant_name = applicant.name
             applicant_id = applicant.ic_or_co_no

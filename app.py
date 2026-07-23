@@ -209,6 +209,11 @@ with st.sidebar:
     in_charges = st.checkbox("Active Bank Charge (Gadaian)", value=st.session_state.get("in_charges", True))
     in_reserve = st.checkbox("Malay Reserve Land (Rezab Melayu)", value=st.session_state.get("in_reserve", False))
 
+    st.markdown('<div class="card-title">Project Company</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">SEDA/TNB permits are filed by the project company, not the landowner.</div>', unsafe_allow_html=True)
+    in_project_company_name = st.text_input("Project Company Name", value=st.session_state.get("in_project_company_name", "Solarvest Development Sdn Bhd"))
+    in_project_company_reg = st.text_input("Company Reg. No", value=st.session_state.get("in_project_company_reg", "1234567-U"))
+
     st.markdown('<div class="card-title">Technical Specifications</div>', unsafe_allow_html=True)
     current_slope_profile = st.session_state.get("in_slope_profile", "Severe Ridge (37.7° mean)")
     slope_profiles_list = SLOPE_PROFILES.copy()
@@ -277,6 +282,8 @@ land_meta, hectares, sq_meters, in_acres, in_roods, in_poles, owner_rows = build
     reserve=in_reserve,
     owners_list=owners_list,
     title_image_path=title_image_path,
+    project_company_name=in_project_company_name,
+    project_company_reg_no=in_project_company_reg,
 )
 
 legal_status = land_meta.legal_assessment.status

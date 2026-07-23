@@ -29,6 +29,8 @@
                 "calculated_share_float": 0.6417
             }
         ],
+        "project_company_name": "Solarvest Development Sdn Bhd",
+        "project_company_reg_no": "1234567-U",
         "has_caveats": false,
         "has_charges": false,
         "is_malay_reserve": false,
@@ -79,11 +81,11 @@
         "base_capex_rm": 20691810.3,
         "grading_adjusted_capex_rm": 20691810.3,
         "lcoe_rm_kwh": 0.2599,
-        "ppa_tariff_rm_kwh": 0.17,
-        "scenario": "lss_ppa",
-        "npv_rm": -8579645.2,
-        "irr_percent": 0.53,
-        "payback_years": 17.48,
+        "ppa_tariff_rm_kwh": 0.37,
+        "scenario": "c_i_nem",
+        "npv_rm": 10507066.38,
+        "irr_percent": 12.38,
+        "payback_years": 7.04,
         "terrain_profile": {
             "mean_slope_degrees": 4.54,
             "optimal_area_percent": 59.0,
@@ -107,17 +109,17 @@
     },
     "regulatory_manifest": {
         "seda_application": {
-            "Part_A_Applicant_Name": "Muthu Bin Ahmad",
-            "Part_A_Company_Registration": "870518-06-2741",
+            "Part_A_Applicant_Name": "Solarvest Development Sdn Bhd",
+            "Part_A_Company_Registration": "1234567-U",
             "Part_B_Site_Title_Number": "GRN 85948",
             "Part_B_Site_Lot_Number": "Lot 7330",
             "Part_B_Mukim_Daerah_Negeri": "Johor Bahru, Johor Bahru, Johor",
             "Part_C_Proposed_DC_Capacity_kWp": 6897.0,
             "Part_C_Proposed_AC_Capacity_kWac": 5862.45,
-            "Part_D_PPA_Tariff_Rate_RM_kWh": 0.17
+            "Part_D_PPA_Tariff_Rate_RM_kWh": 0.37
         },
         "tnb_grid_request": {
-            "Applicant_Company": "Muthu Bin Ahmad",
+            "Applicant_Company": "Solarvest Development Sdn Bhd",
             "Interconnection_Voltage_Level_kV": 33.0,
             "Total_Generation_Capacity_MWac": 5.86245,
             "Inverter_Compliance_Standards": [
