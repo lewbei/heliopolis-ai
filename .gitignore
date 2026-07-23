@@ -19,6 +19,7 @@ ENV/
 *_report.json
 *report.json
 *_manifest.json
+normalization_constants.json
 *.png
 *.pdf
 

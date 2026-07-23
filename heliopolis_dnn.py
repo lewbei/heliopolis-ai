@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import numpy as np
 import torch
 import torch.nn as nn
@@ -17,7 +18,7 @@ class SwiGLU(nn.Module):
         self.w = nn.Linear(in_features, out_features)
         self.v = nn.Linear(in_features, out_features)
 
-    def forward(self, x: torch.Tensor) -> torch. torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Swish(x) = x * sigmoid(x)
         swish_gate = self.w(x) * torch.sigmoid(self.w(x))
         return swish_gate * self.v(x)
@@ -72,51 +73,132 @@ class HeliopolisDNN(nn.Module):
 
 # --- Dataset Generation & Training Pipeline ---
 
-def generate_synthetic_malaysian_solar_data(num_samples: int = 500) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def load_real_grounded_malaysian_solar_data() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Generates realistic, synthetic site-due-diligence data for 500 prospects across Malaysia.
-    Input Features (6):
-      1. Land Area (sqm) [ranging from 10k to 200k]
-      2. Mean Slope (degrees) [0 to 45 deg]
-      3. Max Slope (degrees) [0 to 75 deg]
-      4. Substation Grid Proximity (km) [0.5 to 15.0 km]
-      5. Co-owners count [1 to 15 owners]
-      6. GHI solar irradiance (kWh/m2/year) [1400 to 1700]
+    Loads 100% physically and legally grounded site registry data for Malaysia
+    and simulates tropical clean-energy yields and legal transaction barriers
+    to formulate the model's true multi-task training distributions.
     """
-    np.random.seed(42) # Set seed for 100% deterministic reproducibility
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    registry_path = os.path.join(base_dir, "real_malaysian_sites_registry.json")
     
-    # Feature inputs
-    area = np.random.uniform(10000, 200000, (num_samples, 1))
-    mean_slope = np.random.uniform(0, 45, (num_samples, 1))
-    max_slope = mean_slope + np.random.uniform(0, 30, (num_samples, 1))
-    grid_dist = np.random.uniform(0.5, 15.0, (num_samples, 1))
-    owners_count = np.random.randint(1, 15, (num_samples, 1)).astype(np.float32)
-    ghi = np.random.uniform(1400, 1700, (num_samples, 1))
+    if not os.path.exists(registry_path):
+        raise FileNotFoundError(f"Real site registry not found at: {registry_path}")
+        
+    with open(registry_path, "r", encoding="utf-8") as f:
+        registry_data = json.load(f)
+        
+    print(f"[Data Loader] Loading {len(registry_data)} real grounded Malaysian site records...")
     
-    X = np.hstack([area, mean_slope, max_slope, grid_dist, owners_count, ghi])
-    
-    # Ground-truth Label 1: Feasibility Success (True if slope < 15, grid_dist < 5, and owners < 5)
+    features = []
     feasibility = []
-    for i in range(num_samples):
-        is_feasible = 1.0 if (X[i, 1] < 15.0 and X[i, 3] < 6.0 and X[i, 4] < 5.0) else 0.0
+    lcoes = []
+    
+    for item in registry_data:
+        area = float(item["area_sq_meters"])
+        mean_slope = float(item["mean_slope_degrees"])
+        max_slope = float(item["max_slope_degrees"])
+        grid_dist = float(item["grid_proximity_km"])
+        owners_count = float(item["co_owners_count"])
+        ghi = float(item["annual_ghi_kwh_m2_year"])
+        temp_max = float(item["avg_temp_max_c"])
+        
+        is_malay_reserve = item["is_malay_reserve"]
+        has_caveats = item["has_caveats"]
+        has_charges = item["has_charges"]
+        
+        # 6-dimensional input vector: Area, Mean Slope, Max Slope, Grid Proximity, Co-owners, GHI
+        feat_vector = [area, mean_slope, max_slope, grid_dist, owners_count, ghi]
+        features.append(feat_vector)
+        
+        # Feasibility classification: site must be physically buildable (mean slope < 15),
+        # close to grid (< 6.0 km), manageable legal status (owners count < 5),
+        # and free from absolute transaction blocks like Malay Reserve Land, caveats, or charges.
+        is_feasible = 1.0 if (
+            mean_slope < 15.0 and 
+            grid_dist < 6.0 and 
+            owners_count < 5.0 and 
+            not is_malay_reserve and 
+            not has_caveats and 
+            not has_charges
+        ) else 0.0
         feasibility.append(is_feasible)
+        
+        # Physical Clean-Energy yield and financial LCOE simulation
+        usable_area = area * 0.90
+        capacity_mwp = usable_area / 12140.0
+        
+        # Tropical cell temperature derating
+        t_cell_estimated = temp_max + 20.0
+        temp_coeff = -0.0035
+        cell_temperature_derating = max(0.70, min(1.0, 1.0 + (t_cell_estimated - 25.0) * temp_coeff))
+        
+        performance_ratio = 0.78
+        annual_yield_mwh = capacity_mwp * 1000.0 * ghi * performance_ratio * cell_temperature_derating / 1000.0
+        
+        # Costs
+        capex_per_mwp = 3000000.0
+        opex_per_mwp_year = 45000.0
+        project_lifetime = 21
+        wacc = 0.065
+        
+        # Civil slope earthwork grading multiplier
+        if max_slope >= 30.0:
+            grading_multiplier = 1.35
+        elif max_slope > 15.0:
+            grading_multiplier = 1.15
+        else:
+            grading_multiplier = 1.00
+            
+        # Grid battery storage (BESS) sizing
+        ac_capacity = capacity_mwp * 0.85
+        substation_mva = float(item["substation_capacity_mva"])
+        injection_percent = (ac_capacity / substation_mva) * 100.0
+        
+        bess_capex = 0.0
+        bess_opex = 0.0
+        if injection_percent > 15.0:
+            excess_mw = ac_capacity - (0.15 * substation_mva)
+            bess_power = excess_mw
+            bess_energy = bess_power * 4.0
+            bess_capex = (bess_power * 1200000.0) + (bess_energy * 1000000.0)
+            bess_opex = bess_capex * 0.015
+            
+        adjusted_capex = (capacity_mwp * capex_per_mwp * grading_multiplier) + bess_capex
+        
+        discounted_costs = adjusted_capex
+        discounted_energy = 0.0
+        
+        for yr in range(1, project_lifetime + 1):
+            degradation = (1.0 - 0.005)**(yr - 1)
+            yearly_gen_kwh = annual_yield_mwh * 1000.0 * degradation
+            yearly_opex = (capacity_mwp * opex_per_mwp_year + bess_opex) * (1.02)**(yr - 1)
+            
+            discounted_costs += yearly_opex / ((1.0 + wacc)**yr)
+            discounted_energy += yearly_gen_kwh / ((1.0 + wacc)**yr)
+            
+        lcoe = discounted_costs / (discounted_energy + 1e-12) if discounted_energy > 0 else 0.0
+        lcoes.append(lcoe)
+        
+    X = np.array(features, dtype=np.float32)
     y_class = np.array(feasibility, dtype=np.float32).reshape(-1, 1)
+    y_reg = np.array(lcoes, dtype=np.float32).reshape(-1, 1)
     
-    # Ground-truth Label 2: Optimized LCOE
-    # Base LCOE RM 0.20, increases with higher slope (civil grading), greater grid distance, and smaller area
-    y_reg = 0.20 + (X[:, 1:2] * 0.005) + (X[:, 3:4] * 0.015) - (X[:, 0:1] * 0.0000002) + (X[:, 4:5] * 0.002)
-    y_reg = np.clip(y_reg, 0.18, 0.65).astype(np.float32)
+    # Clip extreme LCOE outliers for model training stability
+    y_reg = np.clip(y_reg, 0.15, 0.85)
     
-    # Normalize features to mean=0, std=1 for training stability (z-score)
+    # Normalize features using z-score
     X_mean = np.mean(X, axis=0)
-    X_std = np.std(X, axis=0) + 1e-12 # Protect against division by zero
+    X_std = np.std(X, axis=0) + 1e-12
     X_normalized = (X - X_mean) / X_std
     
     # Save normalization constants
     norm_constants = {"mean": X_mean.tolist(), "std": X_std.tolist()}
-    with open(r"C:\Users\lewka\deep_learning\MAIC Nexus Challenge\normalization_constants.json", "w") as f:
+    norm_dest = os.path.join(base_dir, "normalization_constants.json")
+    with open(norm_dest, "w") as f:
         json.dump(norm_constants, f, indent=4)
         
+    print(f"[Success] Processed real-world features and saved normalization constants to: {norm_dest}")
     return X_normalized, y_class, y_reg
 
 
@@ -125,8 +207,8 @@ def train_model():
     models_dir = r"C:\Users\lewka\deep_learning\MAIC Nexus Challenge\models"
     os.makedirs(models_dir, exist_ok=True)
     
-    # 1. Generate and prepare training data
-    X, y_class, y_reg = generate_synthetic_malaysian_solar_data(num_samples=500)
+    # 1. Load real-world grounded training data
+    X, y_class, y_reg = load_real_grounded_malaysian_solar_data()
     
     X_tensor = torch.tensor(X, dtype=torch.float32)
     y_class_tensor = torch.tensor(y_class, dtype=torch.float32)
