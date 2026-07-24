@@ -23,6 +23,7 @@ ENV/
 normalization_constants.json
 *.png
 *.pdf
+!pitch_deck.pdf
 
 # Model weights and checkpoints
 *.pt
