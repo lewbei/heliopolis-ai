@@ -39,8 +39,8 @@ def write_empty_template(path: Path) -> None:
         csv.writer(fp).writerow(COLUMNS)
 
 
-def _num(name: str, value: str, *, integer: bool = False) -> float | None:
-    if not value.strip():
+def _num(name: str, value: str | None, *, integer: bool = False) -> float | None:
+    if value is None or not value.strip():
         return None
     try:
         number = int(value) if integer else float(value)
@@ -63,7 +63,7 @@ def read_pairs(path: Path) -> list[dict[str, Any]]:
     by_case: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         case_id = row["case_id"].strip()
-        if not case_id or any(not row[key].strip() for key in COLUMNS[:11]):
+        if not case_id or any(not (row.get(key) or "").strip() for key in COLUMNS[:10]):
             raise ValueError("Each row needs a case ID and complete source/reference/model metadata.")
         for name, allowed in (
             ("domain", DOMAINS), ("split", SPLITS),
@@ -92,7 +92,7 @@ def read_pairs(path: Path) -> list[dict[str, Any]]:
             raise ValueError(
                 f"{case_id}: require exactly one B0, B1 and H prediction on matched input."
             )
-        for key in ("domain", "split", "source_type", "reference_type", "critical_issue", "input_sha256"):
+        for key in ("domain", "split", "source_type", "reference_type", "critical_issue", "input_sha256", "model_id"):
             if len({r[key] for r in group}) != 1:
                 raise ValueError(f"{case_id}: mismatched {key} across compared methods.")
 
