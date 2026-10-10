@@ -84,3 +84,30 @@ def test_generate_json_uses_client_when_available(monkeypatch):
     result = ocr._generate_json("test prompt", img)
     assert result == {"title_no": "GRN 00001"}
     fake_client.models.generate_content.assert_called_once()
+
+
+
+@pytest.mark.parametrize("kind", ["title", "sld"])
+def test_corrupted_uploaded_image_fails_closed_before_any_network_call(tmp_path, kind):
+    fake = tmp_path / ("invalid-" + kind + ".png")
+    fake.write_bytes(b"not a valid image, definitely not a legal document")
+    with patch.object(ocr, "_generate_json", side_effect=AssertionError("Must not send an invalid image")):
+        parsed = (
+            ocr.parse_land_title_image(fake)
+            if kind == "title" else ocr.parse_sld_image(fake)
+        )
+    assert parsed is None
+
+
+def test_model_failure_logs_error_type_not_confidential_provider_response(capsys, monkeypatch):
+    from PIL import Image
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = RuntimeError(
+        "PRIVATE CUSTOMER TITLE CONTENT SHOULD NOT BE IN LOGS"
+    )
+    monkeypatch.setattr(ocr, "_get_client", lambda: (mock_client, "api_key"))
+    image = Image.new("RGB", (8, 8), color="white")
+    assert ocr._generate_json("test", image) is None
+    log = capsys.readouterr().out
+    assert "PRIVATE CUSTOMER TITLE" not in log
+    assert "RuntimeError" in log
