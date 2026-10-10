@@ -1,72 +1,63 @@
-# Heliopolis-AI — Semifinal 4–5 Minute Judge Demonstration (PROPOSED REVISION)
+# Heliopolis-AI — MAIC Semi-Final Runbook for Latest Nine-Page Pitch
 
-Updated 10 October 2026. A draft for review; no changes to locked judging artifacts without the organizers' permission.
+**Authoritative narrative:** user-supplied nine-page visual PDF, \`Heliopolis_AI_MAIC_20261008_Main_Pitch (2)(1).pdf\`, uploaded 10 October. Original SHA-256: \`d70a11a9a7c0f6a9fb0cd9b15d9e46f2b225e2b172608cac7c11e3c4ad40620d\`.
 
-**One primary product:** preliminary incoming-document checks for Malaysian solar EPC/IPP development analysts, NOT another bankable PV design tool.
+This replaces the ALTERNATE nine-section narrative previously in PR #16. This document is supplementary to the **source-faithful [seven-minute rehearsal script](TOP10_REHEARSAL_SCRIPT_7MIN_DRAFT.md)**. It does not overwrite the user's original designed slide PDF. Confirm exact date/duration and submission lock with organisers: https://www.maicnexus.com/en/faq.
 
-**Timing:** This 4–5-minute sequence is an ALTERNATIVE. A 7-minute/10-slide spoken script dated 8 October also exists; use whichever matches the organizer's announced time limit and the exact deck/build rehearsed. Do not switch stories at the venue.
+## Original deck order (nine images; no change to their message)
 
-## Before the presentation
+1. Cover — Solar project screening for Malaysian teams.
+2. Prepared Perak example — fictional title and SLD, project figures.
+3. Gemini extraction → reviewed inputs → code checks → one report.
+4. The saved 3.21 → 2.00 MWac case; **HOLD FOR EXPERT REVIEW** remains.
+5. Saved illustrative costs: **RM15.94m → RM7.06m** upfront, **−RM9.79m → −RM2.66m** discounted value. **RM4.608m** of the change is attributed to a *prototype storage assumption*, not only capacity.
+6. Existing software and Malaysian consultancy services. Proposed Heliopolis RM3,000/year, not proven buyer willingness to pay.
+7. Malaysian solar developer/consultancy buyer; proposed local licence and matched current-workflow comparison.
+8. Land counsel, electrical reviewer and site survey; proposed process-impact measures, environmental outcomes unmeasured.
+9. One traceable preliminary report; thank you, Wudibei Lab.
 
-- Confirm the official semifinal Participation & Release Agreement and stage review-window dates. Official terms: https://www.maicnexus.com/en/terms
-- Verify the EXACT submitted GitHub/repo/demo URL is publicly accessible to the judges. Private cloud OCR for confidential documents must stay behind authentication, not in a publicly exposed demo.
-- Locally run: pip install -r requirements.txt ; then streamlit run app.py.
-- Set the connection voltage class explicitly to MV for the default larger LSS demo. The default UNKNOWN cannot pass a scoped SLD topology screen.
-- Have a pre-recorded offline synthetic demo if live connectivity fails. No private personal data or hidden API secrets in video.
-- If presenting the older 3.21 to 2.00 MWac / HOLD case, first reproduce its output using that exact older implementation. Public master currently has BESS what-if OFF by default and uses NEEDS_REVIEW, not HOLD. The historical RM4.608m storage cost change was NOT solely due to smaller AC capacity.
-- Do not mix old local 232 Python/API plus 39 frontend test counts with current GitHub master's 186 Python regression tests. Each is tied to different logs/builds and neither measures OCR accuracy.
-- Use the latest PR/repository test result that you have ACTUALLY verified; at draft review 186 offline Python tests passed, not OCR accuracy.
-- If organizer materials are LOCKED, do not replace submitted pitch materials until permission is granted.
+**Never** replace this user-provided main story with the older PR's nine-section alternative, especially its emphasis on a new live LV-protection demonstration in slide 4.
 
-## Timed demonstration (only what currently works)
+## Preflight
 
-| Time | Action | Judge takeaway |
-| --- | --- | --- |
-| 0:00–0:35 | Describe an EPC/IPP analyst receiving land title, electrical SLD and technical assumptions. | One buyer and one narrow pain, not generic AI-for-everything. |
-| 0:35–1:05 | Select an explicitly SYNTHETIC LSS example, MV connection profile and illustrative LSS PPA sensitivity. | Source labels, no claim of government cadastral or actual grid data. |
-| 1:05–1:45 | Open Electrical SLD Graph Audit; separate relay, transformer and grid connected. | Bounded preliminary modeled protection route, never TNB certification. |
-| 1:45–2:15 | Toggle Connect Transformer to Grid OFF, keeping the drawn relay present. | NEEDS_REVIEW: present device does not prove continuous protected path. |
-| 2:15–2:40 | In planning fields, download report JSON and verify grid_path_valid=false and the displayed source/assumptions. | Provenance and safe negative-control behavior. |
-| 2:40–3:05 | Explain that corrupt uploaded scans or missing critical fields fail closed. Optional: set LV profile and show it needs visible inverter anti-islanding evidence even without external transformer. | Useful no-fabricated-clearance result; LV/MV profiles differ. |
-| 3:05–3:35 | Contrast PVcase, Glint and RatedPower: stronger GIS/site/CAD; Heliopolis proposes Malaysian title/SLD dossier review before engineers. | Honest competitive wedge. |
-| 3:35–4:05 | State 3-stage scaling hypothesis: current app, secure private Vertex pilot, account/rule-versioned repeatable dossiers. | Measurable scale, not imaginary nationwide integrations. |
-| 4:05–4:30 | ESG: visible title restrictions/consent review and transparent assumptions; zero verified avoided CO2. Ask for 3–5 consented site pilot. | Impact measurement plan rather than greenwashing. |
+- [ ] Verify the competition portal's exact uploaded PDF and assigned slot. Slide cover says 13 October 2026, but the caption alone is not official scheduling evidence.
+- [ ] Confirm organiser's slide-size/review-lock requirements. The original uploaded file is 5.72 MB; a visually verified nine-page compressed version of 2.21 MB was prepared and provided back to the user. The repo's Matplotlib-generated \`pitch_deck.pdf\` is **only a text derivative**, not the user's original slide design until that PDF is manually replaced.
+- [ ] If demoing the old **HOLD** report, load the **same old application build/data** used to generate those saved screenshots. The current GitHub \`master\` uses \`NEEDS_REVIEW\` and optional BESS off by default. Do NOT claim old cash-flow/Storage results were freshly reproduced by current code.
+- [ ] If old matching app is unavailable, use the prepared screenshots (slides 4–5) and explain explicitly that they are a saved illustrative case.
+- [ ] Confirm any repo/demo link is accessible as submitted. Never commit \`.env\`, credential JSON, real owner identifiers or confidential title images.
+- [ ] Have an offline screenshot fallback. Optional permissioned Vertex OCR must be rehearsed separately and measured field by field.
 
-## Alternative standalone Solar ATAP 30-second explanation
+## Current GitHub master — OPTIONAL Q&A-only negative-control example
 
-The separate **Solar ATAP Monthly** Streamlit page handles explicitly user-provided/synthetic non-domestic one-month import/export energy, MAQ and prior-month Average SMP, with no rollover. This is NOT the same buyer/scheme as a large utility LSS plant, not a full TNB bill, and not a bankable consumer ROI. Do not let this secondary feature dilute the main pitch.
+1. Start \`streamlit run app.py\` on the exact verified code commit.
+2. Select a synthetic representative site and choose an explicit **MV** voltage profile in the sidebar.
+3. Open Electrical SLD Graph Audit; show modeled relay/transformer connected path.
+4. Disable **Connect Transformer to Grid**, leaving relay present. \`NEEDS_REVIEW\` should appear; this is a graph failure, NOT an engineering certification decision.
+5. Verify that the exported JSON graph status matches the displayed result.
+6. Label this as a **different current-code demo**; do not substitute the graph for the user's slide-4 historical HOLD screenshot or attach the 3.21/2.00 financial numbers to it without reproducing identical old assumptions.
 
-## Optional real Vertex AI OCR, only with authorization
+## Hostile-judge short answers
 
-Use a permitted, anonymized actual title or TNB reference drawing and a configured Google Vertex AI project. The upload authorization checkbox allows transmission, but does NOT make public uploading of sensitive owner/NRIC records safe; proper tenancy/security review is separate. Field-by-field compare the Vertex output with original source; do NOT claim model success merely because JSON parsed. Corrupt or unreadable uploaded images MUST produce review/error, not synthetic data.
+**Why not direct Vertex AI?** Vertex provides the candidate visual extraction. Heliopolis adds deterministic share, modeled connection and scenario checks. The incremental accuracy/reviewer-time advantage has not been measured on real held-out examples. The cheapest meaningful baseline is Vertex plus a checklist.
 
-The repository's current OCR inputs are PNG/JPG (no general PDF page ingestion yet). Do not claim a complete metric-only/multi-page land-title extraction pipeline. The public RISDA/TNB reference sample sources are documented in PUBLIC_VERTEX_OCR_DOCUMENT_SOURCES.md, with privacy caveats.
+**What is actually different from PVcase, Glint, RatedPower or local solar consultants?** The hypothesis is one Malaysian incoming dossier report combining title, SLD and early assumptions. Existing competitors have deeper GIS/site, PV design or consultancy capabilities. Do not claim to be the first or only one.
 
-## Harsh-judge Q&A
+**Is HOLD an approval or a legal conclusion?** No. Saved scenario shows questions for title counsel and power-systems review. An independent specialist must clear material decisions.
 
-**Why not direct Gemini?** That may be sufficient. We have a matched B0/B1/H evaluator and need measured critical-error/reviewer-time evidence to justify extra logic. No false accuracy number is claimed.
+**Do the capital-cost bars imply RM8.88m savings?** No. The charts are illustrative, and RM4.608m of the difference comes from the specific prototype storage assumption. Do not attribute the entire change to smaller PV capacity.
 
-**What does PVcase/Glint/ RatedPower already do?** Broad GIS/grid/site search, site design, yield and layout. We do not compete on that depth. We address upstream, uploaded Malaysian title/SLD dossier triage as an evidence-based pilot hypothesis.
+**Does an SLD path prove TNB compliance?** No. Certification, relay settings, external protection requirements and actual drawn connectivity still require qualified review.
 
-**How does this generate money?** A project-development analyst would potentially pay to reduce measured dossier handling and error-remediation costs; no pricing, volume, time savings or paying customer is yet verified.
+**Are three saved synthetic OCR calls an accuracy benchmark?** No. Current repo has offline tests, but independent OCR accuracy and developer time savings remain unmeasured.
 
-**What does an LV graph pass mean?** The modeled path and visible protection label pass bounded checks, not manufacturer's inverter certification, current utility settings or signed electrical approval.
+**What's the commercial offer?** Proposed RM3,000/year local licence to produce accepted-input/review reports. Customers, scope and willingness to pay have not been validated.
 
-**How will 100+ customers use it?** Cloud deployment, scoped Vertex service identity, per-user role control, temporary protected storage, independent review queues and measured cost/latency are a FUTURE plan; no production multi-user scaling has been tested.
+**How will this scale?** Today it is standalone Python/Streamlit; controlled cloud deployment, access/security, reviewer workflows and region-specific rules are proposed pilot stages, not current multi-user production proof.
 
-**What is the ESG benefit?** Earlier possible red flags and record integrity are process benefits to measure. No real solar project has been developed or commissioned by this prototype, so no measurable direct avoided carbon can be attributed today.
+**What is ESG impact?** Earlier review transparency and possible reduced duplicated work are proposed to measure; no verified carbon savings or attributed new solar generation yet.
 
-**Does the 186-pass test prove OCR accuracy?** No. It proves only covered software behaviors under mocked/synthetic/offline conditions.
+## Version / evidence compatibility
 
-**Can Solarvest sign on today?** No established customer partnership or signed agreement. We want a small permissioned evaluation first; the tool is standalone from Solarvest systems.
+The user's nine-page latest visual PDF is NOT the October 7 v8 16-page presentation nor the prior repository's alternate nine-section draft. Use one single source of truth for the on-stage slide order. Older local 232 Python/API + 39 frontend checks and current public master 186 offline tests are separate environments; neither is a field-OCR accuracy rate.
 
-## Final verification checklist
-
-- [ ] Reviewer/Organizer authorizes any updates to submitted locked artifacts.
-- [ ] Exact current submission link accessible without a password and without exposing real personal data.
-- [ ] Test MV demo pass -> disconnect transformer -> NEEDS_REVIEW.
-- [ ] Downloaded SLD status and UI status agree.
-- [ ] If LV demonstrated, generic inverter without explicit anti-islanding evidence remains NEEDS_REVIEW.
-- [ ] Demo clearly says SYNTHETIC when appropriate; live OCR is not pretended.
-- [ ] Latest CI test count and PDF match current branch/commit.
-- [ ] Provide a field evaluation gate and a concrete pilot ask, not a guaranteed Top-10/win claim.
+**Do not quietly alter the user's 9-page visual PDF.** The source image, layout and text remain authoritative; the GitHub markdown and any auto-rendered simple PDF are just readable derivatives.
