@@ -137,7 +137,7 @@ Bring land, electrical and financial checks into **one traceable screening repor
 
 ---
 
-## Presenter/QA notes (not part of the nine source slides)
+## Harsh-judge quick answers / presenter notes (not part of the nine source slides)
 
 The uploaded nine-page PDF is the final visual narrative for the user's MAIC presentation. This text transcription deliberately keeps the supplied deck's HOLD status, storage-assumption disclosure, competitors, RM3,000/year price and closing; it does NOT silently substitute the independent nine-section alternative that previously appeared on PR #16.
 
