@@ -1,130 +1,147 @@
-# Heliopolis-AI — MAIC Nexus T1 Semifinal Pitch
+# Heliopolis-AI — MAIC Nexus T1 Semifinal Pitch (PROPOSED REVISION)
 
-**Positioning:** AI-assisted **preliminary** solar-project screening in Malaysia. Not a legal opinion, professional electrical design, grid approval, or bankable financial recommendation.
+**Positioning:** Independent Malaysian solar-project **pre-investment document triage**: land-title and electrical-drawing extraction, limited deterministic consistency screens and explicit human-review handoff. Not automated permits or bankable feasibility.
 
-**Repository:** https://github.com/lewbei/heliopolis-ai  
-**Demo:** `streamlit run app.py`  
-**Evidence status:** Synthetic/illustrative fixtures and unit tests are available; independent field-validation accuracy, customer adoption and time savings have **not** been established.
+**Repository:** https://github.com/lewbei/heliopolis-ai
+**Demo:** streamlit run app.py
+**Evidence status:** Synthetic fixtures and 186 offline regression tests; real Vertex OCR field accuracy, buyer savings, customer adoption and ESG outcomes remain unverified.
+**Submission caution:** Draft only. Do NOT amend a locked MAIC review submission without prior Organiser authorization.
 
 ---
 
 ## Slide 1 — Opening
 
-### A solar site can look promising until the documents disagree.
+### A promising solar project can fail before engineering even begins.
 
-Project teams reconcile land titles, protection diagrams, land conditions and financial assumptions before making expensive engineering decisions. Heliopolis-AI combines AI document extraction with deterministic checks to flag **issues requiring human review earlier**.
+A Malaysian project analyst receives a land title, an electrical single-line diagram and uncertain site assumptions. One unreadable restriction or misconnected protection path can change the next decision.
 
-**One-line product:** "Preliminary solar-site screening with traceable calculations and explicit uncertainty."
-
----
-
-## Slide 2 — The user's problem
-
-Solar project-development analysts receive different file types, inconsistent fields and site assumptions. A wrong land area, overlooked encumbrance, omitted protection relay or unsuitable financing scheme can change an early screening decision.
-
-**Pilot hypothesis — not a validated fact:** structured extraction plus auditable checks can reduce manual reconciliation and help identify problems earlier. Time saved and false-clearance rates must be measured on real, permitted project documents.
+**Our wedge:** Heliopolis-AI turns incoming project documents into a structured PRELIMINARY issue review, not an approval or a new solar plant design tool.
 
 ---
 
-## Slide 3 — System architecture
+## Slide 2 — The document bottleneck
 
-```text
-Uploaded land title / electrical SLD
-                |
-        Gemini Vision extraction
-                |
-  Schema checks + missing-field detection
-                |
-  +-------------+-------------------+
-  |             |                   |
-Title/share   SLD graph        Terrain + finance
-arithmetic    connectivity      assumptions
-  |             |                   |
-  +-------------+-------------------+
-                |
-      PRELIMINARY SCREENING
-       - findings and caveats
-       - source/fixture provenance
-       - needs-human-review conditions
-```
+### The user is an EPC or IPP project-development analyst.
 
-**AI's exact role:** multimodal perception. **Python's role:** unit conversions, ownership share sums, topology traversal, yield/cash-flow arithmetic. No trained Heliopolis foundation model is claimed.
+Problem: Title areas and co-owner shares disagree; an electrical SLD omits or disconnects equipment; historic and current solar programme rates are confused.
+
+Existing GIS and PV design tools do much more sophisticated engineering. Our narrower question is: **Can these incoming documents be screened consistently before paying for full legal and engineering review?**
+
+**Hypothesis only:** fewer critical mistakes and less reconciliation work. Real savings require a matched pilot.
 
 ---
 
-## Slide 4 — Product demonstration: three outcomes
+## Slide 3 — Exactly what AI and Python do
 
-1. **Clearly labeled synthetic scenario:** show the input, selected finance scenario, numerical outputs, SLD topology and review notes.
-2. **Faulty SLD:** a present-but-disconnected protection relay must yield `NEEDS_REVIEW` rather than a confident grid-compliance claim.
-3. **Failed extraction:** missing Gemini credentials, unreadable legal restrictions or malformed SLD geometry must **stop** the uploaded-document assessment, not silently produce a compliant demo fixture.
+1. INPUT: uploaded title/SLD image or clearly synthetic demo; user-entered project assumptions. Cloud transfer requires authorization.
+2. VERTEX AI GEMINI: extract visible title fields, symbols and wire geometry. We have not trained our own OCR model.
+3. DETERMINISTIC VALIDATORS: area/share/restriction checks, LV/MV drawing-path checks, qualified grid and financial sensitivities.
+4. OUTPUT: source-labelled issue and assumption report, human-review flag and JSON export.
 
-The demonstration is **not** a live Malaysian land-office or TNB integration.
-
----
-
-## Slide 5 — Engineering scope and limits
-
-- **Land:** preliminary field and owner-share consistency; no claim that 51% share automatically authorizes lease execution.
-- **SLD:** check modeled PV -> inverter -> anti-islanding relay -> transformer -> grid connectivity. A graph pass is **not** a TNB approval, relay-settings study or electrical certification.
-- **Terrain:** generated elevation profiles are synthetic, not surveyed or lidar-derived project terrain.
-- **Finance:** CAPEX, loss factors, PPA/offset rates, WACC and yield assumptions are scenario inputs, not bankable quotes.
-- **BESS/grid:** simple AC-MW / upstream-MVA ratio is a sensitivity screen, not a load-flow study or mandatory 15% battery trigger.
+Corrupt or incomplete uploaded evidence must not fall back to a passing synthetic project. Extracted labels are still unverified until a human compares them with the source.
 
 ---
 
-## Slide 6 — Regulations matter: do not mix schemes
+## Slide 4 — Three reproducible demo outcomes
 
-**LSS PPA:** standalone **illustrative** utility-scale economic sensitivity (no signed PPA, validated yield or bankable result), subject to applicable procurement and connection requirements.
+1. SYNTHETIC project: show title fields, assumptions, selected LSS PPA sensitivity and the LV drawing graph.
+2. NEGATIVE CONTROL: remove the LV anti-islanding label or disconnect the inverter-to-grid path. Expected output: NEEDS_REVIEW, not certified TNB approval.
+3. FAILED uploaded image: malformed or missing critical fields fail closed and offer a review report, not a fake connected circuit.
 
-**Historical NEM NOVA:** the published quota offer period ended 30 June 2025 (or once allocated). This is a historical tariff reference, not a current application. With no customer consumption/export profile, Heliopolis withholds NPV/IRR rather than extrapolate 10-year offsets across 21 years.
-
-**Solar ATAP (2026):** a non-domestic **capacity-only precheck** is provided; a complete electricity-offset/financial model is **not implemented**. The published non-domestic rule caps inverter output at **1 MW** and **100% of consumer maximum demand**; export-credit arrangement is **10 years**, followed by self-consumption without export offsets. Do **not** present the example ~5.9 MWac system as Solar ATAP eligible. Actual offsets require load/export profiles and verified tariff components.
-
-**Authorities:** 
-- https://www.seda.gov.my/reportal/atap/solaratap-general/
-- https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/
-- https://www.seda.gov.my/reportal/nem/
+**Show:** the displayed graph's verdict and the downloaded JSON must agree. Do not imply an actual TNB drawing has been validated by Vertex in this offline run.
 
 ---
 
-## Slide 7 — Evidence, not inflated benchmarks
+## Slide 5 — Difference from existing solar software
 
-What exists: an executable Python/Streamlit prototype, automated tests, negative-control fixtures and an ATAP capacity-only screen; NOVA/self-consumption ROI is withheld without load/tariff evidence. The repo's CI runs tests and performs Python compilation.
+**PVcase Prospect / Glint Solar:** strong site, parcel, grid and environmental screening. We do not claim better GIS or substation capacity data.
 
-What is **not** yet demonstrated: field OCR accuracy on held-out legal records, SLD error rates on real drawings, time savings against a manual process, utility validation, Solarvest partnership, or revenue.
+**RatedPower:** deeper PV layout, energy yield, CAPEX and electrical design. Heliopolis is NOT a competing bankable engineering design engine.
 
-**Next empirical pilot:** 3–5 consented real projects, blinded expert labels, comparison with direct Gemini extraction and ordinary spreadsheet checks, measurement of correction time, false-clearance rate, abstention, accuracy and latency. Do not score "needs review" as a verified negative.
+**OpenSolar:** installation design, proposals and sales workflows. Our primary buyer is the upstream dossier-review analyst.
 
----
-
-## Slide 8 — Customer and commercial validation
-
-Potential users: solar EPC project developers, IPPs and due-diligence analysts.
-
-**Starting integration:** project-development analyst uploads title/SLD and enters proposed technical assumptions, receives a preliminary issue report before engaging a surveyor, conveyancing lawyer and power-systems engineer.
-
-**Proposed business model (unvalidated):** enterprise screening/workflow subscription or integration. Test willingness to pay and time saved during a pilot. Do not claim signed customer contracts.
+**Direct Vertex AI plus checklist:** our hardest baseline. The unproven added value is whether specific graph and consistency checks reduce critical false clearances at useful reviewer coverage. Benchmark this rather than claiming to be world's first.
 
 ---
 
-## Slide 9 — Final ask
+## Slide 6 — Technical and regulatory boundaries
 
-We seek an industry pilot partner to validate the accuracy and decision value of preliminary screening on 3–5 real Malaysian solar projects. The pilot will define measurable go/no-go criteria before adding registry integration or automatic application drafting.
+LAND: owner-share arithmetic is not lease authority. Caveats, charges and Malay Reserve need professional/local review.
 
-**Closing:** "Heliopolis-AI does not replace the engineers. It makes early assumptions visible, repeatable and reviewable."
+SLD: LV can show PV -> inverter -> switch/meter -> grid without a separate drawn relay/transformer; drawn anti-islanding evidence still needs verification. MV uses a stricter modeled path. Neither is grid approval.
+
+LSS: illustrative PPA yield and NPV, not a signed contract or surveyed terrain.
+
+SOLAR ATAP 2026: a SEPARATE non-domestic one-month energy-only page models MAQ, prior-month SMP and credit forfeiture. It is not a complete TNB bill, eligibility certification or 21-year ROI.
+
+---
+
+## Slide 7 — Evidence: what passed and what has not
+
+**Implemented:** functioning Streamlit/Python prototype, source-labelled synthetic examples, negative controls, separate consumer monthly screen. Latest confirmed master run: 186/186 offline Python tests, synthetic-report checks and Streamlit smoke.
+
+**Not yet demonstrated:** representative real Vertex OCR accuracy; matched B0 direct AI / B1 simple rules / H Heliopolis advantage; measured analyst minutes, actual API cost, customer adoption or independent utility/legal outcomes.
+
+**Next kill test:** a few permitted, independently annotated real titles and LV diagrams. Report false-clearance rate, abstention/coverage, correction time and cost. A negative result is still an honest result.
+
+---
+
+## Slide 8 — Who pays, and how it scales
+
+**Initial buyer:** small/mid-sized Malaysian EPC or IPP project-development analyst reviewing incoming document packs. Start as a reviewer-assist tool, not a permit-filing robot.
+
+**Value hypothesis:** measured packs per month x corrected analyst hours per pack, minus actual Vertex, compute, storage and human-review costs. Pricing and time savings have NOT been validated.
+
+**Scale plan:** current offline prototype -> controlled cloud pilot with Vertex service identity, restricted documents and per-file limits -> versioned state/scheme checks and independent customer accounts. No live e-Tanah integration, production multi-tenancy or cross-border compliance is claimed today.
+
+---
+
+## Slide 9 — ESG, safeguards, and the ask
+
+**E:** identify potentially unsuitable or sensitive-site evidence early; actual carbon avoidance is UNMEASURED. A site screened by software is not renewable energy generated.
+
+**S:** surface co-owner/land rights and restriction flags for professional review. Require document-upload authorization and protect personal identifiers.
+
+**G:** display provenance, rule assumptions, audit findings and NEEDS_REVIEW rather than a false legal or TNB clearance.
+
+**ASK:** One consented 3–5-site pilot with independent engineering/legal reviewers, one interested development analyst and a matched baseline. Measure false clearances, coverage, correction time, unit cost and willingness to pay BEFORE expansion.
+
+**Closing:** Make solar due-diligence mistakes visible earlier. Do not pretend engineers or land offices have been replaced.
 
 ---
 
 ## Harsh-judge quick answers
 
-**Q: What is AI here?** Gemini Vision extracts unstructured fields and diagram geometry; deterministic code checks those outputs. We do not call fixed calculations "AI inference".
+**Q: Other companies already screen solar sites. What is different?** We target Malaysian incoming title/SLD document review before detailed engineering, not a superior GIS, CAD or bankable yield engine. Incremental value still needs comparative measurement.
 
-**Q: Can it legally approve a title?** No. It reports preliminary flags. Owner shares cannot prove legal authority to lease an entire lot.
+**Q: Why not use Vertex AI with a spreadsheet?** That is our B0/B1 comparison; the graph and consistency layer must earn its cost by reducing critical wrong clearances and reviewer effort.
 
-**Q: Does a green electrical graph mean TNB compliance?** No. It means only that the modeled drawing passes specific path checks; protection settings, utility studies, and approvals remain external.
+**Q: Why call this AI?** Vertex AI Gemini performs optional multimodal OCR. Python performs the deterministic screening. We do not own or retrain the foundation model.
 
-**Q: How accurate is real OCR?** Not enough evidence yet. Unit-test success does not quantify production document accuracy.
+**Q: Does a green LV path establish TNB compliance?** No. It means a limited modeled connectivity/visible-label check passed. Inverter certification, settings, metering and commissioning are not checked.
 
-**Q: Are the 500 sites real?** No. They are representative synthetic site fixtures. Weather figures and tariffs also require source-appropriate verification.
+**Q: Are the 500 sites a real Malaysian database?** No. They are explicitly SYNTHETIC scenarios and cannot be used as field-accuracy evidence.
 
-**Q: Why invest in this?** Only if a controlled field pilot demonstrates lower review effort with an acceptable false-clearance rate and practical deployment costs.
+**Q: Your code passed 186 tests; what is real OCR accuracy?** Not established. Offline unit/regression tests cannot establish real-world Vertex extraction performance or time savings.
+
+**Q: How many paying clients or saved analyst hours?** No confirmed paying clients or measured time savings yet. The proposed pilot is to determine those values.
+
+**Q: How many tonnes of CO2 has your software saved?** Zero VERIFIED or attributable avoided tonnes so far. ESG process outcomes will be measured separately from actual installed solar generation and the relevant emissions counterfactual.
+
+**Q: Can this run on GitHub Pages without a server?** No; Streamlit and Vertex use Python and require a server. A proposed Cloud Run deployment is not currently claimed to be live.
+
+**Q: What about state-specific laws and sensitive documents?** Each Malaysian state/scheme needs evidence-based, versioned rules and expert review. No private titles are publicly posted and real data transfer needs authorization.
+
+**Q: What will make you commercially viable?** Measured case volumes, lower error-adjusted review cost and willingness to pay. If Heliopolis adds no value over a direct Vertex plus checklist baseline, narrow or stop the concept.
+
+### References for technical judging (not evidence of Heliopolis performance)
+
+- https://www.maicnexus.com/en/terms
+- https://pvcase.com/de-risk-site-selection-solar-feasibility
+- https://www.glintsolar.com/land-screening-eu
+- https://ratedpower.com/platform/
+- https://www.opensolar.com/pro/
+- https://www.seda.gov.my/reportal/atap/
+- https://myenergystats.st.gov.my/documents/d/guest/grid-emission-factor-gef-in-malaysia-2022-2024-provisional-
+- https://ghgprotocol.org/blog/inventory-and-project-accounting
+- https://github.com/lewbei/heliopolis-ai/blob/master/qrspi/TOP10_COMPETITORS_SCALE_ESG_2026.md
