@@ -54,6 +54,15 @@ The [paired B0/B1/Heliopolis evaluation harness](benchmark_evidence.py) computes
 
 Refer to [the evaluation runbook](qrspi/BENCHMARK_RUNBOOK.md). There is no real-document accuracy, speedup or commercial traction claim from the synthetic unit tests.
 
+### Verify live OCR only with authorized source images
+
+The app requires permission before transmitting uploaded title/SLD images to Google. For a privacy-preserving local test, run:
+
+    python verify_live_ocr.py --title /approved/local/title.png --confirm-cloud-processing
+
+Or use the SLD variant. The script refuses missing authorization/credentials and emits **sanitized outcome metadata only**. The actual extraction still needs a human reviewer to compare all fields against the original. Read the [live OCR and privacy runbook](qrspi/LIVE_OCR_RUNBOOK.md). **No live Gemini accuracy or field validation has been performed in this repository.**
+
+
 ---
 
 ## 🚀 The Core Innovation: Neural-Symbolic Hybrid Design
