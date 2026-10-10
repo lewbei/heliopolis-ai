@@ -230,3 +230,33 @@ def test_tnb_appendix_b_lv_route_with_switch_and_pv_meter_is_not_mv_path():
     assert lv["transformer_count"] == 0
     mv = SLDTopologyResolver().validate_tnb_compliance(g, connection_profile="MV")
     assert mv["preliminary_topology_status"] == "NEEDS_REVIEW"
+
+
+
+def test_extracted_lv_switch_and_meter_boxes_form_connected_graph():
+    """Check the real bbox/wire path logic, not only a hand-built NetworkX graph."""
+    symbols = [
+        {"id": "PV", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
+        {
+            "id": "INV", "class": "Inverter", "bbox": [100, 400, 200, 500],
+            "integrated_anti_islanding_label": True,
+            "anti_islanding_source_text": "Anti-islanding inverter",
+        },
+        {"id": "AC", "class": "AC_Switch", "bbox": [100, 700, 200, 800]},
+        {"id": "METER", "class": "PV_Meter", "bbox": [100, 1000, 200, 1100]},
+        {"id": "GRID", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]},
+    ]
+    lines = [
+        ((200, 150), (400, 150)),
+        ((500, 150), (700, 150)),
+        ((800, 150), (1000, 150)),
+        ((1100, 150), (1300, 150)),
+    ]
+    graph = SLDTopologyResolver().resolve(
+        symbols, lines, connection_profile="LV"
+    )
+    assert nx.has_path(graph, "PV", "GRID")
+    assert list(graph.edges()) == [
+        ("PV", "INV"), ("INV", "AC"), ("AC", "METER"), ("METER", "GRID"),
+    ]
+    assert graph.graph["tnb_compliance"]["preliminary_topology_status"] == "PRELIMINARY_TOPOLOGY_PASS"
