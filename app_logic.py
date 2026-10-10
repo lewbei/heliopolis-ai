@@ -233,7 +233,7 @@ def build_maic_pitch_source_sld():
         "005f7bad7133e41c4fce758c73682486b6a4f5fc5365de76b62eae01d55f9246"
     )
     graph.graph["tnb_compliance"]["findings"].append(
-        "Original synthetic pitch shows a separate anti-islanding AUXILIARY sensing/control "
+        "Original synthetic pitch shows an auxiliary anti-islanding sensing/control "
         "relay branch. Its protective function is NOT established by the "
         "main PV-to-inverter-to-transformer-to-grid power route."
     )
