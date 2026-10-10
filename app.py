@@ -689,15 +689,12 @@ with tabs[3]:
     st.markdown('<div class="brand-name" style="margin-bottom: 0.5rem;">Preliminary SEDA / TNB Planning Fields (Not a Filed Application)</div>', unsafe_allow_html=True)
     st.markdown('<div style="font-size: 0.8rem; margin-bottom: 1.25rem;">These are indicative planning fields only; actual filing, eligibility and grid requirements require qualified review.</div>', unsafe_allow_html=True)
 
-    # Patch values from sidebar
+    # Canonical planning fields come from land_meta; do not override an
+    # OCR-extracted title/location with stale sidebar or hard-coded Perak values.
     seda = manifest.seda_application
     tnb = manifest.tnb_grid_request
-    seda.Part_B_Site_Title_Number = in_title
-    seda.Part_B_Site_Lot_Number = in_lot
-    seda.Part_B_Mukim_Daerah_Negeri = f"Mukim Asam Kumbang, Larut dan Matang, {in_state}"
-    seda.Part_C_Proposed_DC_Capacity_kWp = float(feasibility.capacity_mwp * 1000.0)
-    seda.Part_C_Proposed_AC_Capacity_kWac = float(in_ac_capacity * 1000.0)
-    seda.Part_D_PPA_Tariff_Rate_RM_kWh = float(feasibility.ppa_tariff_rm_kwh)
+    atap_screen = manifest.solar_atap_precheck
+    study = manifest.nemas_checklist
 
     col_man_left, col_man_right = st.columns(2)
 
@@ -705,25 +702,25 @@ with tabs[3]:
         # SEDA Form Part A & B
         st.markdown(f"""
         <div class="card">
-            <div class="card-title">SEDA Rakyat Net Energy Metering (NEM / NOVA) Request</div>
-            <div class="card-subtitle">Form Pre-Fill Part A, B, C & D</div>
+            <div class="card-title">Preliminary Scheme Planning Data (Not a SEDA Application)</div>
+            <div class="card-subtitle">Source-preserving input summary, not an official form</div>
             <table class="data-table">
                 <tbody>
                     <tr>
                         <td style="width: 40%;">Part A: Applicant Corporate Name</td>
-                        <td><strong>{seda.Part_A_Applicant_Name}</strong></td>
+                        <td><strong>{html_escape(seda.Part_A_Applicant_Name)}</strong></td>
                     </tr>
                     <tr>
                         <td>Part A: SSM Company No</td>
-                        <td><code>{seda.Part_A_Company_Registration}</code></td>
+                        <td><code>{html_escape(seda.Part_A_Company_Registration)}</code></td>
                     </tr>
                     <tr>
                         <td>Part B: Registered Title Reference</td>
-                        <td><strong>{seda.Part_B_Site_Title_Number} ({seda.Part_B_Site_Lot_Number})</strong></td>
+                        <td><strong>{html_escape(seda.Part_B_Site_Title_Number)} ({html_escape(seda.Part_B_Site_Lot_Number)})</strong></td>
                     </tr>
                     <tr>
                         <td>Part B: Site Mukim & State</td>
-                        <td><strong>{seda.Part_B_Mukim_Daerah_Negeri}</strong></td>
+                        <td><strong>{html_escape(seda.Part_B_Mukim_Daerah_Negeri)}</strong></td>
                     </tr>
                     <tr>
                         <td>Part C: Proposed DC Capacity</td>
@@ -734,8 +731,8 @@ with tabs[3]:
                         <td><strong>{seda.Part_C_Proposed_AC_Capacity_kWac:,.2f} kWac</strong></td>
                     </tr>
                     <tr>
-                        <td>Part D: Proposed PPA Tariff Rate</td>
-                        <td><strong>RM {seda.Part_D_PPA_Tariff_Rate_RM_kWh:.4f} / kWh (LCOE-based)</strong></td>
+                        <td>Illustrative Model Tariff / Offset Assumption</td>
+                        <td><strong>RM {seda.Part_D_PPA_Tariff_Rate_RM_kWh:.4f} / kWh (not a signed tariff or LCOE)</strong></td>
                     </tr>
                 </tbody>
             </table>
@@ -745,29 +742,29 @@ with tabs[3]:
         # TNB Grid Connection Specs
         st.markdown(f"""
         <div class="card">
-            <div class="card-title">TNB Medium-Voltage Grid Connection Specs</div>
-            <div class="card-subtitle">Grid Parallel Interconnection Filing Requirements</div>
+            <div class="card-title">Connection Assumptions (Not a TNB Design)</div>
+            <div class="card-subtitle">Connection class is selected by user; exact voltage and PCC are unverified</div>
             <table class="data-table">
                 <tbody>
                     <tr>
                         <td style="width: 40%;">Interconnection Voltage Level</td>
-                        <td><strong>{tnb.Interconnection_Voltage_Level_kV:.1f} kV (Medium Voltage)</strong></td>
+                        <td><strong>Not engineered; selected class: {html_escape(study.voltage_class)}</strong></td>
                     </tr>
                     <tr>
                         <td>Total Generation Capacity</td>
                         <td><strong>{(seda.Part_C_Proposed_AC_Capacity_kWac / 1000.0):.2f} MWac</strong></td>
                     </tr>
                     <tr>
-                        <td>Inverter Compliance Standards</td>
+                        <td>Standards to verify (not certified)</td>
                         <td><strong>{", ".join(tnb.Inverter_Compliance_Standards)}</strong></td>
                     </tr>
                     <tr>
                         <td>Point of Common Coupling (PCC)</td>
-                        <td><strong>{tnb.Point_of_Common_Coupling}</strong></td>
+                        <td><strong>{html_escape(tnb.Point_of_Common_Coupling)}</strong></td>
                     </tr>
                     <tr>
-                        <td>Sized Transformer Capacity</td>
-                        <td><strong>{(seda.Part_C_Proposed_AC_Capacity_kWac / 1000.0 * 1.25):.2f} MVA</strong></td>
+                        <td>Transformer Capacity</td>
+                        <td><strong>To be determined by qualified engineering design</strong></td>
                     </tr>
                 </tbody>
             </table>
@@ -780,8 +777,9 @@ with tabs[3]:
         nemas = manifest.nemas_checklist
         study_label = nemas.assessment_type.replace("_", " ")
         nemas_fee_text = (
-            f"RM {nemas.estimated_regulatory_fee_rm:,.2f}"
-            if nemas.is_nemas_required else "Not established / scheme dependent"
+            f"RM {nemas.estimated_regulatory_fee_rm:,.2f} (historical NOVA reference only)"
+            if nemas.estimated_regulatory_fee_rm is not None
+            else "Unknown / not applicable / requires specific study"
         )
         study_notes = "".join(
             f'<div class="checklist-item"><span class="checklist-dot" style="background: var(--amber);"></span>{note}</div>'
@@ -795,7 +793,8 @@ with tabs[3]:
                 <tbody>
                     <tr><td>Proposed AC Capacity</td><td>{in_ac_capacity * 1000:,.1f} kWac</td></tr>
                     <tr><td>Study Classification</td><td>{study_label}</td></tr>
-                    <tr><td>Indicative Published Study Fee</td><td>{nemas_fee_text}</td></tr>
+                    <tr><td>Connection Voltage Class</td><td>{nemas.voltage_class} (assumed)</td></tr>
+                    <tr><td>Published Historical Fee Reference</td><td>{nemas_fee_text}</td></tr>
                     <tr><td>Processing Time</td><td>Not verified</td></tr>
                 </tbody>
             </table>
@@ -803,7 +802,14 @@ with tabs[3]:
         </div>
         """, unsafe_allow_html=True)
         if nemas.source_url:
-            st.caption(f"Fee/assessment reference: {nemas.source_url} (scheme and voltage applicability must be verified).")
+            st.caption(f"Study reference: {nemas.source_url} — {nemas.source_version}. Historical data do not establish a current application right.")
+        if atap_screen:
+            st.markdown("#### Solar ATAP: capacity-only precheck (NOT a financial simulation)")
+            if atap_screen.status == "CAPACITY_SCREEN_ONLY_FURTHER_REVIEW_REQUIRED":
+                st.info("Capacity is within the stated cap/maximum-demand limits, but eligibility and electrical assessment remain unverified.")
+            else:
+                st.warning(f"ATAP precheck: {atap_screen.status.replace('_', ' ').lower()}.")
+            st.caption("Export offsets only within the initial 10-year programme term; customer load and credits are NOT modeled.")
 
         # Download button
         report_payload = {
@@ -812,6 +818,18 @@ with tabs[3]:
             "data_provenance": {**assessment["data_provenance"], "sld": g.graph.get("source_type", "SYNTHETIC_DEMO")},
             "sld_topology_screen": g.graph.get("tnb_compliance", {}),
             "regulatory_study": manifest.nemas_checklist.model_dump(),
+            "regulatory_planning_fields": {
+                "seda": manifest.seda_application.model_dump(),
+                "tnb": manifest.tnb_grid_request.model_dump(),
+            },
+            "solar_atap_capacity_only_precheck": (
+                manifest.solar_atap_precheck.model_dump() if manifest.solar_atap_precheck else None
+            ),
+            "ocr_status": {
+                "title": "OCR_EXTRACTED_UNVERIFIED" if land_meta.source_type == "OCR_EXTRACTED_UNVERIFIED" else "NOT_USED",
+                "sld": "OCR_EXTRACTED_UNVERIFIED" if g.graph.get("source_type") == "OCR_EXTRACTED_UNVERIFIED" else "NOT_USED",
+                "model": "Gemini (GEMINI_MODEL configured; see server logs)" if (title_image_path or sld_image_path) else None,
+            },
             "land_title_analysis": {
                 "title_no": land_meta.title_no, "lot_no": land_meta.lot_no, "state": land_meta.state,
                 "area_hectares": hectares, "area_sq_meters": sq_meters,
