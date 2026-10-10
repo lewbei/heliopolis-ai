@@ -120,12 +120,14 @@ class OwnerModel(BaseModel):
     calculated_share_float: float = Field(description="Decimal value of the fractional share.")
 
 class PowerOfAttorneyModel(BaseModel):
-    is_poa_required: bool = Field(description="True if no single owner holds a controlling >50% stake.")
-    min_co_owners_needed: int = Field(description="Minimum number of co-owners that must co-sign to exceed 51% controlling interest.")
-    required_deeds: List[str] = Field(default=[], description="List of legal instruments required for joint land lease.")
+    # Legacy field name retained for compatibility: true means review *possible*
+    # POA / joint execution needs, not a legal conclusion that POA is mandatory.
+    is_poa_required: bool = Field(description="Multiple proprietors require professional coordination review; not a POA determination.")
+    min_co_owners_needed: int = Field(description="Number of registered proprietors shown; not a valid signature threshold.")
+    required_deeds: List[str] = Field(default_factory=list, description="Items for solicitor review, not mandatory instruments.")
 
 class LegalAssessmentModel(BaseModel):
-    status: str = Field(description="Zoning or transaction suitability: 'Approved', 'Flagged/Risky', or 'Rejected'.")
+    status: str = Field(description="Preliminary review flag: Needs Legal Review or Flagged/Risky; never legal approval.")
     findings: List[str] = Field(default=[], description="List of administrative or legal issues found on the land title.")
     poa_compliance: PowerOfAttorneyModel
 
@@ -158,7 +160,7 @@ class TerrainProfileModel(BaseModel):
     grading_capex_premium_multiplier: float = Field(description="CAPEX multiplier adjustment for civil earthworks.")
 
 class BESSRecommendationModel(BaseModel):
-    is_bess_required: bool = Field(description="True if PV capacity exceeds 15% of upstream TNB substation capacity.")
+    is_bess_required: bool = Field(description="True only if independent engineering evidence establishes mandatory BESS; heuristic alone must not mandate storage.")
     recommended_battery_power_mw: float = Field(description="Recommended Battery Energy Storage System (BESS) power rating (MW).")
     recommended_battery_capacity_mwh: float = Field(description="Recommended BESS capacity for peak shaving (MWh).")
     estimated_bess_capex_rm: float = Field(description="Estimated extra BESS capital expenditure (RM).")
@@ -167,7 +169,7 @@ class BESSRecommendationModel(BaseModel):
 class GridCapacityValidationModel(BaseModel):
     upstream_substation_capacity_mva: float = Field(description="Rated capacity of local TNB substation (MVA).")
     substation_injection_percent: float = Field(description="Ratio of peak AC solar output to substation capacity.")
-    reverse_power_risk: str = Field(description="Grid risk classification: 'Negligible', 'Moderate', or 'Severe'.")
+    reverse_power_risk: str = Field(description="Heuristic review flag, not a utility load-flow or reverse-power protection assessment.")
     bess_specification: BESSRecommendationModel
 
 class TechnicalFeasibilityModel(BaseModel):
@@ -185,12 +187,15 @@ class TechnicalFeasibilityModel(BaseModel):
     grid_capacity_audit: GridCapacityValidationModel
 
 class NEMASChecklistSchema(BaseModel):
-    is_nemas_required: bool = Field(description="True if proposed AC capacity exceeds 72 kWac.")
+    is_nemas_required: bool = Field(description="Legacy flag for scenario-specific historical study rule; not blanket NEMAS or permission.")
     voltage_rise_study_required: bool = Field(description="True if AC generation can trigger local grid overvoltage.")
-    estimated_regulatory_fee_rm: float = Field(description="Estimate of TNB/SEDA assessment study fees.")
+    estimated_regulatory_fee_rm: Optional[float] = Field(default=None, description="Published *reference* fee in RM, or None when not verified/applicable.")
     estimated_processing_days: Optional[int] = Field(default=None, description="Estimated calendar days, or None if not supported by evidence.")
     assessment_type: str = Field(default="UNCONFIRMED", description="Applicable connection study, not a permit.")
     source_url: str = Field(default="", description="Scheme-specific reference used for study fees.")
+    source_version: str = Field(default="", description="Document period/version for cited study rules.")
+    voltage_class: str = Field(default="UNKNOWN", description="EXPLICIT LV/MV/HV/UNKNOWN input, never inferred from MW size.")
+    study_applicability_known: bool = Field(default=False, description="Whether scenario + voltage selection are sufficient for preliminary historical study lookup.")
     eligibility_notes: List[str] = Field(default_factory=list, description="Requirements needing independent confirmation.")
     mandatory_technical_studies: List[str] = Field(default=[], description="List of engineering studies required for grid filing.")
 
@@ -206,16 +211,26 @@ class SEDAApplicationSchema(BaseModel):
 
 class TNBConnectionSchema(BaseModel):
     Applicant_Company: str
-    Interconnection_Voltage_Level_kV: float
+    Interconnection_Voltage_Level_kV: Optional[float] = None
     Total_Generation_Capacity_MWac: float
     Inverter_Compliance_Standards: List[str]
     Point_of_Common_Coupling: str
-    Transformer_Capacity_MVA: float
+    Transformer_Capacity_MVA: Optional[float] = None
+
+class SolarATAPPrecheck(BaseModel):
+    status: str = Field(description="Preliminary capacity screen; not programme eligibility or approval.")
+    capacity_kwac: float
+    maximum_demand_kw: Optional[float] = None
+    limit_kwac: float = 1000.0
+    export_offset_max_years: int = 10
+    notes: List[str] = Field(default_factory=list)
+
 
 class RegulatoryFilingManifest(BaseModel):
     seda_application: SEDAApplicationSchema
     tnb_grid_request: TNBConnectionSchema
     nemas_checklist: NEMASChecklistSchema
+    solar_atap_precheck: Optional[SolarATAPPrecheck] = None
 
 
 # --- Specialized Parsing & Analysis Modules ---
@@ -254,10 +269,7 @@ class ImageOrientationCorrector:
 
 
 class LandTitleParser:
-    """
-    Simulates high-precision, layout-aware legal OCR and text analysis of Malaysian Land Titles (Geran),
-    complying with the National Land Code (NLC / Kanun Tanah Negara) 1965.
-    """
+    """Preliminary document-field screening; not NLC legal compliance or title clearance."""
     @staticmethod
     def convert_imperial_to_metric(acres: float, roods: float, poles: float) -> tuple[float, float]:
         """
@@ -283,6 +295,19 @@ class LandTitleParser:
             return float(f_clean)
         except ValueError:
             return 0.0
+
+    @staticmethod
+    def parse_fraction_strict(value: str) -> float:
+        """Reject unknown, invalid, nonfinite or out-of-range ownership fractions."""
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("missing owner share")
+        try:
+            parsed = LandTitleParser.parse_fraction(value)
+        except (TypeError, ValueError, ZeroDivisionError, OverflowError) as exc:
+            raise ValueError("invalid owner share") from exc
+        if not np.isfinite(parsed) or not (0.0 < parsed <= 1.0):
+            raise ValueError("owner share must be between 0 and 1")
+        return parsed
 
     @classmethod
     def _convert_metric_to_imperial(cls, area_sq_meters: float) -> str:
@@ -407,8 +432,8 @@ class LandTitleParser:
         poa = cls._compute_poa(owners)
         legal = cls._compute_legal_assessment(zoning, has_caveats, has_charges, is_malay_reserve, poa)
 
-        project_company_name = site_data.get("project_company_name", "Solarvest Development Sdn Bhd")
-        project_company_reg_no = site_data.get("project_company_reg_no", "1234567-U")
+        project_company_name = site_data.get("project_company_name", "Synthetic demo developer (not registered)")
+        project_company_reg_no = site_data.get("project_company_reg_no", "SYNTHETIC-NOT-SSM")
 
         return LandTitleMetadata(
             source_type=site_data.get("source_type", "SYNTHETIC_DEMO"),
@@ -451,6 +476,21 @@ class LandTitleParser:
         if not all(np.isfinite(x) and x >= 0 for x in area) or area[1] >= 4 or area[2] >= 40:
             raise DocumentReviewRequired("Land-area fields are invalid or contradictory.")
         hectares, sq_meters = cls.convert_imperial_to_metric(*area)
+        # When the scanned title contains both imperial and metric statements,
+        # reject contradictory extraction rather than silently choose one.
+        for key, expected in (
+            ("area_hectares_stated", hectares),
+            ("area_sq_meters_stated", sq_meters),
+        ):
+            stated = data.get(key)
+            if stated is not None:
+                try:
+                    actual = float(stated)
+                except (TypeError, ValueError, OverflowError) as exc:
+                    raise DocumentReviewRequired(f"Unreadable {key}; verify area on original title.") from exc
+                tolerance = max(1.0 if key.endswith("sq_meters_stated") else 0.0001, expected * 0.01)
+                if not np.isfinite(actual) or actual <= 0 or abs(actual - expected) > tolerance:
+                    raise DocumentReviewRequired("Imperial and metric area statements contradict; check original title.")
         if sq_meters <= 0:
             raise DocumentReviewRequired("Land area is zero; cannot assess this site.")
 
@@ -466,7 +506,7 @@ class LandTitleParser:
                 ):
                     raise ValueError("incomplete registered-owner record")
                 share = owner["share_fraction"]
-                fraction = cls.parse_fraction(share)
+                fraction = cls.parse_fraction_strict(share)
                 if not (0 < fraction <= 1):
                     raise ValueError("invalid owner share")
                 owners.append(OwnerModel(
