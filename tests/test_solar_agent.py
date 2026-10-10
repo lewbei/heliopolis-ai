@@ -275,4 +275,4 @@ def test_lss_does_not_inherit_nova_study_fee():
     m = FormFiller.generate_manifest(land, tech, proposed_ac_mw=3.0, voltage_class="MV")
     assert not m.nemas_checklist.is_nemas_required
     assert m.nemas_checklist.estimated_regulatory_fee_rm is None
-    assert "not implemented" in " ".join(m.nemas_checklist.eligibility_notes).lower()
+    assert "do not inherit" in " ".join(m.nemas_checklist.eligibility_notes).lower()
