@@ -1,6 +1,6 @@
 # Heliopolis-AI: Preliminary Solar Site Intelligence
 
-[![Python Tests](https://github.com/lewbei/heliopolis-ai/actions/workflows/pytest.yml/badge.svg?branch=fix%2Fmaic-judge-reliability-20261010)](https://github.com/lewbei/heliopolis-ai/actions)
+[![Python Tests](https://github.com/lewbei/heliopolis-ai/actions/workflows/pytest.yml/badge.svg?branch=master)](https://github.com/lewbei/heliopolis-ai/actions)
 [![Track](https://img.shields.io/badge/Track-T1%20(Clean%20Energy)-orange.svg)](https://maicnexus.com/)
 
 A prototype AI-assisted **preliminary** solar-site screening tool for Malaysia. Gemini Vision extracts data from scanned titles and single-line diagrams; deterministic Python produces limited arithmetic, topology and financial **screening** results. It does not certify legal title, grid compliance, investment suitability or scheme eligibility.
@@ -10,12 +10,12 @@ A prototype AI-assisted **preliminary** solar-site screening tool for Malaysia. 
 > - All built-in land registry and terrain fixtures are **synthetic**; they are not verified land-office records, surveyed elevation grids or actual project permissions.
 > - Uploaded-document OCR must fail closed if Gemini or critical evidence is unavailable. The app cannot silently replace an unreadable scan with a successful demo fixture.
 > - A passing SLD topology graph is **not** protection-setting verification or TNB approval. A land title with no selected flags is **not** legally cleared.
-> - LSS PPA and C&I/NEM NOVA financial cases use **illustrative**, non-bankable tariff and cost inputs. **Solar ATAP is not modeled** as a complete application/offset scenario; its non-domestic inverter output cap and 10-year export-offset term cannot be ignored.
+> - LSS PPA is **illustrative**, not bankable. Historical NOVA/self-consumption results explicitly **withhold NPV and IRR** without customer load/export evidence. Solar ATAP has only a capacity precheck, not an export-offset financial model; its non-domestic inverter output cap and 10-year export-offset term cannot be ignored.
 > - The preliminary 15% MW/MVA injection metric is a **heuristic**, not a TNB 15% limit or proof that batteries are required. Any utility study fees or approval time are scheme-dependent.
 > - Tests establish particular software behaviors, **not** field extraction accuracy or time saved for actual solar developers.
 >
 > [Regulatory sources, dates and limitations](qrspi/REGULATORY_SCOPE_2026.md) · [Read the updated MAIC pitch](PITCH_DECK.md) · [Official Solar ATAP guidance](https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/) · [Official NEM/NOVA studies](https://www.seda.gov.my/reportal/nem/)
-> **Pitch materials:** [Current 2026 pitch PDF](pitch_deck.pdf) is generated from [PITCH_DECK.md](PITCH_DECK.md). Follow the [judge demo runbook](qrspi/JUDGE_DEMO_RUNBOOK.md). The committed `solar_assessment_report.json` remains an **older synthetic demo snapshot**, not current empirical evidence; run `python solar_agent.py` to regenerate an illustrative report.
+> **Pitch materials:** [Current 2026 pitch PDF](pitch_deck.pdf) is generated from [PITCH_DECK.md](PITCH_DECK.md). Follow the [judge demo runbook](qrspi/JUDGE_DEMO_RUNBOOK.md). The previously committed stale JSON report was removed. Run `python solar_agent.py` or retrieve the GitHub Actions **synthetic preliminary report** artifact to obtain an up-to-date, explicitly simulated report.
 
 ---
 
