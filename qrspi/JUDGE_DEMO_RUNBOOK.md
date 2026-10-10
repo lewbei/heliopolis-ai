@@ -1,63 +1,63 @@
-# Heliopolis-AI — MAIC T1 Semifinal Demonstration Runbook
+# Heliopolis-AI — MAIC Semi-Final Runbook for Latest Nine-Page Pitch
 
-**Duration target:** 4–5 minutes demo + Q&A.  
-**Product claim:** AI-assisted *preliminary* solar-site screening, not final engineering or legal clearance.  
-**Pitch PDF:** [pitch_deck.pdf](../pitch_deck.pdf) (generated from [PITCH_DECK.md](../PITCH_DECK.md)).
+**Authoritative narrative:** user-supplied nine-page visual PDF, \`Heliopolis_AI_MAIC_20261008_Main_Pitch (2)(1).pdf\`, uploaded 10 October. Original SHA-256: \`d70a11a9a7c0f6a9fb0cd9b15d9e46f2b225e2b172608cac7c11e3c4ad40620d\`.
 
-## Before going on stage
+This replaces the ALTERNATE nine-section narrative previously in PR #16. This document is supplementary to the **source-faithful [seven-minute rehearsal script](TOP10_REHEARSAL_SCRIPT_7MIN_DRAFT.md)**. It does not overwrite the user's original designed slide PDF. Confirm exact date/duration and submission lock with organisers: https://www.maicnexus.com/en/faq.
 
-Run `pip install -r requirements.txt` and `streamlit run app.py`. Open the local URL. Keep a terminal with `pytest -q tests` ready if the judges request reproducibility.
+## Original deck order (nine images; no change to their message)
 
-Use the built-in preset/demo mode. The site registry, owner names, terrain and financial parameters are **synthetic/illustrative**, not verified documents or real project deals.
+1. Cover — Solar project screening for Malaysian teams.
+2. Prepared Perak example — fictional title and SLD, project figures.
+3. Gemini extraction → reviewed inputs → code checks → one report.
+4. The saved 3.21 → 2.00 MWac case; **HOLD FOR EXPERT REVIEW** remains.
+5. Saved illustrative costs: **RM15.94m → RM7.06m** upfront, **−RM9.79m → −RM2.66m** discounted value. **RM4.608m** of the change is attributed to a *prototype storage assumption*, not only capacity.
+6. Existing software and Malaysian consultancy services. Proposed Heliopolis RM3,000/year, not proven buyer willingness to pay.
+7. Malaysian solar developer/consultancy buyer; proposed local licence and matched current-workflow comparison.
+8. Land counsel, electrical reviewer and site survey; proposed process-impact measures, environmental outcomes unmeasured.
+9. One traceable preliminary report; thank you, Wudibei Lab.
 
-Do not rely on live Gemini credentials for the fallback presentation. Run a separate live upload demonstration **only if** it has already been tested with valid credentials and permissible example documents.
+**Never** replace this user-provided main story with the older PR's nine-section alternative, especially its emphasis on a new live LV-protection demonstration in slide 4.
 
-## Demonstration sequence
+## Preflight
 
-| Time | Action | What judges should see |
-| --- | --- | --- |
-| 0:00–0:35 | State the problem and narrow product claim. | Preliminary screening, not approval. |
-| 0:35–1:15 | In the sidebar, select a synthetic site and LSS PPA scenario. | Clearly labeled synthetic inputs and illustrative calculations. |
-| 1:15–2:15 | Open **Electrical SLD Graph Audit** with both synthetic toggles on. | A modeled protected path; result says **PRELIMINARY**, not TNB-approved. |
-| 2:15–2:45 | Turn **Connect Transformer to Grid** off, leaving relay present. | `NEEDS_REVIEW` for the broken circuit. |
-| 2:45–3:10 | Open the **SEDA/TNB Planning** tab and download JSON. | The exported `sld_topology_screen` matches the currently shown failure. |
-| 3:10–3:35 | Reset the circuit; explain that an uploaded unreadable document stops with a downloadable review report. | No fabricated compliance after extraction failure. |
-| 3:35–4:30 | Explain commercial hypothesis, intended pilot and key known limitations. | Demonstrated logic vs unvalidated impact are separated. |
+- [ ] Verify the competition portal's exact uploaded PDF and assigned slot. Slide cover says 13 October 2026, but the caption alone is not official scheduling evidence.
+- [ ] Confirm organiser's slide-size/review-lock requirements. The original uploaded file is 5.72 MB; a visually verified nine-page compressed version of 2.21 MB was prepared and provided back to the user. The repo's Matplotlib-generated \`pitch_deck.pdf\` is **only a text derivative**, not the user's original slide design until that PDF is manually replaced.
+- [ ] If demoing the old **HOLD** report, load the **same old application build/data** used to generate those saved screenshots. The current GitHub \`master\` uses \`NEEDS_REVIEW\` and optional BESS off by default. Do NOT claim old cash-flow/Storage results were freshly reproduced by current code.
+- [ ] If old matching app is unavailable, use the prepared screenshots (slides 4–5) and explain explicitly that they are a saved illustrative case.
+- [ ] Confirm any repo/demo link is accessible as submitted. Never commit \`.env\`, credential JSON, real owner identifiers or confidential title images.
+- [ ] Have an offline screenshot fallback. Optional permissioned Vertex OCR must be rehearsed separately and measured field by field.
 
-### Optional live OCR exercise (not a required proof)
+## Current GitHub master — OPTIONAL Q&A-only negative-control example
 
-Use a non-sensitive title/SLD that you have the right to upload, with an already-tested Gemini API key. If the model cannot extract critical title fields or diagram geometry, let the app display `NEEDS_REVIEW`; do **not** swap into a synthetic fixture and call it successful OCR.
+1. Start \`streamlit run app.py\` on the exact verified code commit.
+2. Select a synthetic representative site and choose an explicit **MV** voltage profile in the sidebar.
+3. Open Electrical SLD Graph Audit; show modeled relay/transformer connected path.
+4. Disable **Connect Transformer to Grid**, leaving relay present. \`NEEDS_REVIEW\` should appear; this is a graph failure, NOT an engineering certification decision.
+5. Verify that the exported JSON graph status matches the displayed result.
+6. Label this as a **different current-code demo**; do not substitute the graph for the user's slide-4 historical HOLD screenshot or attach the 3.21/2.00 financial numbers to it without reproducing identical old assumptions.
 
-An uploaded document is one cloud OCR invocation per assessment render; Streamlit reruns on widget changes and may make further calls. SLD fixture toggles are disabled in uploaded-SLD mode. Review privacy/retention requirements before using genuine title deeds.
+## Hostile-judge short answers
 
-## What **not** to claim
+**Why not direct Vertex AI?** Vertex provides the candidate visual extraction. Heliopolis adds deterministic share, modeled connection and scenario checks. The incremental accuracy/reviewer-time advantage has not been measured on real held-out examples. The cheapest meaningful baseline is Vertex plus a checklist.
 
-- No verified OCR accuracy on independent Malaysian real titles/SLDs or demonstrated customer savings.
-- No SEDA/TNB authorization, electrical protection setting verification, or land-office clearance.
-- The >15% AC-MW/MVA metric is a **heuristic**, not a TNB battery requirement.
-- Solar ATAP has only a **capacity precheck**, not an offset economic model; multi-MW demo sites are not eligible by simply selecting a C&I scenario.
-- An illustrative LSS positive NPV does not establish investment viability. Historical NOVA/self-consumption scenarios deliberately abstain from NPV/IRR without load/tariff evidence.
-- Do not imply Solarvest is an existing customer or commercial partner.
+**What is actually different from PVcase, Glint, RatedPower or local solar consultants?** The hypothesis is one Malaysian incoming dossier report combining title, SLD and early assumptions. Existing competitors have deeper GIS/site, PV design or consultancy capabilities. Do not claim to be the first or only one.
 
-## Likely skeptical questions
+**Is HOLD an approval or a legal conclusion?** No. Saved scenario shows questions for title counsel and power-systems review. An independent specialist must clear material decisions.
 
-**What does the AI actually do?** Gemini Vision extracts fields and diagram geometry. The legal-share arithmetic, graph checks, and cash-flow calculation use deterministic Python. No custom trained solar foundation model is claimed.
+**Do the capital-cost bars imply RM8.88m savings?** No. The charts are illustrative, and RM4.608m of the difference comes from the specific prototype storage assumption. Do not attribute the entire change to smaller PV capacity.
 
-**Why not a spreadsheet and a generic OCR prompt?** That is a valid baseline. The proposed pilot compares Gemini-only extraction and spreadsheet checklists with the full pipeline using identical documents and review budgets.
+**Does an SLD path prove TNB compliance?** No. Certification, relay settings, external protection requirements and actual drawn connectivity still require qualified review.
 
-**How safe is a green result?** It is a bounded preliminary result, not a safety certificate. The system fails closed on OCR errors and flags selected structural inconsistencies; real protections and ownership constraints need expert review.
+**Are three saved synthetic OCR calls an accuracy benchmark?** No. Current repo has offline tests, but independent OCR accuracy and developer time savings remain unmeasured.
 
-**What about the 51% co-owner rule?** Ownership fractions do not establish power to lease a whole parcel. The software marks legal coordination for professional review.
+**What's the commercial offer?** Proposed RM3,000/year local licence to produce accepted-input/review reports. Customers, scope and willingness to pay have not been validated.
 
-**How do you know it saves time?** We do not yet. The first 3–5-site pilot would measure review effort and false-clearance rates.
+**How will this scale?** Today it is standalone Python/Streamlit; controlled cloud deployment, access/security, reviewer workflows and region-specific rules are proposed pilot stages, not current multi-user production proof.
 
-**Is your 500-site dataset real?** No: synthetic scenarios to demonstrate the interface. We will not present them as field-validation results.
+**What is ESG impact?** Earlier review transparency and possible reduced duplicated work are proposed to measure; no verified carbon savings or attributed new solar generation yet.
 
-## Verification checklist
+## Version / evidence compatibility
 
-- [ ] Open app successfully in offline preset mode.
-- [ ] Visible SLD changes to `NEEDS_REVIEW` when the transformer path is disconnected.
-- [ ] Downloaded JSON reports `grid_path_valid: false` in that state.
-- [ ] Error uploads do not silently produce a successful synthetic analysis.
-- [ ] Latest GitHub Actions Python tests and PDF rendering jobs are green.
-- [ ] Present [the generated PDF](../pitch_deck.pdf), **not** a stale copy stored on a different device.
+The user's nine-page latest visual PDF is NOT the October 7 v8 16-page presentation nor the prior repository's alternate nine-section draft. Use one single source of truth for the on-stage slide order. Older local 232 Python/API + 39 frontend checks and current public master 186 offline tests are separate environments; neither is a field-OCR accuracy rate.
+
+**Do not quietly alter the user's 9-page visual PDF.** The source image, layout and text remain authoritative; the GitHub markdown and any auto-rendered simple PDF are just readable derivatives.

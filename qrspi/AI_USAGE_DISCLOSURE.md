@@ -1,37 +1,47 @@
-# MAIC Nexus Challenge: Mandatory AI Usage Disclosure
+# MAIC Nexus T1 — AI Usage and Third-Party Dependencies (DRAFT CORRECTION)
 
-**Project Name:** Heliopolis-AI (Solar Project Intelligence Agent)  
-**Track Selected:** Track T1 — AI for Clean Energy (Solarvest Holdings Berhad)  
-**Security / IP Status:** Freedom-to-Operate assessment completed; no obvious overlap identified in reviewed patent families.  
+Project: Heliopolis-AI — AI-assisted preliminary solar project document screening.
+Track: T1 AI for Clean Energy.
+Status: Proposed disclosure correction for organizer review. Do not replace a submission during a locked judging window without permission.
 
----
+## 1. Where AI is actually used
 
-## 1. Algorithmic Overview & Scope of AI
-Heliopolis-AI utilizes artificial intelligence exclusively for **visual perception and spatial layout segmentation**, while reserving all mathematical modeling, safety checking, and financial accounting to **deterministic, symbolic algorithms**. This design prevents LLM hallucinations, ensuring civil and electrical engineering accuracy.
+Google's **Gemini multimodal model accessed via Google Vertex AI** is used for optional OCR-like extraction of title fields and electrical SLD objects/wiring. This model is a third-party commercial foundation model, NOT an open-source model created, pretrained, fine-tuned or owned by this team.
 
----
+The demo can also run synthetic local inputs without an external AI call. Synthetic demo outputs are NOT evidence of model OCR accuracy.
 
-## 2. Upstream AI Models & Frameworks Used
-We declare the following open-source, industry-standard models and libraries used within our pipeline:
+Deterministic Python performs the following limited operations after extraction:
+- unit/fraction calculations and preliminary visible-title restrictions;
+- NetworkX modeled LV/MV SLD connectivity and visible anti-islanding annotation screens;
+- synthetic slope/energy inputs, limited grid MW/MVA sensitivity and indicative LSS financial calculations;
+- independent Solar ATAP non-domestic monthly energy-credit arithmetic with explicit user supplied or synthetic inputs.
 
-1. **Gemini Vision (Google GenAI / Vertex AI):**
-   * **Role:** Extracts structured metadata and electrical symbol bounding boxes from scanned land titles (*Geran*) and Single-Line Diagram raster images via multimodal prompting.
-2. **NetworkX (BSD License):**
-   * **Role:** Constructs directed topological graphs from symbol coordinates and wiring line segments (resolved via Euclidean spatial $\epsilon$-search), solving path routing programmatically.
-3. **Pydantic V2 (MIT License):**
-   * **Role:** Enforces runtime type-safety and JSON schemas for all output data models.
+These rules may reject inconsistent fields and inappropriate calculations, but DO NOT ELIMINATE model hallucinations or guarantee civil, legal, financial or electrical correctness. A false extracted field or wire may still pass some validators; human review remains mandatory.
 
----
+## 2. Frameworks and licensed software
 
-## 3. Proprietary Clean-Room Code & Logic (Built From Scratch)
-The following modules represent our team's original, clean-room implementation, built on open-source libraries and containing no copied university codebases:
-* **`LandTitleParser` (Imperial-to-Metric & Share Splits):** Original coordinate translation math and fractional share matrix co-ownership logic conforming to the **National Land Code 1965**.
-* **`CivilSlopeAnalyzer` (2D Spatial Gradient):** Original elevation contour slope solver using finite differences.
-* **`SLDTopologyResolver` ($\epsilon$-Search Solver):** Original wire segment proximity-neighbor matcher and TNB protection relay flow checker.
-* **`YieldFeasibilityEngine` (Newton-Raphson Solver):** Original tropical temperature derating cashflow model and iterative IRR solver.
+- Google Vertex AI / Gemini: managed third-party AI service, Google terms and account permissions apply. Authentication should use a scoped managed service account for hosted deployment. No model licence/weights are transferred to Heliopolis.
+- NetworkX, NumPy, Pydantic, Streamlit, Matplotlib, Plotly, Pillow, google-genai, python-dotenv: third-party libraries/packages used by the prototype; inspect each applicable version/licence and security advisories before commercialization.
+- Project-specific glue and tests are contained in the public repository. The team has also used generative AI assistance to draft/refine parts of implementation and documentation; all such outputs require review and testing. Do not imply independent code authorship verification by a patent examiner.
 
----
+## 3. Actual evidence
 
-## 4. Intellectual Property & Freedom-to-Operate (FTO)
-We have audited local and global patent databases. We declare that Heliopolis-AI does not violate any active utility patents or copyrights:
-* All financial equations and administrative conversions are mathematical abstractions, which are legally non-patentable.
+- The latest confirmed master workflow at this draft review is 186 offline Python tests passing plus synthetic CLI JSON and Streamlit smoke checks. These are SOFTWARE regression results only.
+- The 500 site registry entries and terrain surfaces are synthetic illustrations, not government-verified cadastral records or observed site surveys.
+- No separately measured real title/SLD OCR field accuracy, no statistically meaningful false-clearance rate, no customer time savings and no positive commercial traction have been verified.
+- LSS PPA IRR is an illustrative sensitivity; no signed tariff or utility clearance exists. Historical NOVA and self-consumption financial ROI are withheld without load/tariff evidence. The Solar ATAP energy-only monthly screen is not a full utility invoice or financial projection.
+
+## 4. Privacy, security and intellectual property
+
+- The application asks for explicit authorization before sending real uploaded documents to the selected Google cloud provider. This checkbox is NOT enterprise IAM or a substitute for legal consent and access controls.
+- Do not publish raw ownership records, NRICs, customer bills or API secrets on GitHub. Any enterprise offering must add authentication, tenant isolation, encrypted temporary storage, retention/deletion controls, quota/rate limits, supplier data processing review and a professional Malaysian PDPA assessment.
+- Patent landscape/search notes and module provenance are PRELIMINARY; **no complete freedom-to-operate legal opinion has been obtained**, and no copyright/non-infringement guarantee can honestly be made. Mathematical expressions are not a blanket exemption from IP or software licence obligations.
+- The team does not claim TNB, SEDA, land-office, professional engineering or legal certification.
+
+## 5. Public-source traceability
+
+Primary code: https://github.com/lewbei/heliopolis-ai
+Regulatory context: https://www.seda.gov.my/reportal/atap/
+Competition disclosure requirements: https://www.maicnexus.com/en/terms
+
+The user remains responsible for verifying this disclosure and the specific use of AI tools/models in the submitted artifact. This document does not replace the organisers' official form or participation agreement.

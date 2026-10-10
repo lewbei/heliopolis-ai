@@ -1,50 +1,34 @@
-# MAIC Nexus 2026 — Heliopolis-AI Project Summary
+# Heliopolis-AI — MAIC T1 Project Summary (Draft)
 
-**Track:** T1 — AI for Clean Energy  
-**Prototype:** https://github.com/lewbei/heliopolis-ai  
-**Review date:** 10 October 2026
+**Track:** T1 — AI for Clean Energy
+**Product:** Malaysian solar-project document triage
+**Status:** Preliminary prototype; not a legal, grid or financial approval
+**Submission:** Draft only; do not replace locked materials without organiser permission.
 
-## One-paragraph description
+## Problem
 
-Heliopolis-AI is a prototype **AI-assisted preliminary solar-site screening** system designed for Malaysian project-development analysts. It uses Gemini Vision to extract structured fields from uploaded land titles and electrical single-line diagrams; deterministic Python then performs unit conversions, ownership-share arithmetic, constrained SLD topology checks, illustrative terrain/energy calculations, and financial sensitivities. The outputs flag items needing professional review. **It is not a land-title clearance, TNB grid-code certification, Solar ATAP eligibility decision, SEDA submission or bankable investment recommendation.**
+Solar EPC and independent power producer (IPP) analysts reconcile Malaysian land titles, electrical single-line diagrams (SLDs) and early cost assumptions before paying for detailed engineering. Missed restrictions, inconsistent ownership shares, ambiguous connections or incorrect subsidy/programme assumptions create review risk. We have not measured the prevalence or cost of these errors.
 
-## Industry problem and approach
+## Solution and innovation
 
-Solar developers routinely reconcile heterogeneous land, electrical and financial records. Our **hypothesis** is that earlier automated extraction and transparent checks can reduce avoidable errors and manual screening effort. We have **not measured** generalizable savings or field OCR accuracy. The prototype demonstrates a testable method rather than claiming complete due-diligence automation.
+Heliopolis-AI offers one structured, source-labelled preliminary issue report. An optional Google Gemini model accessed via **Vertex AI** extracts visible fields and electrical diagram symbols/wires from authorized uploaded PNG/JPG scans. Python then screens owner-share totals, area consistency, selected title restrictions, modelled LV/MV connection paths and illustrative project assumptions. Missing or contradictory critical evidence produces **NEEDS_REVIEW**; it never becomes simulated approval.
 
-## Actual AI and deterministic components
+The innovation hypothesis is **combining Malaysian title and SLD evidence into an auditable early review workflow**, not inventing a new OCR model. Existing site-selection and PV design platforms are more mature in GIS, layout and engineering. Our closest low-cost competitors are direct Vertex extraction and a normal analyst checklist; any performance advantage remains unproved.
 
-1. **Gemini Vision OCR:** optional cloud-based perception for title fields, electrical symbols, wires and junctions. Missing or unreadable uploaded evidence must return a review/error status and must never be substituted by pre-approved synthetic data.
-2. **Legal screening:** interprets area units and share fractions and flags selected visible restrictions; shares alone do not determine property execution authority. Title records require solicitor/land-office verification.
-3. **SLD graph screen:** a NetworkX graph tests modeled PV -> inverter -> anti-islanding relay -> transformer -> grid paths, including bypass/disconnection flags. Results are preliminary; no protection-setting or full utility compliance model exists.
-4. **Civil/financial sensitivity:** synthetic terrain examples, offline representative solar-resource inputs and simplified CAPEX, OPEX and yield assumptions. NPV/IRR is returned only for an illustrative LSS PPA case; historical NOVA/self-consumption profitability is withheld without load and contract inputs. No actual topographic survey or financial bankability is claimed.
-5. **Regulatory planning fields:** look up historical NEM NOVA LV/MV CAS fee references only when a voltage class is explicitly supplied; current scheme applicability remains unverified; never state the inferred amount is an approved quotation. A simplified AC MW/MVA screen does not establish an obligatory BESS requirement.
+## Working evidence
 
-## Important programme boundaries
+The public GitHub repository contains a Streamlit prototype, synthetic demonstration inputs, downloadable preliminary JSON, and **186 passing offline Python tests** on the verified master build. The LV SLD screen recognizes a modelled PV–inverter–grid path without requiring a separate external transformer; anti-islanding evidence still requires expert confirmation. A distinct Solar ATAP page performs one-month energy-only calculations, **not** a complete utility bill or bankable return.
 
-**Solar ATAP is supported only as a non-domestic capacity precheck, not a 21-year cash-flow or offset model.** Official non-domestic limits include inverter output <= 1 MW and <= 100% of consumer maximum demand; the export offset arrangement lasts 10 years. Our multi-MW demonstration must not be marketed as ATAP-eligible. Consumption/export profiles, accurate energy tariff elements and current programme rules require separate evaluation.
+Synthetic fixtures and software test passes do **not** demonstrate accuracy on independently labelled real documents. There are no confirmed paid customers, utility approvals or verified staff-hour savings.
 
-Official references:
-- https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/
-- https://www.seda.gov.my/reportal/atap/solaratap-general/
-- https://www.seda.gov.my/reportal/nem/
+## Buyer and commercialization
 
-## Demonstration and evidence
+Initial target: Malaysian EPC/IPP project-development analysts handling repeat document reviews. The existing commercial hypothesis is a **RM3,000/year local licence**, subject to testing of buyer interest, seats, support and Vertex/compute costs. Planned scaling is controlled secure deployment, per-dossier processing, professional review queues and versioned state-specific rules—not automated government filing or already operational multi-tenancy.
 
-Run `streamlit run app.py` (requires Python dependencies). Built-in site registry and generated slope surfaces are **synthetic** demonstration material. Uploaded-title and uploaded-SLD paths use Gemini and fail closed when evidence is incomplete; offline regression tests intentionally exercise those failures. See GitHub Actions for current compile/test results rather than assuming passing tests demonstrate real-world accuracy.
+## ESG and validation
 
-For the semifinal demonstration, show: (a) an explicitly synthetic site screening, (b) a faulty SLD flagged for review, and (c) an unreadable uploaded document producing an error instead of a fake clearance.
+**Environmental:** investigate earlier detection of unsuitable/restricted sites and avoided unnecessary studies; no attributable CO2 reduction has been demonstrated. **Social:** surface landowner and consent concerns for qualified legal review and protect personal data. **Governance:** preserve source provenance, assumptions and unresolved exceptions.
 
-## Customer value and proposed pilot
+**Ask:** an authorized **3–5-site exploratory pilot** with independent land/electrical reviewers. Compare direct Vertex AI, a simple checklist and Heliopolis using the same inputs, recording false clearances, coverage, correction minutes, per-file cost and buyer willingness to pay. Advance deployment only if the incremental value is measured.
 
-Potential customers: solar EPCs, IPPs and their project-development analysts. The proposed B2B product is a source-traceable preliminary screening workflow, with expert verification retained for high-stakes decisions. We are **seeking**, not claiming to have secured, a 3–5 site pilot. Its measurable outcomes should include field extraction correctness, false-clearance rate, manual correction effort, processing time, abstention frequency, and utility/legal reviewer acceptance. Compare matched documents against direct Gemini extraction plus conventional deterministic spreadsheet/checklist baselines.
-
-## Current limitations
-
-- Synthetic samples are not an accuracy benchmark.
-- Land records and grid schematics have not received independent legal or TNB validation.
-- No real Solar ATAP offset economics, customer interval load profile, independently verified land document OCR, live land-office integration, automatic filing or signed customer contract.
-- Production data security and permissions require an additional deployment review.
-
-**MAIC presentation:** [PITCH_DECK.md](../PITCH_DECK.md)  
-**Source and implementation:** [README.md](../README.md), `solar_agent.py`, `app.py`, `heliopolis_ocr.py` and `tests/`.
+**Repository:** https://github.com/lewbei/heliopolis-ai
