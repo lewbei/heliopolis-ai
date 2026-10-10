@@ -51,7 +51,7 @@ def test_explicit_lv_inverter_label_allows_bounded_preliminary_topology_screen()
     assert r["preliminary_topology_status"] == "PRELIMINARY_TOPOLOGY_PASS"
     assert r["grid_path_valid"]
     assert r["integrated_anti_islanding_label_visible"] is True
-    assert "not a TNB approval" in r["scope_note"]
+    assert "not a tnb approval" in r["scope_note"].lower()
     assert "certification" in r["scope_note"].lower()
 
 
