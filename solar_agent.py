@@ -1097,99 +1097,179 @@ class YieldFeasibilityEngine:
         )
 
 
+def screen_solar_atap_non_domestic(
+    proposed_ac_kw: float,
+    maximum_demand_kw: Optional[float] = None,
+) -> SolarATAPPrecheck:
+    """Capacity-only Solar ATAP screen; no tariff or export-credit projection."""
+    if not np.isfinite(proposed_ac_kw) or proposed_ac_kw <= 0:
+        raise ValueError("Solar ATAP screen requires positive inverter AC capacity.")
+    if maximum_demand_kw is not None and (
+        not np.isfinite(maximum_demand_kw) or maximum_demand_kw <= 0
+    ):
+        raise ValueError("Maximum Demand must be positive or explicitly unknown.")
+
+    notes = [
+        "Non-domestic Solar ATAP: inverter output <= 1,000 kW and <= 100% verified consumer Maximum Demand.",
+        "A TNB registered account, utility assessment and programme eligibility review are additionally required.",
+        "ATAP surplus-energy offset lasts 10 years; no excess-export offset applies from year 11 onward.",
+        "No eligible tariff, energy-bill saving, export amount, financing decision or grid permission is calculated.",
+        "Authority: https://www.seda.gov.my/reportal/atap/solaratap-general/ (guideline as of 30 Dec 2025).",
+    ]
+    if proposed_ac_kw > 1000.0:
+        status = "OUTSIDE_ATAP_NON_DOMESTIC_CAP"
+    elif maximum_demand_kw is None:
+        status = "MAXIMUM_DEMAND_NOT_PROVIDED"
+    elif proposed_ac_kw > maximum_demand_kw:
+        status = "EXCEEDS_VERIFIED_MAXIMUM_DEMAND"
+    else:
+        status = "CAPACITY_SCREEN_ONLY_FURTHER_REVIEW_REQUIRED"
+    return SolarATAPPrecheck(
+        status=status,
+        capacity_kwac=round(proposed_ac_kw, 5),
+        maximum_demand_kw=maximum_demand_kw,
+        notes=notes,
+    )
+
+
 class FormFiller:
-    """Generate PRELIMINARY planning fields; never a completed regulatory filing."""
+    """Produce preliminary, provenance-qualified planning data (not regulatory filings)."""
 
     @staticmethod
-    def generate_manifest(land: LandTitleMetadata, tech: TechnicalFeasibilityModel,
-                          proposed_ac_mw: Optional[float] = None) -> RegulatoryFilingManifest:
+    def generate_manifest(
+        land: LandTitleMetadata,
+        tech: TechnicalFeasibilityModel,
+        proposed_ac_mw: Optional[float] = None,
+        voltage_class: str = "UNKNOWN",
+        maximum_demand_kw: Optional[float] = None,
+    ) -> RegulatoryFilingManifest:
         ac_capacity_kw = float(
-            proposed_ac_mw * 1000 if proposed_ac_mw is not None
+            proposed_ac_mw * 1000.0
+            if proposed_ac_mw is not None
             else tech.capacity_mwp * 1000.0 * 0.85
         )
         if not np.isfinite(ac_capacity_kw) or ac_capacity_kw <= 0:
             raise ValueError("Proposed inverter AC capacity must be positive.")
 
-        assessment_type = "GRID_STUDY_TO_CONFIRM"
-        study_required = False
-        study_fee = 0.0
+        voltage_class = voltage_class.upper().strip()
+        if voltage_class not in ("UNKNOWN", "LV", "MV", "HV"):
+            raise ValueError("Select LV, MV, HV or UNKNOWN voltage class.")
+        atap = screen_solar_atap_non_domestic(ac_capacity_kw, maximum_demand_kw)
+
+        study_required = False  # Legacy compatibility; UNKNOWN does not mean exempt.
+        fee: Optional[float] = None
+        study_known = False
         source_url = ""
+        source_version = ""
+        study_type = "SCHEME_SPECIFIC_UTILITY_ASSESSMENT_PENDING"
+        required_items = ["Request project-specific network and protection requirements from the utility."]
         notes = [
-            "Preliminary manifest only. No TNB/SEDA application submitted or approved.",
-            "Capacity, connection voltage and applicant eligibility need independent verification.",
+            "PRELIMINARY planning fields; no TNB/SEDA application has been made or approved.",
+            "Site ownership, title limitations, applicant eligibility, and connection conditions are unverified.",
+            "Selected voltage class is a user assumption, not an automatic engineering decision.",
         ]
-        mandatory_studies = ["Obtain utility's project-specific study/connection requirements."]
 
         if tech.scenario == SCENARIO_C_I_NEM:
-            # NEM NOVA legacy scheme study bands, NOT Solar ATAP. Tariff is
-            # merely a financial sensitivity until contract and bills are reviewed.
             source_url = "https://www.seda.gov.my/reportal/nem/"
-            notes.append("NEM NOVA scenario and RM/kWh rate are illustrative; verify current programme eligibility and customer bills.")
-            if ac_capacity_kw <= 72.0:
-                assessment_type = "CAS_NOT_CAPACITY_TRIGGERED"
-                mandatory_studies = []
-            elif ac_capacity_kw <= 180.0:
-                assessment_type, study_fee = "CAS", 1000.0
-            elif ac_capacity_kw <= 425.0:
-                assessment_type, study_fee = "CAS", 5000.0
-            elif ac_capacity_kw <= 1000.0:
-                assessment_type, study_fee = "CAS", 8000.0
-            elif ac_capacity_kw <= 2000.0:
-                assessment_type, study_fee = "CAS", 15000.0
-            elif ac_capacity_kw <= 5000.0:
-                assessment_type, study_fee = "CAS", 20000.0
+            source_version = "NOVA guidelines updated 1 March 2025; 2021–2025 quota offer period"
+            notes.append(
+                "HISTORICAL NEM 3.0 NOVA *financial sensitivity only*. Quota offer period ended "
+                "30 June 2025 under published programme terms; confirm any new eligibility independently."
+            )
+            notes.append(
+                "The published historical connection study table is not Solar ATAP, "
+                "nor proof that a new 2026 NOVA application is accepted."
+            )
+            if voltage_class in ("LV", "MV"):
+                study_known = True
+                if ac_capacity_kw <= 72.0:
+                    study_type = "HISTORICAL_NOVA_CAS_NOT_CAPACITY_TRIGGERED"
+                    required_items = []
+                elif ac_capacity_kw <= 180.0:
+                    study_type, fee = "HISTORICAL_NOVA_CAS", 1000.0
+                elif ac_capacity_kw <= 425.0:
+                    study_type, fee = "HISTORICAL_NOVA_CAS", 5000.0
+                elif ac_capacity_kw <= 1000.0:
+                    study_type, fee = "HISTORICAL_NOVA_CAS", 8000.0
+                elif ac_capacity_kw <= 2000.0:
+                    study_type, fee = "HISTORICAL_NOVA_CAS", 15000.0
+                elif ac_capacity_kw <= 5000.0:
+                    study_type, fee = "HISTORICAL_NOVA_CAS", 20000.0
+                else:
+                    study_type = "OUTSIDE_HISTORICAL_NOVA_LV_MV_FEE_TABLE"
+                    required_items = ["Capacity > 5 MW; require programme-specific utility assessment."]
+                    study_known = False
+                study_required = study_type == "HISTORICAL_NOVA_CAS"
+                if study_required:
+                    required_items = [
+                        "Historical LV/MV NOVA Connection Assessment Study (CAS) reference only."
+                    ]
+            elif voltage_class == "HV":
+                study_known = True
+                study_required = True
+                study_type = "HISTORICAL_NOVA_HV_CONSULTANT_ASSESSMENT"
+                required_items = [
+                    "HV CAS scope and fee determined by qualified consultant, not LV/MV bands."
+                ]
             else:
-                assessment_type = "OUTSIDE_MODELED_NOVA_STUDY_BANDS"
-                notes.append("AC capacity exceeds published 5 MW LV/MV CAS fee table; require project-specific review.")
-            study_required = assessment_type == "CAS"
-            if study_required:
-                mandatory_studies = ["NEM NOVA connection assessment (CAS) – applicable to LV/MV; verify voltage classification."]
+                study_type = "CONNECTION_VOLTAGE_UNVERIFIED"
+                required_items = [
+                    "Confirm LV/MV/HV before displaying an applicable historical CAS tier."
+                ]
         else:
-            notes.append("LSS/self-consumption does not inherit NEM/NOVA/ATAP study fees or eligibility.")
-        notes.append("Solar ATAP is not implemented in this prototype: non-domestic inverter output is capped at 1 MW and <=100% maximum demand; export offset lasts 10 years.")
-        if ac_capacity_kw > 1000:
-            notes.append("Above 1 MWac: do not market this modeled project as Solar ATAP eligible.")
+            notes.append(
+                "LSS PPA / self-consumption models do not inherit NEM/NOVA/ATAP "
+                "study fees, offsets or application eligibility."
+            )
 
-        if land.project_company_name:
-            applicant_name, applicant_id = land.project_company_name, land.project_company_reg_no or "N/A"
-        elif land.owners:
-            applicant = max(land.owners, key=lambda o: o.calculated_share_float)
-            applicant_name, applicant_id = applicant.name, applicant.ic_or_co_no
-            notes.append("Largest landowner is only a proposed contact; legal authority to apply is unverified.")
+        if land.project_company_name.strip():
+            applicant_name = land.project_company_name
+            applicant_id = land.project_company_reg_no.strip() or "UNVERIFIED"
         else:
-            applicant_name = applicant_id = "N/A"
+            applicant_name = "APPLICANT_NOT_PROVIDED"
+            applicant_id = "UNVERIFIED"
+            notes.append(
+                "Applicant not provided. Do not automatically substitute a landowner "
+                "or infer authority to sign and submit an application."
+            )
 
-        coupling_location = land.mukim or land.district
+        location = ", ".join(
+            field for field in (land.mukim, land.district, land.state) if field
+        ) or "LOCATION_UNCONFIRMED"
         seda = SEDAApplicationSchema(
             Part_A_Applicant_Name=applicant_name,
             Part_A_Company_Registration=applicant_id,
             Part_B_Site_Title_Number=land.title_no,
             Part_B_Site_Lot_Number=land.lot_no,
-            Part_B_Mukim_Daerah_Negeri=f"{land.mukim}, {land.district}, {land.state}",
+            Part_B_Mukim_Daerah_Negeri=location,
             Part_C_Proposed_DC_Capacity_kWp=float(tech.capacity_mwp * 1000.0),
             Part_C_Proposed_AC_Capacity_kWac=ac_capacity_kw,
             Part_D_PPA_Tariff_Rate_RM_kWh=tech.ppa_tariff_rm_kwh,
         )
         tnb = TNBConnectionSchema(
             Applicant_Company=applicant_name,
-            Interconnection_Voltage_Level_kV=33.0 if tech.capacity_mwp >= 2.0 else 11.0,
+            Interconnection_Voltage_Level_kV=None,  # not determined by MWp
             Total_Generation_Capacity_MWac=ac_capacity_kw / 1000.0,
             Inverter_Compliance_Standards=["IEC 62116", "IEC 61727", "MS 1837:2010"],
-            Point_of_Common_Coupling=f"Proposed site: {coupling_location} (actual PCC unverified)",
-            Transformer_Capacity_MVA=float(tech.capacity_mwp * 1.2),
+            Point_of_Common_Coupling=f"Site region: {location}; actual PCC not established",
+            Transformer_Capacity_MVA=None,  # not an engineering design
         )
         nemas = NEMASChecklistSchema(
             is_nemas_required=study_required,
-            voltage_rise_study_required=False,  # not determinable without network study
-            estimated_regulatory_fee_rm=study_fee,
+            voltage_rise_study_required=False,  # unknown: not certified to be absent
+            estimated_regulatory_fee_rm=fee,
             estimated_processing_days=None,
-            assessment_type=assessment_type,
+            assessment_type=study_type,
             source_url=source_url,
+            source_version=source_version,
+            voltage_class=voltage_class,
+            study_applicability_known=study_known,
             eligibility_notes=notes,
-            mandatory_technical_studies=mandatory_studies,
+            mandatory_technical_studies=required_items,
         )
         return RegulatoryFilingManifest(
-            seda_application=seda, tnb_grid_request=tnb, nemas_checklist=nemas,
+            seda_application=seda, tnb_grid_request=tnb,
+            nemas_checklist=nemas, solar_atap_precheck=atap,
         )
 
 
