@@ -33,8 +33,8 @@ SCENARIO_C_I_NEM = "c_i_nem"
 SCENARIO_SELF_CONSUMPTION = "self_consumption"
 SCENARIO_LABELS = {
     SCENARIO_LSS_PPA: "LSS PPA (Utility-Scale)",
-    SCENARIO_C_I_NEM: "C&I / NEM NOVA sensitivity (NOT Solar ATAP)",
-    SCENARIO_SELF_CONSUMPTION: "Self-consumption tariff sensitivity (illustrative)",
+    SCENARIO_C_I_NEM: "Historical NOVA reference (NO NPV without load profile)",
+    SCENARIO_SELF_CONSUMPTION: "Self-consumption (NO NPV without load profile)",
 }
 SCENARIO_TARIFFS: dict[str, float] = {
     SCENARIO_LSS_PPA: 0.17,
@@ -181,9 +181,11 @@ class TechnicalFeasibilityModel(BaseModel):
     lcoe_rm_kwh: float = Field(description="Levelized Cost of Electricity (RM/kWh).")
     ppa_tariff_rm_kwh: float = Field(description="Assumed PPA or displaced energy tariff used for revenue projection (RM/kWh).")
     scenario: str = Field(description="Financial scenario used for revenue projection (lss_ppa, c_i_nem, self_consumption).")
-    npv_rm: float = Field(description="Net Present Value (RM) over the project lifecycle.")
-    irr_percent: float = Field(description="Project Internal Rate of Return (%).")
-    payback_years: float = Field(description="Estimated capital payback period in years.")
+    npv_rm: Optional[float] = Field(description="Illustrative NPV only if a revenue model is supportable; otherwise null.")
+    irr_percent: Optional[float] = Field(description="Illustrative IRR or null if consumption/contract evidence is missing.")
+    payback_years: Optional[float] = Field(description="Illustrative payback or null if undefined.")
+    financial_status: str = Field(default="UNVERIFIED", description="Whether an illustrative revenue model can be presented.")
+    financial_notes: List[str] = Field(default_factory=list, description="Key missing economic inputs and limitations.")
     terrain_profile: TerrainProfileModel
     grid_capacity_audit: GridCapacityValidationModel
 
@@ -1054,6 +1056,32 @@ class YieldFeasibilityEngine:
 
         lcoe_rm_kwh = discounted_costs / (discounted_energy + 1e-12) if discounted_energy > 0 else 0.0
 
+        # No customer interval load/export profile or binding tariff is available
+        # for C&I/NOVA or self-consumption. A flat 21-year "offset" would wrongly
+        # count export credits long after the historical 10-year scheme ended.
+        if scenario != SCENARIO_LSS_PPA:
+            return TechnicalFeasibilityModel(
+                capacity_mwp=round(capacity_mwp, 3),
+                annual_yield_mwh=round(annual_yield_mwh, 2),
+                base_capex_rm=round(base_capex, 2),
+                grading_adjusted_capex_rm=round(adjusted_capex, 2),
+                lcoe_rm_kwh=round(lcoe_rm_kwh, 4),
+                ppa_tariff_rm_kwh=round(tariff_rm_kwh, 4),
+                scenario=scenario,
+                npv_rm=None,
+                irr_percent=None,
+                payback_years=None,
+                financial_status="NEEDS_LOAD_PROFILE_AND_VERIFIED_TARIFF",
+                financial_notes=[
+                    "No historical-NOVA/Solar-ATAP export credit projection is generated.",
+                    "Customer interval load/export, contract eligibility and tariff components are missing.",
+                    "Existing historical NEM/NOVA rules cannot be extended unchanged to years 11-21.",
+                    "LCOE, gross yield and CAPEX remain illustrative screening estimates.",
+                ],
+                terrain_profile=self.terrain,
+                grid_capacity_audit=self.grid_audit,
+            )
+
         # Solve NPV
         npv = -adjusted_capex
         for yr in range(1, project_lifetime + 1):
@@ -1094,6 +1122,11 @@ class YieldFeasibilityEngine:
             npv_rm=round(npv, 2),
             irr_percent=round(r * 100.0, 2),
             payback_years=round(payback, 2),
+            financial_status="ILLUSTRATIVE_LSS_PPA_NO_SIGNED_CONTRACT",
+            financial_notes=[
+                "Assumed LSS PPA tariff is an illustrative sensitivity, not a signed off-take agreement.",
+                "Yield, capital costs, power purchase terms and grid study are not independently verified.",
+            ],
             terrain_profile=self.terrain,
             grid_capacity_audit=self.grid_audit
         )
@@ -1385,8 +1418,9 @@ def main():
     print(f"Calculated Capacity: {tech_results.capacity_mwp:.3f} MWp")
     print(f"Base CAPEX Cost: RM {tech_results.base_capex_rm:,.2f}")
     print(f"Civil Slope CAPEX Cost (Adjusted): RM {tech_results.grading_adjusted_capex_rm:,.2f} (Includes Earthworks & BESS premiums)")
-    print(f"Project Lifetime NPV: RM {tech_results.npv_rm:,.2f}")
-    print(f"Project IRR: {tech_results.irr_percent:.2f}%")
+    print(f"Financial model status: {tech_results.financial_status}")
+    print(f"Illustrative NPV: {f'RM {tech_results.npv_rm:,.2f}' if tech_results.npv_rm is not None else 'N/A — customer load/tariff evidence required'}")
+    print(f"Illustrative IRR: {f'{tech_results.irr_percent:.2f}%' if tech_results.irr_percent is not None else 'N/A — customer load/tariff evidence required'}")
     print(f"Land Legal Status: {land_metadata.legal_assessment.status}")
     print(f"Co-owner coordination review flag: {land_metadata.legal_assessment.poa_compliance.requires_coowner_coordination}")
     print(f"Study classification (unverified programme eligibility): {regulatory_manifest.nemas_checklist.assessment_type}")
