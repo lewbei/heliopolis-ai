@@ -67,3 +67,16 @@ def test_same_prepared_title_keeps_warning_after_2_mw_capacity_change():
         "auxiliary" in str(x.value) for x in app.warning
     )
     assert "2.353 MWp" in " ".join(str(x.value) for x in app.markdown)
+
+
+
+def test_modified_title_fields_are_explicitly_marked_edited_not_original():
+    app = _select_source_app()
+    acres = next(x for x in app.number_input if x.label == "Ekar (Acres)")
+    acres.set_value(25.0).run()
+    assert not app.exception
+    assert any(
+        "now an EDITED scenario" in str(x.value) for x in app.warning
+    )
+    visible = " ".join(str(x.value) for x in app.warning)
+    assert "USER_EDITED_SYNTHETIC_PITCH_FIELDS" in visible
