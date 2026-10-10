@@ -44,8 +44,8 @@ Corrupt or incomplete uploaded evidence must not fall back to a passing syntheti
 
 ## Slide 4 — Three reproducible demo outcomes
 
-1. SYNTHETIC project: show title fields, assumptions, selected LSS PPA sensitivity and the LV drawing graph.
-2. NEGATIVE CONTROL: remove the LV anti-islanding label or disconnect the inverter-to-grid path. Expected output: NEEDS_REVIEW, not certified TNB approval.
+1. SYNTHETIC LSS project: show title fields, assumed MV connection, selected PPA sensitivity and connected PV -> inverter -> relay -> transformer -> grid graph.
+2. NEGATIVE CONTROL: disconnect the MV transformer-to-grid line with the relay still present. Expected output: NEEDS_REVIEW; a present device is not a connected protection path.
 3. FAILED uploaded image: malformed or missing critical fields fail closed and offer a review report, not a fake connected circuit.
 
 **Show:** the displayed graph's verdict and the downloaded JSON must agree. Do not imply an actual TNB drawing has been validated by Vertex in this offline run.
@@ -98,11 +98,11 @@ SOLAR ATAP 2026: a SEPARATE non-domestic one-month energy-only page models MAQ, 
 
 ## Slide 9 — ESG, safeguards, and the ask
 
-**E:** identify potentially unsuitable or sensitive-site evidence early; actual carbon avoidance is UNMEASURED. A site screened by software is not renewable energy generated.
+**E:** pilot metric = expert-confirmed unsuitable land/restriction flags detected before paid engineering. Actual carbon avoidance is UNMEASURED; screening alone produces no electricity.
 
 **S:** surface co-owner/land rights and restriction flags for professional review. Require document-upload authorization and protect personal identifiers.
 
-**G:** display provenance, rule assumptions, audit findings and NEEDS_REVIEW rather than a false legal or TNB clearance.
+**G:** pilot metric = complete source/review labels in every report and no false approval; data transfer consent, rule versions and overrides remain explicit.
 
 **ASK:** One consented 3–5-site pilot with independent engineering/legal reviewers, one interested development analyst and a matched baseline. Measure false clearances, coverage, correction time, unit cost and willingness to pay BEFORE expansion.
 
