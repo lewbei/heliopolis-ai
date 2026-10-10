@@ -35,8 +35,8 @@ An uploaded document is one cloud OCR invocation per assessment render; Streamli
 - No verified OCR accuracy on independent Malaysian real titles/SLDs or demonstrated customer savings.
 - No SEDA/TNB authorization, electrical protection setting verification, or land-office clearance.
 - The >15% AC-MW/MVA metric is a **heuristic**, not a TNB battery requirement.
-- Solar ATAP is **not** a completed economic model; multi-MW demo sites are not eligible by simply selecting a C&I scenario.
-- An illustrative positive NPV does not establish investment viability.
+- Solar ATAP has only a **capacity precheck**, not an offset economic model; multi-MW demo sites are not eligible by simply selecting a C&I scenario.
+- An illustrative LSS positive NPV does not establish investment viability. Historical NOVA/self-consumption scenarios deliberately abstain from NPV/IRR without load/tariff evidence.
 - Do not imply Solarvest is an existing customer or commercial partner.
 
 ## Likely skeptical questions
