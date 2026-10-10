@@ -169,7 +169,7 @@ def test_nova_study_depends_on_explicit_voltage(voltage, study_required, fee):
 @pytest.mark.parametrize("kw,md,expected", [
     (1000.01, 2000.0, "OUTSIDE_ATAP_NON_DOMESTIC_CAP"),
     (900.0, None, "MAXIMUM_DEMAND_NOT_PROVIDED"),
-    (900.0, 850.0, "EXCEEDS_VERIFIED_MAXIMUM_DEMAND"),
+    (900.0, 850.0, "EXCEEDS_PROVIDED_MAXIMUM_DEMAND"),
     (900.0, 900.0, "CAPACITY_SCREEN_ONLY_FURTHER_REVIEW_REQUIRED"),
 ])
 def test_atap_capacity_only_screen(kw, md, expected):
