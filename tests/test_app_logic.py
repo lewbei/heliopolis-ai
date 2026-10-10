@@ -15,6 +15,7 @@ from app_logic import (
     _sld_node_style,
     build_land_metadata,
     compute_assessment,
+    build_demo_sld,
     project_lifecycle_cashflows,
     generate_precise_terrain,
     _synthetic_elevation_grid,
@@ -173,3 +174,22 @@ def test_validate_inputs():
         owners_list=[{"name": "Ahmad", "id": "123", "share": "120/120"}]
     )
     assert valid == []
+
+
+
+def test_offline_judge_sld_toggles_are_reproducible():
+    """Two synthetic toggle states must produce different actual graph verdicts."""
+    valid = build_demo_sld(has_relay=True, is_xfmr_connected=True)
+    invalid = build_demo_sld(has_relay=True, is_xfmr_connected=False)
+    assert valid.graph["source_type"] == "SYNTHETIC_DEMO"
+    assert valid.graph["tnb_compliance"]["preliminary_topology_status"] == "PRELIMINARY_TOPOLOGY_PASS"
+    assert invalid.graph["tnb_compliance"]["preliminary_topology_status"] == "NEEDS_REVIEW"
+    assert invalid.graph["tnb_compliance"]["grid_path_valid"] is False
+
+
+def test_offline_judge_missing_relay_is_not_a_false_clearance():
+    graph = build_demo_sld(has_relay=False, is_xfmr_connected=True)
+    findings = graph.graph["tnb_compliance"]
+    assert findings["anti_islanding_relay_present"] is False
+    assert findings["grid_path_valid"] is False
+    assert findings["preliminary_topology_status"] == "NEEDS_REVIEW"

@@ -1,5 +1,7 @@
 """Pure HTML / Markdown helper components used by the Streamlit app."""
 
+from html import escape as html_escape
+
 
 def clean_html_markdown(html_str: str) -> str:
     """Strips leading whitespace from each line of a multiline HTML string
@@ -46,9 +48,9 @@ def owner_rows_html(owner_models) -> str:
     rows = "".join(
         f"""
     <tr>
-        <td>{o.name}</td>
-        <td><code>{o.ic_or_co_no}</code></td>
-        <td><strong>{o.share_fraction}</strong></td>
+        <td>{html_escape(o.name)}</td>
+        <td><code>{html_escape(o.ic_or_co_no)}</code></td>
+        <td><strong>{html_escape(o.share_fraction)}</strong></td>
         <td>{(o.calculated_share_float * 100.0):.2f}%</td>
     </tr>
         """

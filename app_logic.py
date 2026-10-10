@@ -138,6 +138,37 @@ def build_land_metadata(
     return land_meta, hectares, sq_meters, acres, roods, poles, owner_rows_html
 
 
+def build_demo_sld(has_relay: bool = True, is_xfmr_connected: bool = True):
+    """Construct an explicit synthetic SLD fixture for judge/demo toggles only."""
+    symbols = [
+        {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
+        {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
+        {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 1000, 200, 1100]},
+        {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]}
+    ]
+    if has_relay:
+        symbols.append({"id": "RELAY_1", "class": "Anti_Islanding_Relay", "bbox": [100, 700, 200, 800]})
+
+    lines = [
+        ((200, 150), (400, 150)),  # PV to Inverter
+    ]
+    if has_relay:
+        lines.append(((500, 150), (700, 150)))  # Inverter to Relay
+        if is_xfmr_connected:
+            lines.append(((800, 150), (1000, 150)))  # Relay to Transformer
+            lines.append(((1100, 150), (1300, 150)))  # Transformer to Grid
+        else:
+            lines.append(((1100, 150), (1200, 150)))  # Broken wire
+    else:
+        if is_xfmr_connected:
+            lines.append(((500, 150), (1000, 150)))  # Inverter to Transformer directly
+            lines.append(((1100, 150), (1300, 150)))  # Transformer to Grid
+
+    graph = SLDTopologyResolver().resolve(symbols, lines)
+    graph.graph["source_type"] = "SYNTHETIC_DEMO"
+    return graph
+
+
 def compute_assessment(
     land_meta,
     slope_profile: str,
@@ -172,37 +203,12 @@ def compute_assessment(
         grid_audit=grid_audit
     ).calculate(scenario=scenario)
 
-    # --- SLD Topology ---
-    symbols = [
-        {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
-        {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
-        {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 1000, 200, 1100]},
-        {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]}
-    ]
-    if has_relay:
-        symbols.append({"id": "RELAY_1", "class": "Anti_Islanding_Relay", "bbox": [100, 700, 200, 800]})
-
-    lines = [
-        ((200, 150), (400, 150)),  # PV to Inverter
-    ]
-    if has_relay:
-        lines.append(((500, 150), (700, 150)))  # Inverter to Relay
-        if is_xfmr_connected:
-            lines.append(((800, 150), (1000, 150)))  # Relay to Transformer
-            lines.append(((1100, 150), (1300, 150)))  # Transformer to Grid
-        else:
-            lines.append(((1100, 150), (1200, 150)))  # Broken wire
-    else:
-        if is_xfmr_connected:
-            lines.append(((500, 150), (1000, 150)))  # Inverter to Transformer directly
-            lines.append(((1100, 150), (1300, 150)))  # Transformer to Grid
-
-    resolver = SLDTopologyResolver()
+    # Uploaded OCR graph is analyzed once; a synthetic fixture needs no cloud call.
     if sld_image_path:
-        print("[app_logic] Resolving SLD topology from OCR image...")
-        sld_graph = resolver.resolve_image(sld_image_path)
+        print("[app_logic] Resolving SLD topology from uploaded OCR image...")
+        sld_graph = SLDTopologyResolver().resolve_image(sld_image_path)
     else:
-        sld_graph = resolver.resolve(symbols, lines)
+        sld_graph = build_demo_sld(has_relay, is_xfmr_connected)
 
     # --- Regulatory Manifest ---
     manifest = FormFiller.generate_manifest(land=land_meta, tech=feasibility, proposed_ac_mw=ac_capacity)

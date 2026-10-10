@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import tempfile
+from html import escape as html_escape
 import numpy as np
 import networkx as nx
 import streamlit as st
@@ -26,12 +27,34 @@ from app_logic import (
     generate_co_owners,
     build_land_metadata,
     compute_assessment,
+    build_demo_sld,
     project_lifecycle_cashflows,
     _sld_node_style,
     DEFAULT_SCENARIO,
     SCENARIO_LABELS,
     validate_inputs,
 )
+
+def stop_with_review(reason: str, evidence_type: str) -> None:
+    """Fail closed and let a reviewer download the issue instead of a fake approval."""
+    st.error(f"{evidence_type} requires manual review: {reason}")
+    report = {
+        "assessment_status": "NEEDS_REVIEW",
+        "scope": "NO_LEGAL_GRID_OR_FINANCIAL_CLEARANCE",
+        "evidence_type": evidence_type,
+        "source_type": "UPLOADED_UNVERIFIED",
+        "reason": str(reason),
+        "regulatory_approval": False,
+        "verified_site_result": None,
+    }
+    st.download_button(
+        label="Download review-required report (JSON)",
+        data=json.dumps(report, indent=2),
+        file_name="heliopolis_needs_review.json",
+        mime="application/json",
+    )
+    st.stop()
+
 
 # --- Page Setup ---
 st.set_page_config(**PAGE_CONFIG)
@@ -148,7 +171,7 @@ with st.sidebar:
             filtered_sites = [s for s in real_sites if s["region"] == selected_region]
 
         site_options = [f"{s['site_id']} - {s['region']} ({s['title_no']})" for s in filtered_sites]
-        selected_site_str = st.selectbox("Select Real Malaysian Site", site_options, key="site_selector")
+        selected_site_str = st.selectbox("Select Synthetic Example Site", site_options, key="site_selector")
 
         if selected_site_str:
             selected_idx = site_options.index(selected_site_str)
@@ -237,7 +260,7 @@ with st.sidebar:
         "Revenue Scenario",
         scenario_options,
         index=scenario_keys.index(current_scenario),
-        help="LSS PPA uses 2024 tender tariffs; C&I NEM/ATAP uses industrial displaced tariffs; Self-Consumption uses premium green/system-access rates.",
+        help="All scenarios are illustrative. LSS PPA and C&I/NEM NOVA are distinct, and Solar ATAP eligibility/economics are not modeled.",
     )
     in_scenario = scenario_keys[scenario_options.index(in_scenario_label)]
     st.session_state["in_scenario"] = in_scenario
@@ -307,8 +330,10 @@ try:
         project_company_reg_no=in_project_company_reg,
     )
 except DocumentReviewRequired as exc:
-    st.error(f"Uploaded land-title evidence needs review: {exc}")
-    st.stop()
+    stop_with_review(str(exc), "Uploaded land title")
+finally:
+    if title_image_path and os.path.isfile(title_image_path):
+        os.unlink(title_image_path)
 
 legal_status = land_meta.legal_assessment.status
 findings = land_meta.legal_assessment.findings
@@ -328,8 +353,10 @@ try:
         scenario=in_scenario,
     )
 except DocumentReviewRequired as exc:
-    st.error(f"Uploaded SLD evidence needs review: {exc}")
-    st.stop()
+    stop_with_review(str(exc), "Uploaded electrical SLD")
+finally:
+    if sld_image_path and os.path.isfile(sld_image_path):
+        os.unlink(sld_image_path)
 terrain_model = assessment["terrain_model"]
 grid_audit = assessment["grid_audit"]
 feasibility = assessment["feasibility"]
@@ -405,7 +432,7 @@ with tabs[0]:
 
         # Power of Attorney & Joint-Execution Manifest Card
         poa_badge = '<span class="badge badge-amber">CO-OWNER REVIEW</span>' if is_poa_required else '<span class="badge badge-amber">LEGAL REVIEW</span>'
-        poa_reasons_html = "".join([f'<div class="checklist-item"><span class="checklist-dot"></span>{d}</div>' for d in required_deeds])
+        poa_reasons_html = "".join([f'<div class="checklist-item"><span class="checklist-dot"></span>{html_escape(d)}</div>' for d in required_deeds])
 
         st.markdown(clean_html_markdown(f"""
         <div class="card">
@@ -423,7 +450,7 @@ with tabs[0]:
         findings_html = ""
         if findings:
             for f in findings:
-                findings_html += f'<div class="checklist-item"><span class="checklist-dot" style="background: var(--red);"></span>{f}</div>'
+                findings_html += f'<div class="checklist-item"><span class="checklist-dot" style="background: var(--red);"></span>{html_escape(f)}</div>'
         else:
             findings_html = '<div class="checklist-item"><span class="checklist-dot" style="background: var(--green);"></span>No selected restriction flags were reported. Legal status remains unverified.</div>'
 
@@ -481,26 +508,20 @@ with tabs[1]:
         st.markdown('<div class="card-title">Preliminary Drawing Connectivity Review</div>', unsafe_allow_html=True)
         st.markdown('<div style="font-size: 0.8rem; margin-bottom: 1rem;">Assess a limited set of drawing connectivity relationships. This cannot certify protection or grid-code compliance.</div>', unsafe_allow_html=True)
 
-        has_relay = st.toggle("Include Anti-Islanding Protection Relay", value=True)
-        is_xfmr_connected = st.toggle("Connect Transformer safely to Grid Incomer", value=True)
+        if sld_image_path:
+            st.caption("SLD upload mode: controls are disabled; the result uses only the uploaded drawing extraction.")
+        else:
+            st.caption("Synthetic fixture controls for an offline negative-control demonstration.")
+        has_relay = st.toggle("Include Anti-Islanding Protection Relay", value=True, disabled=bool(sld_image_path))
+        is_xfmr_connected = st.toggle("Connect Transformer to Grid", value=True, disabled=bool(sld_image_path))
 
-        # Recompute SLD graph based on user switches or uploaded OCR image
-        try:
-            sld_assessment = compute_assessment(
-                land_meta=land_meta,
-                slope_profile=in_slope_profile,
-                ac_capacity=in_ac_capacity,
-                substation_mva=in_substation_mva,
-                site_mode=site_mode,
-                has_relay=has_relay,
-                is_xfmr_connected=is_xfmr_connected,
-                sld_image_path=sld_image_path,
-                scenario=in_scenario,
-            )
-        except DocumentReviewRequired as exc:
-            st.error(f"Uploaded SLD evidence needs review: {exc}")
-            st.stop()
-        g = sld_assessment["sld_graph"]
+        # Never rerun an uploaded OCR/model or financial assessment for this tab.
+        # The cheap fixture toggle only changes the displayed synthetic graph.
+        g = (
+            assessment["sld_graph"]
+            if sld_image_path
+            else build_demo_sld(has_relay=has_relay, is_xfmr_connected=is_xfmr_connected)
+        )
 
         topology = g.graph.get("tnb_compliance", {})
         st.markdown("---")
@@ -768,8 +789,9 @@ with tabs[3]:
         # Download button
         report_payload = {
             "scope": "PRELIMINARY_SCREENING_ONLY; NO LEGAL/TNB/SEDA APPROVAL",
-            "data_provenance": assessment["data_provenance"],
-            "sld_topology_screen": assessment["sld_graph"].graph.get("tnb_compliance", {}),
+            "assessment_status": "PRELIMINARY_REVIEW_REQUIRED",
+            "data_provenance": {**assessment["data_provenance"], "sld": g.graph.get("source_type", "SYNTHETIC_DEMO")},
+            "sld_topology_screen": g.graph.get("tnb_compliance", {}),
             "regulatory_study": manifest.nemas_checklist.model_dump(),
             "land_title_analysis": {
                 "title_no": land_meta.title_no, "lot_no": land_meta.lot_no, "state": land_meta.state,
