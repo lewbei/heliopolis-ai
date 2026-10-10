@@ -8,7 +8,7 @@ def test_pitch_source_has_nine_numbered_slides():
     slides = parse_slides(source.read_text(encoding="utf-8"))
     assert len(slides) == 9
     assert [s.number for s in slides] == list(range(1, 10))
-    assert slides[0].title == "Opening"
+    assert slides[0].title == "Heliopolis-AI"
     assert all(s.lines for s in slides)
 
 
