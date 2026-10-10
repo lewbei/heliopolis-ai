@@ -2,7 +2,7 @@ name: Python regression tests
 
 on:
   push:
-    branches: [fix/maic-judge-reliability-20261010]
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
