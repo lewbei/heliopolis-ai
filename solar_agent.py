@@ -33,15 +33,15 @@ SCENARIO_C_I_NEM = "c_i_nem"
 SCENARIO_SELF_CONSUMPTION = "self_consumption"
 SCENARIO_LABELS = {
     SCENARIO_LSS_PPA: "LSS PPA (Utility-Scale)",
-    SCENARIO_C_I_NEM: "C&I NEM / ATAP Offset",
-    SCENARIO_SELF_CONSUMPTION: "Self-Consumption / Premium Tariff",
+    SCENARIO_C_I_NEM: "C&I / NEM NOVA sensitivity (NOT Solar ATAP)",
+    SCENARIO_SELF_CONSUMPTION: "Self-consumption tariff sensitivity (illustrative)",
 }
 SCENARIO_TARIFFS: dict[str, float] = {
     SCENARIO_LSS_PPA: 0.17,
     SCENARIO_C_I_NEM: 0.37,
     SCENARIO_SELF_CONSUMPTION: 0.45,
 }
-DEFAULT_SCENARIO = SCENARIO_C_I_NEM
+DEFAULT_SCENARIO = SCENARIO_LSS_PPA
 
 # --- Deterministic owner-name helper (used by CLI and Streamlit) ---
 
@@ -835,63 +835,48 @@ class SLDTopologyResolver:
 
 
 class TNBSubstationCapacityValidator:
-    """
-    Improvised Module: Audits solar injection against upstream TNB substation capacities.
-    If AC solar injection exceeds the 15% line/substation rating, it triggers reverse
-    power risk and automatically sizes a Battery Energy Storage System (BESS) for peak shaving.
-    """
+    """Preliminary injection-ratio screen; NO grid study or mandatory BESS determination."""
+
     @staticmethod
-    def audit_injection(proposed_ac_mw: float, upstream_substation_mva: float = 15.0) -> GridCapacityValidationModel:
-        print("[TNBSubstationCapacityValidator] Running 15% substation injection audit...")
+    def audit_injection(proposed_ac_mw: float, upstream_substation_mva: float = 15.0,
+                        hypothetical_bess: bool = False) -> GridCapacityValidationModel:
+        if not np.isfinite(proposed_ac_mw) or not np.isfinite(upstream_substation_mva):
+            raise ValueError("Grid ratings must be finite.")
+        if proposed_ac_mw <= 0 or upstream_substation_mva <= 0:
+            raise ValueError("Grid ratings must be positive.")
 
+        # MW / MVA is only a rough ratio; not a load-flow result (power factor
+        # and upstream network conditions are not modeled).
         injection_percent = (proposed_ac_mw / upstream_substation_mva) * 100.0
-
-        # Core TNB reverse power and load flow risk threshold
-        if injection_percent >= 25.0:
-            risk = "Severe (Reverse power flows will trip substation safety relays)"
-            is_bess_required = True
-        elif injection_percent >= 15.0:
-            risk = "Moderate (Requires stabilization or zero-export control)"
-            is_bess_required = True
-        else:
-            risk = "Negligible"
-            is_bess_required = False
-
-        reasons = []
-        battery_power = 0.0
-        battery_capacity = 0.0
-        bess_capex = 0.0
-
-        if is_bess_required:
-            # Sizing formula: Battery power covers the injection peak exceeding 15% threshold
-            excess_mw = proposed_ac_mw - (0.15 * upstream_substation_mva)
-            battery_power = round(float(excess_mw), 2)
-            # 4-hour storage capacity standard for utility peak-shaving
-            battery_capacity = round(float(battery_power * 4.0), 2)
-            # Estimated LFP Battery CAPEX standard: RM 1.2M per MWh
-            bess_capex = battery_capacity * 1200000.0
-
-            reasons = [
-                f"Peak solar AC output ({proposed_ac_mw:.2f} MW) exceeds the 15% TNB substation thermal threshold ({0.15 * upstream_substation_mva:.2f} MVA) by {excess_mw:.2f} MW.",
-                "To secure SEDA NEM/NOVA approval, a Battery Energy Storage System (BESS) must be integrated at the Point of Common Coupling (PCC) to execute dynamic peak-shaving."
-            ]
-            print(f" [Grid Audit] RISK DETECTED: {risk}. Sizing LFP Battery: {battery_power} MW / {battery_capacity} MWh.")
-        else:
-            print(" [Grid Audit] PASS: Peak solar injection sits safely below the 15% substation thermal rating.")
+        elevated = injection_percent >= 15.0  # illustrative sensitivity threshold
+        risk = ("SCREENING_FLAG_NEEDS_UTILITY_STUDY" if elevated
+                else "NOT_EVALUATED_BY_GRID_STUDY")
+        reasons = [
+            f"Illustrative AC MW / upstream MVA ratio = {injection_percent:.1f}%; "
+            "this is not a TNB thermal limit or grid approval.",
+            "A utility network study and power-factor/load-flow data are required "
+            "to determine export limits, protection and any storage requirement.",
+        ]
+        battery_power = battery_capacity = bess_capex = 0.0
+        if hypothetical_bess and elevated:
+            # Optional financial stress test ONLY; not a BESS requirement.
+            battery_power = round(max(0.0, proposed_ac_mw - 0.15 * upstream_substation_mva), 2)
+            battery_capacity = round(battery_power * 4.0, 2)
+            bess_capex = battery_capacity * 1_200_000.0
+            reasons.append("Hypothetical four-hour BESS scenario enabled by user; NOT required by this screen.")
 
         bess = BESSRecommendationModel(
-            is_bess_required=is_bess_required,
+            is_bess_required=False,  # Not established without independent grid studies.
             recommended_battery_power_mw=battery_power,
             recommended_battery_capacity_mwh=battery_capacity,
             estimated_bess_capex_rm=bess_capex,
-            reasons=reasons
+            reasons=reasons,
         )
-
         return GridCapacityValidationModel(
             upstream_substation_capacity_mva=upstream_substation_mva,
             substation_injection_percent=round(injection_percent, 2),
             reverse_power_risk=risk,
-            bess_specification=bess
+            bess_specification=bess,
         )
 
 
@@ -959,7 +944,9 @@ class YieldFeasibilityEngine:
         performance_ratio = 0.78 # Standard system loss index
 
         # Select scenario tariff
-        tariff_rm_kwh = SCENARIO_TARIFFS.get(scenario, DEFAULT_TARIFF_RM_KWH)
+        if scenario not in SCENARIO_TARIFFS:
+            raise ValueError(f"Unsupported financial scenario: {scenario}")
+        tariff_rm_kwh = SCENARIO_TARIFFS[scenario]  # illustrative input; not a tariff quote or eligibility decision
 
         # Dynamically load real meteorological observations from Open-Meteo dataset
         avg_ghi = 1550.0 # Default fallback
@@ -1071,48 +1058,68 @@ class YieldFeasibilityEngine:
 
 
 class FormFiller:
-    """
-    Maps verified legal, technical, and financial attributes into compliant,
-    pre-filled regulatory filing manifests for SEDA and TNB, including NEMAS triggers.
-    """
+    """Generate PRELIMINARY planning fields; never a completed regulatory filing."""
+
     @staticmethod
-    def generate_manifest(land: LandTitleMetadata, tech: TechnicalFeasibilityModel) -> RegulatoryFilingManifest:
-        print("[FormFiller] Generating pre-filled SEDA & TNB grid application manifest...")
+    def generate_manifest(land: LandTitleMetadata, tech: TechnicalFeasibilityModel,
+                          proposed_ac_mw: Optional[float] = None) -> RegulatoryFilingManifest:
+        ac_capacity_kw = float(
+            proposed_ac_mw * 1000 if proposed_ac_mw is not None
+            else tech.capacity_mwp * 1000.0 * 0.85
+        )
+        if not np.isfinite(ac_capacity_kw) or ac_capacity_kw <= 0:
+            raise ValueError("Proposed inverter AC capacity must be positive.")
 
-        ac_capacity_kw = float(tech.capacity_mwp * 1000.0 * 0.85)
+        assessment_type = "GRID_STUDY_TO_CONFIRM"
+        study_required = False
+        study_fee = 0.0
+        source_url = ""
+        notes = [
+            "Preliminary manifest only. No TNB/SEDA application submitted or approved.",
+            "Capacity, connection voltage and applicant eligibility need independent verification.",
+        ]
+        mandatory_studies = ["Obtain utility's project-specific study/connection requirements."]
 
-        # --- Improvised Feature: SEDA NEMAS Compliance Checklist ---
-        is_nemas_required = ac_capacity_kw > 72.0
-        mandatory_studies = []
-        nemas_fee = 0.0
-        processing_days = 15
+        if tech.scenario == SCENARIO_C_I_NEM:
+            # NEM NOVA legacy scheme study bands, NOT Solar ATAP. Tariff is
+            # merely a financial sensitivity until contract and bills are reviewed.
+            source_url = "https://www.seda.gov.my/reportal/nem/"
+            notes.append("NEM NOVA scenario and RM/kWh rate are illustrative; verify current programme eligibility and customer bills.")
+            if ac_capacity_kw <= 72.0:
+                assessment_type = "CAS_NOT_CAPACITY_TRIGGERED"
+                mandatory_studies = []
+            elif ac_capacity_kw <= 180.0:
+                assessment_type, study_fee = "CAS", 1000.0
+            elif ac_capacity_kw <= 425.0:
+                assessment_type, study_fee = "CAS", 5000.0
+            elif ac_capacity_kw <= 1000.0:
+                assessment_type, study_fee = "CAS", 8000.0
+            elif ac_capacity_kw <= 2000.0:
+                assessment_type, study_fee = "CAS", 15000.0
+            elif ac_capacity_kw <= 5000.0:
+                assessment_type, study_fee = "CAS", 20000.0
+            else:
+                assessment_type = "OUTSIDE_MODELED_NOVA_STUDY_BANDS"
+                notes.append("AC capacity exceeds published 5 MW LV/MV CAS fee table; require project-specific review.")
+            study_required = assessment_type == "CAS"
+            if study_required:
+                mandatory_studies = ["NEM NOVA connection assessment (CAS) – applicable to LV/MV; verify voltage classification."]
+        else:
+            notes.append("LSS/self-consumption does not inherit NEM/NOVA/ATAP study fees or eligibility.")
+        notes.append("Solar ATAP is not implemented in this prototype: non-domestic inverter output is capped at 1 MW and <=100% maximum demand; export offset lasts 10 years.")
+        if ac_capacity_kw > 1000:
+            notes.append("Above 1 MWac: do not market this modeled project as Solar ATAP eligible.")
 
-        if is_nemas_required:
-            nemas_fee = 8000.0 # Estimated TNB process fee in RM
-            processing_days = 90
-            mandatory_studies = [
-                "Power Quality & Harmonic Distortion Assessment",
-                "Voltage-Rise and Steady State Injections Study",
-                "Protection Coordination & Anti-Islanding Trip Integration Study",
-                "Utility Fault Ride-Through (FRT) Compliance Study"
-            ]
-
-        # Use the project development company as the applicant when available;
-        # otherwise fall back to the largest landowner.
         if land.project_company_name:
-            applicant_name = land.project_company_name
-            applicant_id = land.project_company_reg_no or "N/A"
+            applicant_name, applicant_id = land.project_company_name, land.project_company_reg_no or "N/A"
         elif land.owners:
             applicant = max(land.owners, key=lambda o: o.calculated_share_float)
-            applicant_name = applicant.name
-            applicant_id = applicant.ic_or_co_no
+            applicant_name, applicant_id = applicant.name, applicant.ic_or_co_no
+            notes.append("Largest landowner is only a proposed contact; legal authority to apply is unverified.")
         else:
-            applicant_name = "N/A"
-            applicant_id = "N/A"
+            applicant_name = applicant_id = "N/A"
 
-        # Prefer Mukim, fall back to District for the Point of Common Coupling.
-        coupling_location = land.mukim if land.mukim else land.district
-
+        coupling_location = land.mukim or land.district
         seda = SEDAApplicationSchema(
             Part_A_Applicant_Name=applicant_name,
             Part_A_Company_Registration=applicant_id,
@@ -1121,30 +1128,28 @@ class FormFiller:
             Part_B_Mukim_Daerah_Negeri=f"{land.mukim}, {land.district}, {land.state}",
             Part_C_Proposed_DC_Capacity_kWp=float(tech.capacity_mwp * 1000.0),
             Part_C_Proposed_AC_Capacity_kWac=ac_capacity_kw,
-            Part_D_PPA_Tariff_Rate_RM_kWh=tech.ppa_tariff_rm_kwh
+            Part_D_PPA_Tariff_Rate_RM_kWh=tech.ppa_tariff_rm_kwh,
         )
-
         tnb = TNBConnectionSchema(
             Applicant_Company=applicant_name,
             Interconnection_Voltage_Level_kV=33.0 if tech.capacity_mwp >= 2.0 else 11.0,
             Total_Generation_Capacity_MWac=ac_capacity_kw / 1000.0,
             Inverter_Compliance_Standards=["IEC 62116", "IEC 61727", "MS 1837:2010"],
-            Point_of_Common_Coupling=f"TNB Substation - Mukim {coupling_location}",
-            Transformer_Capacity_MVA=float(tech.capacity_mwp * 1.2)
+            Point_of_Common_Coupling=f"Proposed site: {coupling_location} (actual PCC unverified)",
+            Transformer_Capacity_MVA=float(tech.capacity_mwp * 1.2),
         )
-
         nemas = NEMASChecklistSchema(
-            is_nemas_required=is_nemas_required,
-            voltage_rise_study_required=ac_capacity_kw >= 250.0, # required above 250kW under TNB code
-            estimated_regulatory_fee_rm=nemas_fee,
-            estimated_processing_days=processing_days,
-            mandatory_technical_studies=mandatory_studies
+            is_nemas_required=study_required,
+            voltage_rise_study_required=False,  # not determinable without network study
+            estimated_regulatory_fee_rm=study_fee,
+            estimated_processing_days=None,
+            assessment_type=assessment_type,
+            source_url=source_url,
+            eligibility_notes=notes,
+            mandatory_technical_studies=mandatory_studies,
         )
-
         return RegulatoryFilingManifest(
-            seda_application=seda,
-            tnb_grid_request=tnb,
-            nemas_checklist=nemas
+            seda_application=seda, tnb_grid_request=tnb, nemas_checklist=nemas,
         )
 
 
