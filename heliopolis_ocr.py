@@ -59,8 +59,8 @@ Use these keys exactly:
       "id": "unique_id",
       "class": "One of: PV_Array, Inverter, AC_Switch, PV_Meter, Anti_Islanding_Relay, Transformer, Grid_Connection, Junction_Dot",
       "bbox": [ymin, xmin, ymax, xmax],
-      "integrated_anti_islanding_label": true if explicitly PRINTED on inverter, null otherwise,
-      "anti_islanding_source_text": "Exact short printed label, or null if not visible"
+      "integrated_anti_islanding_label": null,
+      "anti_islanding_source_text": null
     }
   ],
   "lines": [
