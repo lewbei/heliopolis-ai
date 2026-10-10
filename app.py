@@ -237,8 +237,8 @@ with st.sidebar:
 
     st.markdown('<div class="card-title">Project Company</div>', unsafe_allow_html=True)
     st.markdown('<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">SEDA/TNB permits are filed by the project company, not the landowner.</div>', unsafe_allow_html=True)
-    in_project_company_name = st.text_input("Project Company Name", value=st.session_state.get("in_project_company_name", "Solarvest Development Sdn Bhd"))
-    in_project_company_reg = st.text_input("Company Reg. No", value=st.session_state.get("in_project_company_reg", "1234567-U"))
+    in_project_company_name = st.text_input("Project Company Name", value=st.session_state.get("in_project_company_name", "Synthetic demo developer (not registered)"))
+    in_project_company_reg = st.text_input("Company Reg. No", value=st.session_state.get("in_project_company_reg", "SYNTHETIC-NOT-SSM"))
 
     st.markdown('<div class="card-title">Technical Specifications</div>', unsafe_allow_html=True)
     current_slope_profile = st.session_state.get("in_slope_profile", "Severe Ridge (37.7° mean)")
@@ -248,7 +248,20 @@ with st.sidebar:
     in_slope_profile = st.selectbox("Terrain Slope Profile", slope_profiles_list, index=slope_profiles_list.index(current_slope_profile))
 
     in_ac_capacity = st.number_input("Proposed AC Capacity (MWac)", value=st.session_state.get("in_ac_capacity", 3.21), step=0.1)
-    in_substation_mva = st.number_input("Upstream Substation Limit (MVA)", value=st.session_state.get("in_substation_mva", 15.0), step=1.0)
+    in_substation_mva = st.number_input("Assumed Upstream Substation Rating (MVA)", value=st.session_state.get("in_substation_mva", 15.0), step=1.0)
+    in_voltage_class = st.selectbox(
+        "Connection voltage class (user assumption)",
+        ["UNKNOWN", "LV", "MV", "HV"],
+        help="Do not infer the voltage class from PV system size. Unknown means no historical scheme-specific fee can be estimated.",
+    )
+    in_maximum_demand = st.number_input(
+        "Verified Consumer Maximum Demand (kW; 0 = unknown)",
+        value=0.0, min_value=0.0, step=10.0,
+        help="ATAP non-domestic capacity cannot exceed 100% of MD or 1,000 kW. Unknown is not proof of eligibility.",
+    )
+    in_hypothetical_bess = st.checkbox(
+        "Illustrative 4-hour BESS what-if (NOT a TNB requirement)", value=False
+    )
 
     st.markdown('<div class="card-title">Financial Scenario</div>', unsafe_allow_html=True)
     scenario_options = list(SCENARIO_LABELS.values())
@@ -328,6 +341,7 @@ try:
         title_image_path=title_image_path,
         project_company_name=in_project_company_name,
         project_company_reg_no=in_project_company_reg,
+        source_type="SYNTHETIC_DEMO_OR_EDITED_FORM",
     )
 except DocumentReviewRequired as exc:
     stop_with_review(str(exc), "Uploaded land title")
@@ -351,6 +365,9 @@ try:
         site_mode=site_mode,
         sld_image_path=sld_image_path,
         scenario=in_scenario,
+        voltage_class=in_voltage_class,
+        maximum_demand_kw=in_maximum_demand if in_maximum_demand > 0 else None,
+        hypothetical_bess=in_hypothetical_bess,
     )
 except DocumentReviewRequired as exc:
     stop_with_review(str(exc), "Uploaded electrical SLD")
@@ -362,8 +379,10 @@ grid_audit = assessment["grid_audit"]
 feasibility = assessment["feasibility"]
 manifest = assessment["manifest"]
 st.warning(f"PRELIMINARY SCREENING ONLY — Title source: {land_meta.source_type}; SLD source: {assessment['data_provenance']['sld']}; terrain: SYNTHETIC_TERRAIN. No legal or grid approval has been issued.")
+if title_image_path or sld_image_path:
+    st.caption("Gemini OCR was attempted for uploaded evidence; extracted results remain unverified and require human checking.")
 if in_scenario == "c_i_nem":
-    st.info("C&I/NEM NOVA tariff is illustrative and is NOT Solar ATAP eligibility. Confirm current scheme, applicable consumption/export profile and tariff before financial reliance.")
+    st.info("Historical NEM NOVA sensitivity only. The published NEM 3.0 quota offer period ended June 2025; do not treat the modeled rate as a current application or Solar ATAP eligibility.")
 if in_ac_capacity > 1.0:
     st.caption("Proposed capacity exceeds 1 MWac; do not present this project as eligible for non-domestic Solar ATAP.")
 
