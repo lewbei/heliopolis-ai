@@ -4,6 +4,8 @@ Updated 10 October 2026. A draft for review; no changes to locked judging artifa
 
 **One primary product:** preliminary incoming-document checks for Malaysian solar EPC/IPP development analysts, NOT another bankable PV design tool.
 
+**Timing:** This 4–5-minute sequence is an ALTERNATIVE. A 7-minute/10-slide spoken script dated 8 October also exists; use whichever matches the organizer's announced time limit and the exact deck/build rehearsed. Do not switch stories at the venue.
+
 ## Before the presentation
 
 - Confirm the official semifinal Participation & Release Agreement and stage review-window dates. Official terms: https://www.maicnexus.com/en/terms
@@ -11,6 +13,8 @@ Updated 10 October 2026. A draft for review; no changes to locked judging artifa
 - Locally run: pip install -r requirements.txt ; then streamlit run app.py.
 - Set the connection voltage class explicitly to MV for the default larger LSS demo. The default UNKNOWN cannot pass a scoped SLD topology screen.
 - Have a pre-recorded offline synthetic demo if live connectivity fails. No private personal data or hidden API secrets in video.
+- If presenting the older 3.21 to 2.00 MWac / HOLD case, first reproduce its output using that exact older implementation. Public master currently has BESS what-if OFF by default and uses NEEDS_REVIEW, not HOLD. The historical RM4.608m storage cost change was NOT solely due to smaller AC capacity.
+- Do not mix old local 232 Python/API plus 39 frontend test counts with current GitHub master's 186 Python regression tests. Each is tied to different logs/builds and neither measures OCR accuracy.
 - Use the latest PR/repository test result that you have ACTUALLY verified; at draft review 186 offline Python tests passed, not OCR accuracy.
 - If organizer materials are LOCKED, do not replace submitted pitch materials until permission is granted.
 
