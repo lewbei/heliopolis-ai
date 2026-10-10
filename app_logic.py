@@ -62,9 +62,9 @@ def _sld_node_style(category: str, node_id: str) -> dict:
 
 def _imperial_string_to_parts(area_imperial: str) -> tuple[float, float, float]:
     """Parse an 'X Ekar Y Rood Z Pole' string into (acres, roods, poles)."""
-    match = re.search(r"(\d+)\s*Ekar", area_imperial, re.IGNORECASE)
+    match = re.search(r"(\d+(?:\.\d+)?)\s*Ekar", area_imperial, re.IGNORECASE)
     acres = float(match.group(1)) if match else 0.0
-    match = re.search(r"(\d+)\s*Rood", area_imperial, re.IGNORECASE)
+    match = re.search(r"(\d+(?:\.\d+)?)\s*Rood", area_imperial, re.IGNORECASE)
     roods = float(match.group(1)) if match else 0.0
     match = re.search(r"([\d.]+)\s*Pole", area_imperial, re.IGNORECASE)
     poles = float(match.group(1)) if match else 0.0
