@@ -146,3 +146,19 @@ P1: One developer interview or letter confirming the priority pain (NOT a claim 
 P1: A one-page business model: buyer, pricing test and unit-cost formula. ESG KPIs should separate current measured process outcomes from future potential impact.
 
 DO NOT add automated TNB filing, pretend registry access exists, add a second general LLM, or build a Southeast Asia policy engine before the minimal evidence gates above pass.
+
+
+## Urgent reconciliation with prior prepared pitch artifacts
+
+Previous saved presentation materials dated 7–8 October 2026 have been located, but we do not know whether they are the FINAL submission. They must not silently be replaced by a new nine-slide GitHub Markdown pitch:
+
+- Heliopolis_AI_Competition_Pitch_20261007_v8.pdf is a 16-page pack (main narrative plus detailed Q&A). Its cover displays **13 October 2026** as the seminar date. Check the official dashboard/email, do not treat the cover as an event confirmation.
+- Heliopolis_MAIC_Seven_Minute_Spoken_Script_20261008.pdf is a 7-minute script with a self-reported 8-minute cap, prepared for a **different 10-main-slide** narrative. Reconcile exact displayed deck and speech timing.
+- That earlier working demo shows 3.21 MWac -> 2.00 MWac, both HOLD, with RM15.94m -> RM7.06m modeled CAPEX and RM4.608m storage removed under a prototype heuristic. **Current GitHub main uses BESS what-if OFF by default**, and statuses are PRELIMINARY_REVIEW_REQUIRED / NEEDS_REVIEW rather than the old HOLD state. Do not replay those historic numbers against new code or claim the CAPEX change comes solely from reducing capacity.
+- The saved pitch/Q&A cites **232 Python/API checks plus 39 frontend checks** in an earlier local working environment. Current public master CI has **186 offline Python tests**, which is not an arithmetic or evidential contradiction if the suites differ, but each number must be attributed to its exact build and logs. Do not call either field OCR accuracy.
+- The saved pitch proposes **RM3,000/year local installation licence**. Keep it as one SPECIFIC UNVALIDATED price hypothesis; clarify users/support/Google Vertex usage costs and buyer willingness to pay. Do not change the commercial offer among presentation, script and judge Q&A without explanation.
+- The earlier speech explicitly avoids fresh live OCR and downloads during its 75-second demo. A new SLD negative-control tour or longer cloud demo needs a timed full rehearsal. If the existing 7-minute sequence is more reliable, preserve it and use the graph failure as a backup Q&A, NOT an untested on-stage substitution.
+
+Top-10 priority on a short deadline: freeze ONE executable build, ONE matched slide deck, ONE spoken script, ONE saved reproducible result and ONE truthful test count. A stable five-to-seven-minute demonstration is worth more than adding new unvalidated features.
+
+The proposed nine-slide draft is an ALTERNATE message framework only. It has not been substituted into the user's previous v8 pitch file and must not be merged into a possibly locked judging submission without explicit permission.
