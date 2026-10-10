@@ -57,6 +57,9 @@ def stop_with_review(reason: str, evidence_type: str) -> None:
     st.stop()
 
 
+# This flag MUST be enforced server-side, not by hiding CSS elements.
+DEMO_ONLY = os.getenv("HELIOPOLIS_DEMO_ONLY", "").strip().lower() in ("1", "true", "yes")
+
 # --- Page Setup ---
 st.set_page_config(**PAGE_CONFIG)
 
@@ -87,6 +90,9 @@ with head_left:
         AI-assisted Preliminary Solar Site Screening (Malaysia) · Not a legal or grid-connection approval
     </div>
     """, unsafe_allow_html=True)
+if DEMO_ONLY:
+    st.info("PUBLIC MAIC DEMO: synthetic scenarios only; uploads and Google Vertex OCR are disabled.")
+
 with head_right:
     theme_label = "☀️ Light" if IS_DARK else "🌙 Dark"
     st.button(theme_label, on_click=toggle_theme, use_container_width=True, key="theme_toggle_btn")
@@ -311,20 +317,29 @@ with st.sidebar:
     st.session_state["in_scenario"] = in_scenario
 
     st.markdown("---")
-    st.markdown('<div class="card-title">Scanned Document OCR</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Upload images to run real Gemini OCR. Leave blank to use the form values above.</div>', unsafe_allow_html=True)
-    title_image_file = st.file_uploader("Land Title Scan (PNG/JPG)", type=["png", "jpg", "jpeg"])
-    sld_image_file = st.file_uploader("SLD Diagram Scan (PNG/JPG)", type=["png", "jpg", "jpeg"])
-    st.caption(
-        "Uploaded scans are sent to Google Gemini/Vertex AI for OCR. "
-        "Real land titles may contain names and identification numbers. "
-        "Do not upload real personal/confidential data without authorization."
-    )
-    allow_cloud_ocr = st.checkbox(
-        "I have authorization to send these uploaded scans to the configured Google AI service.",
-        value=False,
-    )
-
+    if DEMO_ONLY:
+        st.info(
+            "PUBLIC SYNTHETIC DEMO ONLY: document uploads and paid Vertex AI OCR "
+            "are disabled on this server. No account or personal records are accepted."
+        )
+        title_image_file = None
+        sld_image_file = None
+        allow_cloud_ocr = False
+    else:
+        st.markdown('<div class="card-title">Scanned Document OCR</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Upload images to run real Gemini OCR. Leave blank to use the form values above.</div>', unsafe_allow_html=True)
+        title_image_file = st.file_uploader("Land Title Scan (PNG/JPG)", type=["png", "jpg", "jpeg"])
+        sld_image_file = st.file_uploader("SLD Diagram Scan (PNG/JPG)", type=["png", "jpg", "jpeg"])
+        st.caption(
+            "Uploaded scans are sent to Google Gemini/Vertex AI for OCR. "
+            "Real land titles may contain names and identification numbers. "
+            "Do not upload real personal/confidential data without authorization."
+        )
+        allow_cloud_ocr = st.checkbox(
+            "I have authorization to send these uploaded scans to the configured Google AI service.",
+            value=False,
+        )
+    
 
 if (title_image_file or sld_image_file) and not allow_cloud_ocr:
     st.warning("Uploaded scan NOT sent to Gemini: explicit document-transfer authorization is required.")

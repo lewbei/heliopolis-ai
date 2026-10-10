@@ -7,6 +7,7 @@ streamlit run pages/1_Solar_ATAP_Monthly.py.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
 import sys
@@ -24,6 +25,8 @@ from solar_atap_settlement import (
     NonDomesticBillingPeriod,
     settle_non_domestic_month,
 )
+
+DEMO_ONLY = os.getenv("HELIOPOLIS_DEMO_ONLY", "").strip().lower() in ("1", "true", "yes")
 
 st.set_page_config(page_title="Solar ATAP monthly energy screen", layout="wide")
 
@@ -47,15 +50,19 @@ st.markdown(
 st.link_button("Energy Commission official guideline", GUIDELINE_URL)
 st.link_button("Single Buyer — monthly SMP", SMP_SOURCE_URL)
 
-mode = st.radio(
-    "Evidence mode",
-    [
-        "Manual billing totals — user supplied, not independently verified",
-        "Full interval CSV — user supplied, not independently verified",
-        "Clearly synthetic MAIC judge fixture",
-    ],
-    horizontal=False,
-)
+if DEMO_ONLY:
+    st.info("PUBLIC SYNTHETIC DEMO ONLY: no customer CSV upload or billing records accepted.")
+    mode = "Clearly synthetic MAIC judge fixture"
+else:
+    mode = st.radio(
+        "Evidence mode",
+        [
+            "Manual billing totals — user supplied, not independently verified",
+            "Full interval CSV — user supplied, not independently verified",
+            "Clearly synthetic MAIC judge fixture",
+        ],
+        horizontal=False,
+    )
 synthetic = mode.startswith("Clearly synthetic")
 interval_mode = mode.startswith("Full interval")
 

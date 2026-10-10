@@ -19,6 +19,14 @@ A prototype AI-assisted **preliminary** solar-site screening tool for Malaysia. 
 
 ---
 
+## MAIC public judge URL (Cloud Run configuration)
+
+A minimal non-root [Dockerfile](Dockerfile), upload-excluding [.dockerignore](.dockerignore) and explicit server-side `HELIOPOLIS_DEMO_ONLY=1` mode are now available. In this mode both Streamlit pages use only synthetic examples: **no user document upload and no Google Vertex AI OCR call**. Deploying to an actual Google Cloud Run URL requires the project owner's authorized `gcloud` login, billing and user-managed public service account with no Vertex permissions.
+
+See [public Cloud Run deployment and go/no-go checklist](qrspi/PUBLIC_CLOUD_RUN_DEMO_DEPLOYMENT.md). This is deployable configuration, **not a live website already hosted by GitHub Pages or ChatGPT**.
+
+---
+
 ## MAIC live demo and scalability roadmap
 
 The detailed [MAIC live-demo and scaling execution plan](qrspi/LIVE_DEMO_AND_SCALE_EXECUTION_PLAN_20261010.md) sequences the 2-acre source-title / 3.21 MWac capacity mismatch, Vertex AI proof, public synthetic-only Cloud Run demo, private OCR review service, judge fallback and 30/60/90-day customer scaling gates. **This is a plan, not a completed Cloud Run deployment or live Vertex benchmark.**
