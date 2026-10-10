@@ -330,6 +330,23 @@ if (title_image_file or sld_image_file) and not allow_cloud_ocr:
     st.warning("Uploaded scan NOT sent to Gemini: explicit document-transfer authorization is required.")
     st.stop()
 
+# Changes to source-title fields must not preserve a false "original" extraction label.
+pitch_title_edited = bool(prepared_pitch and (
+    in_title != "SYNTH-GRN-2026-001"
+    or in_lot != "SYNTH-LOT-001"
+    or in_state != "Perak"
+    or in_zoning != "Bangunan"
+    or abs(in_acres - 2.0) > 0.000001
+    or abs(in_roods) > 0.000001
+    or abs(in_poles) > 0.000001
+    or not in_caveats or in_charges or in_reserve
+))
+if pitch_title_edited:
+    st.warning(
+        "Source-title fields were manually changed from the original synthetic Slide 2 "
+        "image. This is now an EDITED scenario, not the exact recovered title."
+    )
+
 # --- Compute Ownership Splits ---
 if site_mode == "Synthetic Malaysian Sites (500)":
     active_site_id = st.session_state.get("prev_selected_site", "MY-SITE-0001")
@@ -388,11 +405,12 @@ try:
         project_company_name=in_project_company_name,
         project_company_reg_no=in_project_company_reg,
         source_type=(
-            "SYNTHETIC_PITCH_PREPARED_FIELDS" if prepared_pitch
+            "USER_EDITED_SYNTHETIC_PITCH_FIELDS" if pitch_title_edited
+            else "SYNTHETIC_PITCH_PREPARED_FIELDS" if prepared_pitch
             else "SYNTHETIC_DEMO_OR_EDITED_FORM"
         ),
     )
-    if prepared_pitch and not title_image_path:
+    if prepared_pitch and not title_image_path and not pitch_title_edited:
         land_meta.district = "Synthetic District"
         land_meta.mukim = "Synthetic Mukim"
 except DocumentReviewRequired as exc:
@@ -970,6 +988,7 @@ with tabs[3]:
                 **assessment["data_provenance"],
                 "sld": g.graph.get("source_type", "SYNTHETIC_DEMO"),
                 "source_case_id": "MAIC-SLIDE2-2026-SYNTHETIC" if prepared_pitch else None,
+                "title_fields_modified_from_pitched_source": pitch_title_edited if prepared_pitch else None,
                 "sld_original_sha256": g.graph.get("source_image_sha256"),
                 "title_original_sha256": (
                     "8e3178cd01a4cf09a3b7ce017a0131f9368057f37e1b29c8638f601ea546f694"
