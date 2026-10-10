@@ -2,11 +2,12 @@
 
 import pytest
 from streamlit.testing.v1 import AppTest
+from pathlib import Path
 
 
 @pytest.mark.parametrize("keyword", ["Historical NOVA", "Self-consumption"])
 def test_missing_load_profile_disables_profitability_without_crashing(keyword):
-    app = AppTest.from_file("app.py", default_timeout=60).run()
+    app = AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py", default_timeout=60).run()
     assert not app.exception
     choices = [widget for widget in app.selectbox if widget.label == "Revenue Scenario"]
     assert len(choices) == 1
