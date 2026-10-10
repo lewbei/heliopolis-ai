@@ -351,7 +351,7 @@ finally:
 
 legal_status = land_meta.legal_assessment.status
 findings = land_meta.legal_assessment.findings
-is_poa_required = land_meta.legal_assessment.poa_compliance.is_poa_required
+coowner_review_required = land_meta.legal_assessment.poa_compliance.requires_coowner_coordination
 required_deeds = land_meta.legal_assessment.poa_compliance.required_deeds
 total_share = sum(o.calculated_share_float for o in land_meta.owners)
 
@@ -450,7 +450,7 @@ with tabs[0]:
         """), unsafe_allow_html=True)
 
         # Power of Attorney & Joint-Execution Manifest Card
-        poa_badge = '<span class="badge badge-amber">CO-OWNER REVIEW</span>' if is_poa_required else '<span class="badge badge-amber">LEGAL REVIEW</span>'
+        poa_badge = '<span class="badge badge-amber">CO-OWNER REVIEW</span>' if coowner_review_required else '<span class="badge badge-amber">LEGAL REVIEW</span>'
         poa_reasons_html = "".join([f'<div class="checklist-item"><span class="checklist-dot"></span>{html_escape(d)}</div>' for d in required_deeds])
 
         st.markdown(clean_html_markdown(f"""
