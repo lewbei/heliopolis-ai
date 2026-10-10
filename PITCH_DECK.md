@@ -90,7 +90,7 @@ SOLAR ATAP 2026: a SEPARATE non-domestic one-month energy-only page models MAQ, 
 
 **Initial buyer:** small/mid-sized Malaysian EPC or IPP project-development analyst reviewing incoming document packs. Start as a reviewer-assist tool, not a permit-filing robot.
 
-**Value hypothesis:** measured packs per month x corrected analyst hours per pack, minus actual Vertex, compute, storage and human-review costs. Pricing and time savings have NOT been validated.
+**Proposed buyer test from the October 8 plan:** RM3,000/year local installation licence, NOT a validated price, sale or signed contract. Number of seats, included support and Vertex usage costs still require definition. Value test = actual packs per month x measured analyst hours saved, minus OCR, compute and correction costs.
 
 **Scale plan:** current offline prototype -> controlled cloud pilot with Vertex service identity, restricted documents and per-file limits -> versioned state/scheme checks and independent customer accounts. No live e-Tanah integration, production multi-tenancy or cross-border compliance is claimed today.
 
