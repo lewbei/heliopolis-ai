@@ -210,6 +210,36 @@ def build_demo_sld(
     return graph
 
 
+
+def build_maic_pitch_source_sld():
+    """Reviewed synthetic Slide-2 MV component arrangement; NOT OCR."""
+    symbols = [
+        {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
+        {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
+        {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 900, 200, 1000]},
+        {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1200, 200, 1300]},
+        {"id": "RELAY_AUX", "class": "Anti_Islanding_Relay", "bbox": [370, 690, 470, 790]},
+    ]
+    main_power_lines = [
+        ((200, 150), (400, 150)),
+        ((500, 150), (900, 150)),
+        ((1000, 150), (1200, 150)),
+    ]
+    graph = SLDTopologyResolver().resolve(
+        symbols, main_power_lines, connection_profile="MV"
+    )
+    graph.graph["source_type"] = "SYNTHETIC_PITCH_SOURCE_REVIEWED_FIELDS"
+    graph.graph["source_image_sha256"] = (
+        "005f7bad7133e41c4fce758c73682486b6a4f5fc5365de76b62eae01d55f9246"
+    )
+    graph.graph["tnb_compliance"]["findings"].append(
+        "Original synthetic pitch shows an auxiliary anti-islanding sensing/control "
+        "relay branch. Its protective function is NOT established by the "
+        "main PV-to-inverter-to-transformer-to-grid power route."
+    )
+    return graph
+
+
 def compute_assessment(
     land_meta,
     slope_profile: str,
@@ -223,6 +253,7 @@ def compute_assessment(
     voltage_class: str = "UNKNOWN",
     maximum_demand_kw: float | None = None,
     hypothetical_bess: bool = False,
+    prepared_pitch_source_sld: bool = False,
 ):
     """Run the full technical assessment pipeline and return a result dict."""
     # --- Civil Terrain Grid Generator (synthetic terrain until real DEM is supplied) ---
@@ -264,6 +295,8 @@ def compute_assessment(
         sld_graph = SLDTopologyResolver().resolve_image(
             sld_image_path, connection_profile=voltage_class
         )
+    elif prepared_pitch_source_sld:
+        sld_graph = build_maic_pitch_source_sld()
     else:
         sld_graph = build_demo_sld(
             has_relay, is_xfmr_connected, connection_profile=voltage_class

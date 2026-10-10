@@ -92,6 +92,11 @@ with head_right:
     st.button(theme_label, on_click=toggle_theme, use_container_width=True, key="theme_toggle_btn")
 
 # --- Preset Configurations ---
+MAIC_PITCH_PRESET = "MAIC 2026 Source Title (2-acre SYNTHETIC)"
+MAIC_PITCH_OWNERS = [
+    {"name": "SYNTHETIC PERSON ALPHA", "id": "SYNTH-ID-0001", "share": "60/120"},
+    {"name": "SYNTHETIC PERSON BETA", "id": "SYNTH-ID-0002", "share": "60/120"},
+]
 presets = {
     "Perak Site (Default High Slope)": {
         "title": "GRN 45293", "lot": "Lot 8192", "state": "Perak", "district": "Larut dan Matang",
@@ -110,7 +115,16 @@ presets = {
         "acres": 8.0, "roods": 1.0, "poles": 10.0, "zoning": "Pertanian",
         "caveats": False, "charges": False, "reserve": True, "slope_profile": "Rolling Hills (8.5° mean)",
         "ac_capacity": 1.5, "substation_mva": 15.0
-    }
+    },
+    MAIC_PITCH_PRESET: {
+        "title": "SYNTH-GRN-2026-001", "lot": "SYNTH-LOT-001",
+        "state": "Perak", "district": "Synthetic District", "mukim": "Synthetic Mukim",
+        "acres": 2.0, "roods": 0.0, "poles": 0.0, "zoning": "Bangunan",
+        "caveats": True, "charges": False, "reserve": False,
+        "slope_profile": "Optimal Flat Plain (2.1° mean)",
+        "ac_capacity": 3.21, "substation_mva": 15.0,
+    },
+
 }
 
 # --- Load Real Malaysian Sites ---
@@ -143,6 +157,13 @@ with st.sidebar:
     if site_mode == "Standard Presets":
         selected_preset = st.selectbox("Load Site Preset", list(presets.keys()), key="preset_selector")
         preset_data = presets[selected_preset]
+        prepared_pitch = selected_preset == MAIC_PITCH_PRESET
+        if prepared_pitch:
+            st.warning(
+                "MAIC prepared case: REVIEWED SYNTHETIC SOURCE FIELDS from Slide 2, "
+                "not Vertex OCR. This title contains only TWO acres and a caveat. "
+                "The original relay is on a control/sensing branch, not inline."
+            )
 
         # If selection mode or target changed, update inputs in session_state
         if st.session_state.prev_selected_mode != "Standard Presets" or st.session_state.prev_selected_preset != selected_preset:
@@ -159,10 +180,13 @@ with st.sidebar:
             st.session_state.in_slope_profile = preset_data["slope_profile"]
             st.session_state.in_ac_capacity = float(preset_data["ac_capacity"])
             st.session_state.in_substation_mva = float(preset_data["substation_mva"])
+            st.session_state["connection_class_select"] = "MV" if prepared_pitch else "UNKNOWN"
+            st.session_state["bess_whatif_select"] = False
 
             st.session_state.prev_selected_mode = "Standard Presets"
             st.session_state.prev_selected_preset = selected_preset
     else:
+        prepared_pitch = False
         regions = sorted(list(set(s["region"] for s in real_sites)))
         selected_region = st.selectbox("Filter Region", ["All Regions"] + regions, key="region_filter")
 
@@ -258,6 +282,7 @@ with st.sidebar:
     in_voltage_class = st.selectbox(
         "Connection voltage class (user assumption)",
         ["UNKNOWN", "LV", "MV", "HV"],
+        key="connection_class_select",
         help="Do not infer the voltage class from PV system size. Unknown means no historical scheme-specific fee can be estimated.",
     )
     in_maximum_demand = st.number_input(
@@ -266,7 +291,8 @@ with st.sidebar:
         help="ATAP non-domestic capacity cannot exceed 100% of MD or 1,000 kW. Unknown is not proof of eligibility.",
     )
     in_hypothetical_bess = st.checkbox(
-        "Illustrative 4-hour BESS what-if (NOT a TNB requirement)", value=False
+        "Illustrative 4-hour BESS what-if (NOT a TNB requirement)",
+        value=False, key="bess_whatif_select",
     )
 
     st.markdown('<div class="card-title">Financial Scenario</div>', unsafe_allow_html=True)
@@ -304,6 +330,23 @@ if (title_image_file or sld_image_file) and not allow_cloud_ocr:
     st.warning("Uploaded scan NOT sent to Gemini: explicit document-transfer authorization is required.")
     st.stop()
 
+# Changes to source-title fields must not preserve a false "original" extraction label.
+pitch_title_edited = bool(prepared_pitch and (
+    in_title != "SYNTH-GRN-2026-001"
+    or in_lot != "SYNTH-LOT-001"
+    or in_state != "Perak"
+    or in_zoning != "Bangunan"
+    or abs(in_acres - 2.0) > 0.000001
+    or abs(in_roods) > 0.000001
+    or abs(in_poles) > 0.000001
+    or not in_caveats or in_charges or in_reserve
+))
+if pitch_title_edited:
+    st.warning(
+        "Source-title fields were manually changed from the original synthetic Slide 2 "
+        "image. This is now an EDITED scenario, not the exact recovered title."
+    )
+
 # --- Compute Ownership Splits ---
 if site_mode == "Synthetic Malaysian Sites (500)":
     active_site_id = st.session_state.get("prev_selected_site", "MY-SITE-0001")
@@ -311,7 +354,7 @@ if site_mode == "Synthetic Malaysian Sites (500)":
     co_owners_cnt = matching_site["co_owners_count"] if matching_site else 5
     owners_list = generate_co_owners(co_owners_cnt, active_site_id)
 else:
-    owners_list = SAMPLE_OWNERS
+    owners_list = MAIC_PITCH_OWNERS if prepared_pitch else SAMPLE_OWNERS
 
 # --- Validate User Inputs ---
 validation_errors = validate_inputs(
@@ -361,8 +404,15 @@ try:
         title_image_path=title_image_path,
         project_company_name=in_project_company_name,
         project_company_reg_no=in_project_company_reg,
-        source_type="SYNTHETIC_DEMO_OR_EDITED_FORM",
+        source_type=(
+            "USER_EDITED_SYNTHETIC_PITCH_FIELDS" if pitch_title_edited
+            else "SYNTHETIC_PITCH_PREPARED_FIELDS" if prepared_pitch
+            else "SYNTHETIC_DEMO_OR_EDITED_FORM"
+        ),
     )
+    if prepared_pitch and not title_image_path and not pitch_title_edited:
+        land_meta.district = "Synthetic District"
+        land_meta.mukim = "Synthetic Mukim"
 except DocumentReviewRequired as exc:
     stop_with_review(str(exc), "Uploaded land title")
 finally:
@@ -388,6 +438,7 @@ try:
         voltage_class=in_voltage_class,
         maximum_demand_kw=in_maximum_demand if in_maximum_demand > 0 else None,
         hypothetical_bess=in_hypothetical_bess,
+        prepared_pitch_source_sld=prepared_pitch,
     )
 except DocumentReviewRequired as exc:
     stop_with_review(str(exc), "Uploaded electrical SLD")
@@ -578,6 +629,13 @@ with tabs[1]:
                 "Uploaded drawing: selected voltage class is a USER ASSUMPTION, "
                 "not inferred TNB connection approval. Demo controls are disabled."
             )
+        elif prepared_pitch:
+            st.warning(
+                "SYNTHETIC ORIGINAL SLIDE-2 SLD: the anti-islanding relay is "
+                "on an auxiliary sensing/control branch, not inline. "
+                "This is a reviewed drawing representation, not a live OCR run. "
+                "Topology is fixed to the original pitch arrangement."
+            )
         else:
             st.caption(
                 f"SYNTHETIC {in_voltage_class} fixture. Select LV/MV in the "
@@ -586,27 +644,27 @@ with tabs[1]:
         if in_voltage_class == "LV":
             has_relay = st.toggle(
                 "Explicit inverter anti-islanding label shown (synthetic)",
-                value=True, disabled=bool(sld_image_path),
+                value=True, disabled=bool(sld_image_path or prepared_pitch),
             )
             is_xfmr_connected = st.toggle(
                 "Connect inverter to grid (synthetic)",
-                value=True, disabled=bool(sld_image_path),
+                value=True, disabled=bool(sld_image_path or prepared_pitch),
             )
         else:
             has_relay = st.toggle(
                 "Include separate Anti-Islanding Relay (synthetic)",
-                value=True, disabled=bool(sld_image_path),
+                value=True, disabled=bool(sld_image_path or prepared_pitch),
             )
             is_xfmr_connected = st.toggle(
                 "Connect Transformer to Grid (synthetic)",
-                value=True, disabled=bool(sld_image_path),
+                value=True, disabled=bool(sld_image_path or prepared_pitch),
             )
 
         # Never rerun an uploaded OCR/model or financial assessment for this tab.
         # The cheap fixture toggle only changes the displayed synthetic graph.
         g = (
             assessment["sld_graph"]
-            if sld_image_path
+            if sld_image_path or prepared_pitch
             else build_demo_sld(
                 has_relay=has_relay,
                 is_xfmr_connected=is_xfmr_connected,
@@ -926,7 +984,17 @@ with tabs[3]:
                 "NEEDS_REVIEW" if footprint.status == "NEEDS_REVIEW" else "PRELIMINARY_REVIEW_REQUIRED"
             ),
             "land_footprint_screen": footprint.model_dump(),
-            "data_provenance": {**assessment["data_provenance"], "sld": g.graph.get("source_type", "SYNTHETIC_DEMO")},
+            "data_provenance": {
+                **assessment["data_provenance"],
+                "sld": g.graph.get("source_type", "SYNTHETIC_DEMO"),
+                "source_case_id": "MAIC-SLIDE2-2026-SYNTHETIC" if prepared_pitch else None,
+                "title_fields_modified_from_pitched_source": pitch_title_edited if prepared_pitch else None,
+                "sld_original_sha256": g.graph.get("source_image_sha256"),
+                "title_original_sha256": (
+                    "8e3178cd01a4cf09a3b7ce017a0131f9368057f37e1b29c8638f601ea546f694"
+                    if prepared_pitch else None
+                ),
+            },
             "sld_topology_screen": g.graph.get("tnb_compliance", {}),
             "regulatory_study": manifest.nemas_checklist.model_dump(),
             "regulatory_planning_fields": {

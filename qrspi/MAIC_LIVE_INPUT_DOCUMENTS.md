@@ -24,6 +24,16 @@ The original PPTX is essential. Do not run the extractor on a different version;
 - **The anti-islanding relay is connected to a separate sensing/control branch. It is NOT in series on the main electrical path.** The slide explicitly says protection operation is not assessed. This is NOT proof of TNB compliance.
 - In the current MV topology screen, a failure to establish the required modeled protected path should give **NEEDS_REVIEW**, not a false electrical clearance. Check actual Vertex extracted symbols/wires against the original drawing.
 
+## NEW: one-click source-field prepared MAIC example (reviewed SYNTHETIC)
+
+From the regular Streamlit sidebar, choose **Standard Presets -> MAIC 2026 Source Title (2-acre SYNTHETIC)**. This version automatically loads the original fictional title/lot, two registered fictional owners (60/120 each), **2 acres**, Caveat=YES, Charges=NO, Malay Reserve=NO, original synthetic district/mukim and an assumed **MV** connection. A hypothetical 3.21 MWac initial AC rating is selected with hypothetical BESS OFF.
+
+The electrical review displays a **reviewed synthetic representation of the source drawing**: PV -> inverter -> transformer -> grid power route and a RELAY_AUX on a separate sensing/control branch. The relay is NOT made into an inline certified MV protective path. The report must say **NEEDS_REVIEW** for the auxiliary relay/footprint mismatch.
+
+On changing AC to 2.00 MWac, gross hypothetical DC peak, yield and CAPEX update, but NPV/IRR remains withheld because the **same two-acre title** remains land-footprint-incompatible under the explicit area-density screen. Current numbers are **not** the historical slide's RM15.94m / RM7.06m results.
+
+**Important:** This preset contains reviewed prefilled metadata, NOT the original PNG bytes and NOT a real Vertex AI OCR call. The source PNGs remain in the delivered local input ZIP. If a reviewer manually edits the title/area/restriction fields, the UI will label them USER_EDITED_SYNTHETIC_PITCH_FIELDS and no longer assert that the entered fields match the original source.
+
 ## Demonstration A: safe 75-second OFFLINE graph negative control
 
     pip install -r requirements.txt
