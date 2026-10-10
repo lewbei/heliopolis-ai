@@ -1351,12 +1351,15 @@ def main():
 
     # Compile final execution package
     final_output = {
+        "assessment_status": "PRELIMINARY_REVIEW_REQUIRED",
+        "scope": "SYNTHETIC_DEMO_NOT_REGULATORY_APPROVAL",
+        "data_provenance": {"land": land_metadata.source_type, "terrain": "SYNTHETIC_TERRAIN", "sld": sld_graph.graph.get("source_type", "SYNTHETIC_DEMO")},
         "land_title_analysis": land_metadata.model_dump(),
         "sld_topology_analysis": {
             "node_count": sld_graph.number_of_nodes(),
             "edge_count": sld_graph.number_of_edges(),
             "graph_paths": list(sld_graph.edges()),
-            "tnb_compliance": sld_graph.graph.get("tnb_compliance", {})
+            "preliminary_topology_screen": sld_graph.graph.get("tnb_compliance", {})
         },
         "technical_financial_feasibility": tech_results.model_dump(),
         "regulatory_manifest": regulatory_manifest.model_dump()
@@ -1375,7 +1378,7 @@ def main():
         print(f" [ERROR] Atomic file write failed: {e}")
         sys.exit(1)
 
-    print(f"\n[Success] Complete Solar Assessment Report successfully written to: {report_path}")
+    print(f"\n[PRELIMINARY SYNTHETIC SCREENING] Report written to: {report_path}")
     print(f"Financial Scenario: {SCENARIO_LABELS.get(tech_results.scenario, tech_results.scenario)}")
     print(f"Calculated Capacity: {tech_results.capacity_mwp:.3f} MWp")
     print(f"Base CAPEX Cost: RM {tech_results.base_capex_rm:,.2f}")
@@ -1383,9 +1386,9 @@ def main():
     print(f"Project Lifetime NPV: RM {tech_results.npv_rm:,.2f}")
     print(f"Project IRR: {tech_results.irr_percent:.2f}%")
     print(f"Land Legal Status: {land_metadata.legal_assessment.status}")
-    print(f"Power of Attorney Required: {land_metadata.legal_assessment.poa_compliance.is_poa_required}")
-    print(f"SEDA NEMAS Study Required: {regulatory_manifest.nemas_checklist.is_nemas_required}")
-    print(f"LFP Battery Storage Required: {grid_capacity_audit.bess_specification.is_bess_required}")
+    print(f"Co-owner coordination needs legal review: {land_metadata.legal_assessment.poa_compliance.is_poa_required}")
+    print(f"Study classification (unverified programme eligibility): {regulatory_manifest.nemas_checklist.assessment_type}")
+    print("BESS technical necessity: NOT EVALUATED (no network load-flow study)")
 
 if __name__ == "__main__":
     main()
