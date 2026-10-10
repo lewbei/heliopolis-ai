@@ -99,7 +99,7 @@ Using 2D spatial finite differences ($\theta_{deg} = \arctan(\sqrt{f'_x^2 + f'_y
 <img src="qrspi/plots/perak_slope_risk_contour.png" width="600px" alt="Topography Slope Map">
 
 ### B. Extracted Single-Line Diagram Topology Graph
-Uses spatial $\epsilon$-neighbor distance search to connect wire segment vectors to symbol centroids, constructing a horizontal Directed Graph to verify **TNB ESAG** and **MS 1837:2010** parallel connection compliance.
+Uses spatial $\epsilon$-neighbor matching to extract a directed drawing graph for **preliminary**, limited connectivity review; it cannot verify TNB ESAG, protection settings or MS IEC 1837 compliance. The primary **LV** profile recognizes PV → inverter → AC switch/PV meter → grid without requiring a separate MV-style transformer or external relay; an absent explicit anti-islanding annotation triggers human review. See [TNB Appendix B LV profile and negative-control demo](qrspi/PRIMARY_LV_SLD_SCOPE.md).
 
 <img src="qrspi/plots/sld_topology_flow_graph.png" width="800px" alt="SLD Flow Graph">
 
@@ -206,7 +206,7 @@ In the sidebar, fill in:
 The dashboard then shows:
 * Legal share arithmetic and preliminary flags requiring professional review (not a POA or lease determination).
 * 2D terrain slope risk map.
-* SLD topology graph and limited protected-path checks (not TNB compliance certification).
+* Connection-class-aware preliminary SLD drawing review (LV/MV; UNKNOWN/HV remain review-required), not inverter certification or TNB approval.
 * Capacity, yield, CAPEX and LCOE for illustrative cases; NPV/IRR/payback only for the indicative LSS PPA scenario, never unsupported NOVA/ATAP credits.
 * Draft planning fields and a scheme-dependent study screen (not filed SEDA/TNB applications).
 
