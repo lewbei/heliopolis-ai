@@ -1,4 +1,4 @@
-name: Build MAIC judge pitch PDF
+name: Build MAIC text-backup PDF
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   render:
@@ -45,13 +45,3 @@ jobs:
           name: heliopolis-maic-pitch-pdf
           path: pitch_deck.pdf
           retention-days: 30
-      - name: Commit generated PDF on master
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add pitch_deck.pdf
-          if ! git diff --cached --quiet; then
-            git commit -m 'docs: regenerate current MAIC semifinal pitch PDF [skip ci]'
-            git push origin HEAD:master
-          fi
