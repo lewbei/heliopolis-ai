@@ -19,6 +19,12 @@ A prototype AI-assisted **preliminary** solar-site screening tool for Malaysia. 
 
 ---
 
+## MAIC live demo and scalability roadmap
+
+The detailed [MAIC live-demo and scaling execution plan](qrspi/LIVE_DEMO_AND_SCALE_EXECUTION_PLAN_20261010.md) sequences the 2-acre source-title / 3.21 MWac capacity mismatch, Vertex AI proof, public synthetic-only Cloud Run demo, private OCR review service, judge fallback and 30/60/90-day customer scaling gates. **This is a plan, not a completed Cloud Run deployment or live Vertex benchmark.**
+
+---
+
 ## MAIC live demonstration source documents
 
 The original **synthetic Perak land-title PNG and 11 kV SLD PNG** shown on Slide 2 of the user's latest nine-page pitch have been recovered from the matching October 8 PowerPoint. The two binary images are available as an input ZIP supplied in the ChatGPT conversation; they have not been committed to this repository. See [the exact expected document fields, original image hashes, live Vertex OCR path, and offline negative-control demo instructions](qrspi/MAIC_LIVE_INPUT_DOCUMENTS.md).
