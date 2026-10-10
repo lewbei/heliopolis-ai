@@ -22,6 +22,10 @@ DEFAULT_OPEX_INFLATION = 0.02
 DEFAULT_DEGRADATION_RATE = 0.005
 DEFAULT_TARIFF_RM_KWH = 0.27
 DEFAULT_WACC = 0.065
+# Explicit *screening assumptions*, not empirical land-use or TNB limits.
+DEFAULT_AC_TO_DC_RATIO = 0.85
+DEFAULT_USABLE_LAND_FRACTION = 0.90
+DEFAULT_LAND_SQM_PER_MWP = 12140.0
 
 # --- Financial Scenario Tariffs (RM/kWh) ---
 # Sourced from Malaysian market benchmarks:
@@ -172,6 +176,78 @@ class GridCapacityValidationModel(BaseModel):
     substation_injection_percent: float = Field(description="Ratio of peak AC solar output to substation capacity.")
     reverse_power_risk: str = Field(description="Heuristic review flag, not a utility load-flow or reverse-power protection assessment.")
     bess_specification: BESSRecommendationModel
+
+class LandFootprintScreenModel(BaseModel):
+    """Land-area plausibility only, NOT a parcel layout or regulatory approval."""
+    status: str
+    land_area_sqm: float
+    proposed_ac_mw: float
+    assumed_ac_to_dc_ratio: float
+    assumed_usable_land_fraction: float
+    assumed_sqm_per_mwp: float
+    proposed_dc_mwp: float
+    max_screened_dc_mwp: float
+    max_screened_ac_mw: float
+    estimated_land_required_sqm: float
+    land_shortfall_sqm: float
+    findings: List[str] = Field(default_factory=list)
+
+
+def screen_land_footprint(
+    land_area_sqm: float,
+    proposed_ac_mw: float,
+    ac_to_dc_ratio: float = DEFAULT_AC_TO_DC_RATIO,
+    usable_fraction: float = DEFAULT_USABLE_LAND_FRACTION,
+    sqm_per_mwp: float = DEFAULT_LAND_SQM_PER_MWP,
+) -> LandFootprintScreenModel:
+    """Screen capacity against supplied land area without changing either input.
+
+    Ratio and area-per-MWp are explicit *illustrative* assumptions, not a legal
+    density limit, GIS buildable-area map, detailed engineering layout or tariff.
+    """
+    values = (land_area_sqm, proposed_ac_mw, ac_to_dc_ratio, usable_fraction, sqm_per_mwp)
+    if any(not isinstance(v, (int, float, np.number)) or not np.isfinite(v) for v in values):
+        raise ValueError("Land capacity inputs and assumptions must be finite numbers.")
+    if (land_area_sqm <= 0 or proposed_ac_mw <= 0 or sqm_per_mwp <= 0
+            or not 0 < ac_to_dc_ratio <= 1 or not 0 < usable_fraction <= 1):
+        raise ValueError("Land area, capacity and footprint assumptions must be positive and valid.")
+    proposed_dc_mwp = proposed_ac_mw / ac_to_dc_ratio
+    max_dc_mwp = land_area_sqm * usable_fraction / sqm_per_mwp
+    max_ac_mw = max_dc_mwp * ac_to_dc_ratio
+    required_sqm = proposed_dc_mwp * sqm_per_mwp / usable_fraction
+    shortfall_sqm = max(0.0, required_sqm - land_area_sqm)
+    outside = proposed_ac_mw > max_ac_mw + 1e-10
+    findings = [
+        "Illustrative footprint only (usable fraction, area density and AC/DC ratio); "
+        "not surveyed buildable land, utility approval or a plant layout.",
+    ]
+    if outside:
+        findings.insert(
+            0,
+            f"Proposed {proposed_ac_mw:.3f} MWac exceeds the illustrative "
+            f"{max_ac_mw:.3f} MWac land-area screen; do not treat the "
+            "scenario as a physically feasible project without a new site/layout.",
+        )
+    else:
+        findings.append(
+            "Proposed rating is within the illustrative land-area assumption; "
+            "actual setbacks, slope, land rights and installed capacity remain unverified."
+        )
+    return LandFootprintScreenModel(
+        status="NEEDS_REVIEW" if outside else "WITHIN_ILLUSTRATIVE_AREA_NOT_APPROVAL",
+        land_area_sqm=round(float(land_area_sqm), 3),
+        proposed_ac_mw=round(float(proposed_ac_mw), 6),
+        assumed_ac_to_dc_ratio=float(ac_to_dc_ratio),
+        assumed_usable_land_fraction=float(usable_fraction),
+        assumed_sqm_per_mwp=float(sqm_per_mwp),
+        proposed_dc_mwp=round(float(proposed_dc_mwp), 6),
+        max_screened_dc_mwp=round(float(max_dc_mwp), 6),
+        max_screened_ac_mw=round(float(max_ac_mw), 6),
+        estimated_land_required_sqm=round(float(required_sqm), 3),
+        land_shortfall_sqm=round(float(shortfall_sqm), 3),
+        findings=findings,
+    )
+
 
 class TechnicalFeasibilityModel(BaseModel):
     capacity_mwp: float = Field(description="Simulated PV system peak DC capacity (MWp).")
@@ -1166,10 +1242,20 @@ class YieldFeasibilityEngine:
         self.terrain = terrain
         self.grid_audit = grid_audit
 
-    def calculate(self, scenario: str = DEFAULT_SCENARIO) -> TechnicalFeasibilityModel:
+    def calculate(
+        self, scenario: str = DEFAULT_SCENARIO,
+        proposed_ac_mw: Optional[float] = None,
+        ac_to_dc_ratio: float = DEFAULT_AC_TO_DC_RATIO,
+    ) -> TechnicalFeasibilityModel:
         print(f"[YieldFeasibilityEngine] Executing financial and clean energy yield models (scenario: {scenario})...")
         land_sqm = self.metadata.area_sq_meters
-        usable_area = land_sqm * 0.90 # 10% setback buffers
+        usable_area = land_sqm * DEFAULT_USABLE_LAND_FRACTION  # illustrative footprint limit
+        if not np.isfinite(ac_to_dc_ratio) or not 0 < ac_to_dc_ratio <= 1:
+            raise ValueError("Assumed AC-to-DC ratio must lie in (0, 1].")
+        if proposed_ac_mw is not None and (
+            not np.isfinite(proposed_ac_mw) or proposed_ac_mw <= 0
+        ):
+            raise ValueError("Proposed AC capacity must be positive and finite.")
 
         # Engineering parameters for tropical environments
         gcr = 0.45 # Ground Coverage Ratio
@@ -1215,7 +1301,13 @@ class YieldFeasibilityEngine:
         temp_coeff = -0.0035 # -0.35% per degree C
         cell_temperature_derating = max(0.70, min(1.0, 1.0 + (t_cell_estimated - 25.0) * temp_coeff))
 
-        capacity_mwp = usable_area / 12140.0
+        # With a selected project rating, financial/yield outputs MUST respond to it.
+        # Preserve the legacy CLI fallback only when no AC rating was provided.
+        capacity_mwp = (
+            proposed_ac_mw / ac_to_dc_ratio
+            if proposed_ac_mw is not None
+            else usable_area / DEFAULT_LAND_SQM_PER_MWP
+        )
         annual_yield_mwh = capacity_mwp * 1000.0 * avg_ghi * performance_ratio * cell_temperature_derating / 1000.0
 
         # Financial input assumptions (RM)
@@ -1540,7 +1632,12 @@ def main():
     terrain_model = CivilSlopeAnalyzer.analyze_topography(elevation_grid, cell_resolution_meters=10.0)
 
     # 3. Audit Local Substation Capacity Limits & Size BESS
-    ac_peak_mw = (site_data["area_sq_meters"] * 0.9 / 12140.0) * 0.85
+    # The selected title—not the registry fixture when an OCR title was uploaded—
+    # supplies the area for this legacy CLI's illustrative maximum AC rating.
+    ac_peak_mw = (
+        land_metadata.area_sq_meters * DEFAULT_USABLE_LAND_FRACTION
+        / DEFAULT_LAND_SQM_PER_MWP * DEFAULT_AC_TO_DC_RATIO
+    )
     grid_capacity_audit = TNBSubstationCapacityValidator.audit_injection(proposed_ac_mw=ac_peak_mw, upstream_substation_mva=site_data["substation_capacity_mva"])
 
     # 4. Resolve SLD Topology
@@ -1568,7 +1665,8 @@ def main():
     # 5. Compute Yield and Financials
     scenario = os.environ.get("HELIOPOLIS_SCENARIO", DEFAULT_SCENARIO)
     feasibility_engine = YieldFeasibilityEngine(land_metadata, terrain_model, grid_capacity_audit)
-    tech_results = feasibility_engine.calculate(scenario=scenario)
+    tech_results = feasibility_engine.calculate(scenario=scenario, proposed_ac_mw=ac_peak_mw)
+    footprint_screen = screen_land_footprint(land_metadata.area_sq_meters, ac_peak_mw)
 
     # 6. Generate SEDA/TNB Prefilled Manifest
     regulatory_manifest = FormFiller.generate_manifest(land_metadata, tech_results)
@@ -1586,6 +1684,7 @@ def main():
             "preliminary_topology_screen": sld_graph.graph.get("tnb_compliance", {})
         },
         "technical_financial_feasibility": tech_results.model_dump(),
+        "land_footprint_screen": footprint_screen.model_dump(),
         "regulatory_manifest": regulatory_manifest.model_dump()
     }
 
