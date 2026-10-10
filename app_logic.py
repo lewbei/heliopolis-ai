@@ -11,6 +11,7 @@ from solar_agent import (
     TNBSubstationCapacityValidator,
     SLDTopologyResolver,
     YieldFeasibilityEngine,
+    screen_land_footprint,
     FormFiller,
     OwnerModel,
     project_lifecycle_cashflows,
@@ -245,7 +246,17 @@ def compute_assessment(
         metadata=land_meta,
         terrain=terrain_model,
         grid_audit=grid_audit
-    ).calculate(scenario=scenario)
+    ).calculate(scenario=scenario, proposed_ac_mw=ac_capacity)
+    footprint = screen_land_footprint(land_meta.area_sq_meters, ac_capacity)
+    if footprint.status == "NEEDS_REVIEW":
+        # An investment projection that cannot fit its stated source parcel
+        # is not a project feasibility result. Retain gross hypothetical DC,
+        # yield and costs for transparency but abstain from ROI metrics.
+        feasibility.financial_status = "NEEDS_REVIEW_INCOMPATIBLE_LAND_FOOTPRINT"
+        feasibility.npv_rm = None
+        feasibility.irr_percent = None
+        feasibility.payback_years = None
+        feasibility.financial_notes.extend(footprint.findings)
 
     # Uploaded OCR graph is analyzed once; a synthetic fixture needs no cloud call.
     if sld_image_path:
@@ -270,6 +281,7 @@ def compute_assessment(
         "terrain_model": terrain_model,
         "grid_audit": grid_audit,
         "feasibility": feasibility,
+        "land_footprint_screen": footprint,
         "sld_graph": sld_graph,
         "manifest": manifest,
     }
