@@ -122,8 +122,9 @@ class OwnerModel(BaseModel):
 class PowerOfAttorneyModel(BaseModel):
     # Legacy field name retained for compatibility: true means review *possible*
     # POA / joint execution needs, not a legal conclusion that POA is mandatory.
-    is_poa_required: bool = Field(description="Multiple proprietors require professional coordination review; not a POA determination.")
-    min_co_owners_needed: int = Field(description="Number of registered proprietors shown; not a valid signature threshold.")
+    is_poa_required: Optional[bool] = Field(default=None, description="POA legal requirement undetermined; never infer from share arithmetic.")
+    requires_coowner_coordination: bool = Field(default=False, description="Multiple proprietors need professional coordination review.")
+    min_co_owners_needed: Optional[int] = Field(default=None, description="Legal minimum signatures unknown; no 51% shortcut.")
     required_deeds: List[str] = Field(default_factory=list, description="Items for solicitor review, not mandatory instruments.")
 
 class LegalAssessmentModel(BaseModel):
@@ -188,7 +189,7 @@ class TechnicalFeasibilityModel(BaseModel):
 
 class NEMASChecklistSchema(BaseModel):
     is_nemas_required: bool = Field(description="Legacy flag for scenario-specific historical study rule; not blanket NEMAS or permission.")
-    voltage_rise_study_required: bool = Field(description="True if AC generation can trigger local grid overvoltage.")
+    voltage_rise_study_required: Optional[bool] = Field(default=None, description="Unestablished until actual network study.")
     estimated_regulatory_fee_rm: Optional[float] = Field(default=None, description="Published *reference* fee in RM, or None when not verified/applicable.")
     estimated_processing_days: Optional[int] = Field(default=None, description="Estimated calendar days, or None if not supported by evidence.")
     assessment_type: str = Field(default="UNCONFIRMED", description="Applicable connection study, not a permit.")
@@ -363,8 +364,9 @@ class LandTitleParser:
         # a lease for the entire property on behalf of all registered proprietors.
         multiple_owners = len(owners) > 1
         return PowerOfAttorneyModel(
-            is_poa_required=multiple_owners,  # Legacy field: means legal coordination must be checked.
-            min_co_owners_needed=len(owners),
+            is_poa_required=None,  # No legal POA necessity can be inferred from owner share arithmetic.
+            requires_coowner_coordination=multiple_owners,
+            min_co_owners_needed=None,
             required_deeds=(
                 [
                     "Conveyancing review: confirm consent and authority of all registered proprietors.",
@@ -395,7 +397,7 @@ class LandTitleParser:
         if is_malay_reserve:
             findings.append("Malay Reserve indicated: check eligibility and state legislation with a qualified professional.")
             status = "Flagged/Risky"
-        if poa.is_poa_required:
+        if poa.requires_coowner_coordination:
             findings.append("Multiple proprietors: ownership percentages alone do not establish authority to lease the whole lot.")
         return LegalAssessmentModel(status=status, findings=findings, poa_compliance=poa)
 
@@ -1256,7 +1258,7 @@ class FormFiller:
         )
         nemas = NEMASChecklistSchema(
             is_nemas_required=study_required,
-            voltage_rise_study_required=False,  # unknown: not certified to be absent
+            voltage_rise_study_required=None,  # unknown: cannot infer from generated capacity
             estimated_regulatory_fee_rm=fee,
             estimated_processing_days=None,
             assessment_type=study_type,
@@ -1386,7 +1388,7 @@ def main():
     print(f"Project Lifetime NPV: RM {tech_results.npv_rm:,.2f}")
     print(f"Project IRR: {tech_results.irr_percent:.2f}%")
     print(f"Land Legal Status: {land_metadata.legal_assessment.status}")
-    print(f"Co-owner coordination needs legal review: {land_metadata.legal_assessment.poa_compliance.is_poa_required}")
+    print(f"Co-owner coordination review flag: {land_metadata.legal_assessment.poa_compliance.requires_coowner_coordination}")
     print(f"Study classification (unverified programme eligibility): {regulatory_manifest.nemas_checklist.assessment_type}")
     print("BESS technical necessity: NOT EVALUATED (no network load-flow study)")
 
