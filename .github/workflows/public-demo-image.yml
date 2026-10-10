@@ -1,0 +1,64 @@
+name: Build and smoke-test public synthetic Cloud Run image
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - requirements.txt
+      - app.py
+      - app_logic.py
+      - solar_agent.py
+      - "pages/**"
+      - ".github/workflows/public-demo-image.yml"
+  push:
+    branches: [master]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - requirements.txt
+      - app.py
+      - app_logic.py
+      - solar_agent.py
+      - "pages/**"
+      - ".github/workflows/public-demo-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build public image
+        run: docker build --tag heliopolis-public-demo:ci .
+      - name: Start public synthetic site
+        run: |
+          docker run -d --name heliopolis-public-check \
+            -e HELIOPOLIS_DEMO_ONLY=1 -e PORT=8080 \
+            -p 8080:8080 heliopolis-public-demo:ci
+      - name: Verify container health without API credentials
+        run: |
+          for i in $(seq 1 35); do
+            if curl -fsS --max-time 4 http://127.0.0.1:8080/_stcore/health; then
+              echo "Streamlit startup confirmed on expected Cloud Run port"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs heliopolis-public-check
+          exit 1
+      - name: Ensure forbidden assets are absent from public image
+        run: |
+          docker exec heliopolis-public-check sh -c '
+            test ! -e /app/.env &&
+            test ! -e /app/.git &&
+            test ! -e /app/Heliopolis_MAIC_Live_Demo_Inputs.zip &&
+            test "$HELIOPOLIS_DEMO_ONLY" = "1"
+          '
+      - name: Dump container logs if smoke check fails
+        if: failure()
+        run: docker logs heliopolis-public-check || true
