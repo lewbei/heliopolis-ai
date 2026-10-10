@@ -237,8 +237,8 @@ with st.sidebar:
 
     st.markdown('<div class="card-title">Project Company</div>', unsafe_allow_html=True)
     st.markdown('<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">SEDA/TNB permits are filed by the project company, not the landowner.</div>', unsafe_allow_html=True)
-    in_project_company_name = st.text_input("Project Company Name", value=st.session_state.get("in_project_company_name", "Synthetic demo developer (not registered)"))
-    in_project_company_reg = st.text_input("Company Reg. No", value=st.session_state.get("in_project_company_reg", "SYNTHETIC-NOT-SSM"))
+    in_project_company_name = st.text_input("Applicant Company (optional; user-entered)", value=st.session_state.get("in_project_company_name", ""), placeholder="Enter only a verified applicant")
+    in_project_company_reg = st.text_input("Company registration (optional)", value=st.session_state.get("in_project_company_reg", ""), placeholder="Do not invent an SSM number")
 
     st.markdown('<div class="card-title">Technical Specifications</div>', unsafe_allow_html=True)
     current_slope_profile = st.session_state.get("in_slope_profile", "Severe Ridge (37.7° mean)")
@@ -255,7 +255,7 @@ with st.sidebar:
         help="Do not infer the voltage class from PV system size. Unknown means no historical scheme-specific fee can be estimated.",
     )
     in_maximum_demand = st.number_input(
-        "Verified Consumer Maximum Demand (kW; 0 = unknown)",
+        "Provided Consumer Maximum Demand (kW; unverified, 0 = unknown)",
         value=0.0, min_value=0.0, step=10.0,
         help="ATAP non-domestic capacity cannot exceed 100% of MD or 1,000 kW. Unknown is not proof of eligibility.",
     )
