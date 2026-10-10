@@ -5,6 +5,8 @@ import numpy as np
 
 from solar_agent import (
     LandTitleParser,
+    LandTitleMetadata,
+    DocumentReviewRequired,
     CivilSlopeAnalyzer,
     TNBSubstationCapacityValidator,
     SLDTopologyResolver,
@@ -86,8 +88,9 @@ def build_land_metadata(
     title_image_path: str | None = None,
     project_company_name: str = "",
     project_company_reg_no: str = "",
+    source_type: str = "USER_ENTERED_UNVERIFIED",
 ):
-    """Build a fully populated LandTitleMetadata object from raw form inputs or a scanned image."""
+    """Build metadata from a form or uploaded title without secretly inheriting a demo fixture."""
     if title_image_path:
         print("[app_logic] Building land metadata from OCR image...")
         land_meta = LandTitleParser.from_image(title_image_path)
@@ -98,41 +101,46 @@ def build_land_metadata(
     else:
         hectares, sq_meters = LandTitleParser.convert_imperial_to_metric(acres, roods, poles)
 
-        owner_models = [
-            OwnerModel(
-                name=o["name"],
-                ic_or_co_no=o["id"],
-                share_fraction=o["share"],
-                calculated_share_float=LandTitleParser.parse_fraction(o["share"])
-            )
-            for o in owners_list
-        ]
-
+        if not owners_list:
+            raise DocumentReviewRequired("At least one registered proprietor must be recorded.")
+        try:
+            owner_models = [
+                OwnerModel(
+                    name=owner["name"],
+                    ic_or_co_no=owner["id"],
+                    share_fraction=owner["share"],
+                    calculated_share_float=LandTitleParser.parse_fraction_strict(owner["share"]),
+                )
+                for owner in owners_list
+            ]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DocumentReviewRequired("Owner records or shares are incomplete or invalid.") from exc
+        if abs(sum(o.calculated_share_float for o in owner_models) - 1.0) > 0.001:
+            raise DocumentReviewRequired("Owner fractions do not sum to 100%; verify source records.")
         poa_model = LandTitleParser._compute_poa(owner_models)
         legal_assessment = LandTitleParser._compute_legal_assessment(
             zoning, caveats, charges, reserve, poa_model
         )
-
-        # Legacy form construction starts from a fixture; do NOT retain fixture identity/location.
-        land_meta = LandTitleParser().parse("")
-        land_meta.source_type = "DEMO_PRESET_OR_USER_ENTERED_UNVERIFIED"
-        land_meta.review_status = "NEEDS_LEGAL_REVIEW"
-        land_meta.district = ""
-        land_meta.mukim = ""
-        land_meta.title_no = title_no
-        land_meta.lot_no = lot_no
-        land_meta.state = state
-        land_meta.zoning = zoning
-        land_meta.area_imperial = f"{int(acres)} Ekar {int(roods)} Rood {poles} Pole"
-        land_meta.area_hectares = hectares
-        land_meta.area_sq_meters = sq_meters
-        land_meta.is_malay_reserve = reserve
-        land_meta.has_caveats = caveats
-        land_meta.has_charges = charges
-        land_meta.owners = owner_models
-        land_meta.project_company_name = project_company_name
-        land_meta.project_company_reg_no = project_company_reg_no
-        land_meta.legal_assessment = legal_assessment
+        land_meta = LandTitleMetadata(
+            source_type=source_type,
+            review_status="NEEDS_LEGAL_REVIEW",
+            title_no=title_no,
+            lot_no=lot_no,
+            state=state,
+            district="",
+            mukim="",
+            zoning=zoning,
+            area_imperial=f"{acres:g} Ekar {roods:g} Rood {poles:g} Pole",
+            area_hectares=hectares,
+            area_sq_meters=sq_meters,
+            owners=owner_models,
+            project_company_name=project_company_name,
+            project_company_reg_no=project_company_reg_no,
+            has_caveats=caveats,
+            has_charges=charges,
+            is_malay_reserve=reserve,
+            legal_assessment=legal_assessment,
+        )
 
     owner_rows_html = app_components.owner_rows_html(owner_models)
     return land_meta, hectares, sq_meters, acres, roods, poles, owner_rows_html
@@ -179,6 +187,9 @@ def compute_assessment(
     is_xfmr_connected: bool = True,
     sld_image_path: str | None = None,
     scenario: str = DEFAULT_SCENARIO,
+    voltage_class: str = "UNKNOWN",
+    maximum_demand_kw: float | None = None,
+    hypothetical_bess: bool = False,
 ):
     """Run the full technical assessment pipeline and return a result dict."""
     # --- Civil Terrain Grid Generator (synthetic terrain until real DEM is supplied) ---
@@ -193,7 +204,8 @@ def compute_assessment(
     # --- Grid Battery Audit ---
     grid_audit = TNBSubstationCapacityValidator.audit_injection(
         proposed_ac_mw=ac_capacity,
-        upstream_substation_mva=substation_mva
+        upstream_substation_mva=substation_mva,
+        hypothetical_bess=hypothetical_bess,
     )
 
     # --- Financial Feasibility ---
@@ -211,7 +223,10 @@ def compute_assessment(
         sld_graph = build_demo_sld(has_relay, is_xfmr_connected)
 
     # --- Regulatory Manifest ---
-    manifest = FormFiller.generate_manifest(land=land_meta, tech=feasibility, proposed_ac_mw=ac_capacity)
+    manifest = FormFiller.generate_manifest(
+        land=land_meta, tech=feasibility, proposed_ac_mw=ac_capacity,
+        voltage_class=voltage_class, maximum_demand_kw=maximum_demand_kw,
+    )
 
     return {
         "data_provenance": {"land": land_meta.source_type, "terrain": "SYNTHETIC_TERRAIN", "sld": sld_graph.graph.get("source_type", "SYNTHETIC_DEMO")},
@@ -237,8 +252,11 @@ def validate_inputs(
 ) -> list[str]:
     """Return a list of human-readable validation errors, or an empty list if valid."""
     errors: list[str] = []
+    if not all(np.isfinite(v) for v in (acres, roods, poles, ac_capacity, substation_mva)):
+        return ["All area, AC capacity, and substation input values must be finite."]
+    if acres < 0 or not 0 <= roods < 4 or not 0 <= poles < 40:
+        errors.append("Use non-negative acres, 0–3 roods and 0–39.999 poles.")
     hectares, sq_meters = LandTitleParser.convert_imperial_to_metric(acres, roods, poles)
-
     if sq_meters <= 1000.0:
         errors.append("Land area is too small for a utility or C&I solar site (minimum ~1,000 m²).")
     if ac_capacity <= 0.0:
@@ -255,4 +273,11 @@ def validate_inputs(
         errors.append("Lot No is required.")
     if not owners_list:
         errors.append("At least one landowner is required.")
+    else:
+        try:
+            shares = [LandTitleParser.parse_fraction_strict(o["share"]) for o in owners_list]
+            if abs(sum(shares) - 1.0) > 0.001:
+                errors.append("Registered owner fractions must sum to 100%.")
+        except (KeyError, TypeError, ValueError):
+            errors.append("Owner share fractions must be valid (e.g. 1/2).")
     return errors
