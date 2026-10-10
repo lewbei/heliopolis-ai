@@ -26,7 +26,7 @@ DEFAULT_WACC = 0.065
 # --- Financial Scenario Tariffs (RM/kWh) ---
 # Sourced from Malaysian market benchmarks:
 #   LSS PPA ~RM 0.17/kWh (LSS5 average, 2024)
-#   C&I NEM/ATAP offset ~RM 0.37/kWh (industrial displaced tariff)
+#   Historical C&I/NEM NOVA rate sensitivity ~RM 0.37/kWh (NOT Solar ATAP) (industrial displaced tariff)
 #   Self-consumption premium ~RM 0.45/kWh (system-access / green tariff scenarios)
 SCENARIO_LSS_PPA = "lss_ppa"
 SCENARIO_C_I_NEM = "c_i_nem"
@@ -81,8 +81,8 @@ def generate_co_owners(count: int, site_id: str) -> list[dict[str, str]]:
         share_str = f"{shares[i]}/120"
 
         if i == 0 and count >= 3:
-            name = "Solarvest Development Sdn Bhd"
-            ic_co = "1234567-U"
+            name = "Synthetic Demo Developer"
+            ic_co = "SYNTHETIC-ID"
         else:
             salt = 0
             while True:
@@ -100,7 +100,7 @@ def generate_co_owners(count: int, site_id: str) -> list[dict[str, str]]:
             birth_dy = deterministic_hash(f"dy_{i}_{site_id}_{salt}") % 28 + 1
             state_code = deterministic_hash(f"st_{i}_{site_id}_{salt}") % 14 + 1
             unique_code = deterministic_hash(f"un_{i}_{site_id}_{salt}") % 9000 + 1000
-            ic_co = f"{birth_yr:02d}{birth_mo:02d}{birth_dy:02d}-{state_code:02d}-{unique_code:d}"
+            ic_co = f"SYNTHETIC-ID-{i:03d}-{unique_code:d}"
 
         owners.append({
             "name": name,
@@ -562,11 +562,11 @@ class LandTitleParser:
             "has_caveats": has_caveats,
             "has_charges": has_charges,
             "owner_templates": [
-                {"name": "Ahmad Bin Ismail", "ic_or_co_no": "650212-08-5431", "share": "11/120"},
-                {"name": "Wan Fatimah Binti Wan Ali", "ic_or_co_no": "701103-08-5222", "share": "15/120"},
-                {"name": "Siti Aminah Binti Ahmad", "ic_or_co_no": "930415-08-6112", "share": "14/120"},
-                {"name": "Solarvest Development Sdn Bhd", "ic_or_co_no": "1234567-U", "share": "40/120"},
-                {"name": "Lee Chong Wei", "ic_or_co_no": "821021-10-5431", "share": "40/120"}
+                {"name": "Ahmad Bin Ismail", "ic_or_co_no": "SYNTHETIC-ID-650", "share": "11/120"},
+                {"name": "Wan Fatimah Binti Wan Ali", "ic_or_co_no": "SYNTHETIC-ID-701", "share": "15/120"},
+                {"name": "Siti Aminah Binti Ahmad", "ic_or_co_no": "SYNTHETIC-ID-930", "share": "14/120"},
+                {"name": "Synthetic Demo Developer", "ic_or_co_no": "SYNTHETIC-ID", "share": "40/120"},
+                {"name": "Synthetic Landowner E", "ic_or_co_no": "SYNTHETIC-ID-821", "share": "40/120"}
             ]
         }
 
