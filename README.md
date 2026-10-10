@@ -14,7 +14,7 @@ A prototype AI-assisted **preliminary** solar-site screening tool for Malaysia. 
 > - The preliminary 15% MW/MVA injection metric is a **heuristic**, not a TNB 15% limit or proof that batteries are required. Any utility study fees or approval time are scheme-dependent.
 > - Tests establish particular software behaviors, **not** field extraction accuracy or time saved for actual solar developers.
 >
-> [Read the updated MAIC pitch](PITCH_DECK.md) · [Official Solar ATAP guidance](https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/) · [Official NEM/NOVA studies](https://www.seda.gov.my/reportal/nem/)
+> [Regulatory sources, dates and limitations](qrspi/REGULATORY_SCOPE_2026.md) · [Read the updated MAIC pitch](PITCH_DECK.md) · [Official Solar ATAP guidance](https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/) · [Official NEM/NOVA studies](https://www.seda.gov.my/reportal/nem/)
 > **Pitch materials:** [Current 2026 pitch PDF](pitch_deck.pdf) is generated from [PITCH_DECK.md](PITCH_DECK.md). Follow the [judge demo runbook](qrspi/JUDGE_DEMO_RUNBOOK.md). The committed `solar_assessment_report.json` remains an **older synthetic demo snapshot**, not current empirical evidence; run `python solar_agent.py` to regenerate an illustrative report.
 
 ---
@@ -64,9 +64,9 @@ Uses spatial $\epsilon$-neighbor distance search to connect wire segment vectors
 * **Multimodal OCR + Symbolic Reasoning:** Gemini Vision extracts text and SLD symbols; all math, unit conversion, graph routing, and finance run in deterministic Python.
 * **Scale-Invariant Epsilon:** Programmatically calculates matching thresholds as $15\%$ of average inverter bounding box widths, working across A4 to A0 drawings.
 * **Junction-Dot Aware SLD Resolver:** Splits wire segments at detected junction dots and ignores plain line crossings, preventing short-circuit hallucinations.
-* **TNB Substation Capacity Validator:** Audits peak AC solar output against the local substation limits. If it exceeds $15\%$, the agent sizes and costs a **Lithium Iron Phosphate (LFP) Battery Energy Storage System (BESS)** for peak-shaving.
-* **Scenario-Based Financial Model:** Switch between LSS PPA, illustrative C&I/NEM NOVA sensitivity (not Solar ATAP), and self-consumption tariffs to match the deal structure.
-* **Newton-Raphson IRR Solver:** Solves lifecycle Internal Rate of Return iteratively with robust boundary clipping.
+* **TNB Substation Capacity Validator:** Audits peak AC solar output against the local substation limits. The 15% comparison is an **illustrative MW/MVA flag**, not a utility limit. Four-hour LFP BESS sizing is an explicitly selected what-if; actual requirement and design need a network study.
+* **Scenario-Based Financial Model:** LSS PPA produces an illustrative economic sensitivity. Historical NOVA and self-consumption show capacity/yield/LCOE but **withhold NPV/IRR** without customer interval demand/export and contract evidence.
+* **Newton-Raphson IRR Solver:** For the illustrative LSS PPA case, solves IRR iteratively. No IRR is reported for customer-offset scenarios without supporting consumption data.
 
 ---
 
@@ -131,7 +131,7 @@ python solar_agent.py
 This generates `solar_assessment_report.json`, which contains (all outputs are illustrative unless independently verified):
 * `land_title_analysis` — parsed title, owners, shares, and legal status.
 * `sld_topology_analysis` — directed graph and TNB grid-code audit.
-* `technical_financial_feasibility` — capacity, yield, LCOE, NPV, IRR, scenario.
+* `technical_financial_feasibility` — capacity, yield, LCOE, scenario and an explicit financial status (with NPV/IRR null unless sufficient inputs exist).
 * `regulatory_manifest` — pre-filled SEDA and TNB application fields.
 
 You can override the financial scenario via an environment variable:
@@ -161,7 +161,7 @@ The dashboard then shows:
 * Legal share arithmetic and preliminary flags requiring professional review (not a POA or lease determination).
 * 2D terrain slope risk map.
 * SLD topology graph and limited protected-path checks (not TNB compliance certification).
-* Capacity, yield, CAPEX, LCOE, NPV, IRR, and payback for the selected scenario.
+* Capacity, yield, CAPEX and LCOE for illustrative cases; NPV/IRR/payback only for the indicative LSS PPA scenario, never unsupported NOVA/ATAP credits.
 * Draft planning fields and a scheme-dependent study screen (not filed SEDA/TNB applications).
 
 ### 5. Generate Plots
@@ -196,7 +196,7 @@ All 28 unit and integration tests should pass.
 
 * `real_malaysian_sites_registry.json` is a **synthetic demo registry** of representative Malaysian solar sites. It is used to demonstrate the pipeline without live e-Tanah or land-office integrations.
 * `generate_precise_terrain()` produces **synthetic elevation grids** calibrated to a target mean slope. Real project due diligence would replace this with SRTM DEM, Lidar, or survey contour data.
-* Default financial assumptions (tariff, WACC, degradation, CAPEX) are illustrative. A production deployment should load scenario-specific assumptions (LSS PPA, C&I/NOVA illustrative sensitivity, or self-consumption tariff sensitivity).
+* Default financial assumptions (tariff, WACC, degradation, CAPEX) are illustrative. A production deployment should load scenario-specific assumptions (LSS PPA, historical C&I/NOVA reference, or self-consumption load-dependent screening).
 
 ---
 
@@ -207,6 +207,6 @@ The financial scenario tariffs and technical parameters are grounded in publicly
 * **LSS PPA tariff (~RM 0.17/kWh):** Based on the LSS PETRA 5 / LSS5 average award tariff reported in 2024. See [Mordor Intelligence — Malaysia Solar Energy Market](https://www.mordorintelligence.com/industry-reports/malaysia-solar-energy-market) and [The Star](https://www.thestar.com.my).
 * **Industrial / C&I displaced tariff (~RM 0.37/kWh):** Derived from reported Peninsular Malaysia low-voltage industrial tariffs in [Ember — Solar and grid flexibility for Malaysia](https://ember-energy.org/app/uploads/2024/10/Report-Solar-and-grid-flexibility-critical-for-Malaysias-future.pdf).
 * **Solar LCOE range (~RM 0.15–0.29/kWh):** BloombergNEF, *Malaysia: A Techno-Economic Analysis of Power Generation* (April 2025) — [PDF](https://assets.bbhub.io/professional/sites/24/Malaysia-A-Techno-Economic-Analysis-of-Power-Generation.pdf).
-* **NEM / NOVA / Solar ATAP:** [SEDA Malaysia NEM portal](https://www.seda.gov.my/reportal/nem) and [myTNB NEM Application](https://www.mytnb.com.my/renewable-energy/nem-application).
+* **Historical NEM / NOVA and Solar ATAP (distinct schemes):** [SEDA Malaysia NEM portal](https://www.seda.gov.my/reportal/nem) and [myTNB NEM Application](https://www.mytnb.com.my/renewable-energy/nem-application).
 * **BESS deferment and system-access charges:** [IEA-PVPS Malaysia country profile](https://iea-pvps.org/about-iea-pvps/members/malaysia) and BloombergNEF report above.
 * **Weather data:** `real_malaysian_weather.json` contains historical GHI and temperature values derived from satellite-based solar resource datasets (e.g. [Open-Meteo](https://open-meteo.com)) for Malaysian states.
