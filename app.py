@@ -22,6 +22,7 @@ from app_config import (
 )
 from app_components import clean_html_markdown, metric_card, status_badge
 from solar_agent import DocumentReviewRequired
+import heliopolis_ocr
 from app_logic import (
     get_state_from_region,
     generate_co_owners,
@@ -283,6 +284,20 @@ with st.sidebar:
     st.markdown('<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Upload images to run real Gemini OCR. Leave blank to use the form values above.</div>', unsafe_allow_html=True)
     title_image_file = st.file_uploader("Land Title Scan (PNG/JPG)", type=["png", "jpg", "jpeg"])
     sld_image_file = st.file_uploader("SLD Diagram Scan (PNG/JPG)", type=["png", "jpg", "jpeg"])
+    st.caption(
+        "Uploaded scans are sent to Google Gemini/Vertex AI for OCR. "
+        "Real land titles may contain names and identification numbers. "
+        "Do not upload real personal/confidential data without authorization."
+    )
+    allow_cloud_ocr = st.checkbox(
+        "I have authorization to send these uploaded scans to the configured Google AI service.",
+        value=False,
+    )
+
+
+if (title_image_file or sld_image_file) and not allow_cloud_ocr:
+    st.warning("Uploaded scan NOT sent to Gemini: explicit document-transfer authorization is required.")
+    st.stop()
 
 # --- Compute Ownership Splits ---
 if site_mode == "Synthetic Malaysian Sites (500)":
@@ -380,7 +395,7 @@ feasibility = assessment["feasibility"]
 manifest = assessment["manifest"]
 st.warning(f"PRELIMINARY SCREENING ONLY — Title source: {land_meta.source_type}; SLD source: {assessment['data_provenance']['sld']}; terrain: SYNTHETIC_TERRAIN. No legal or grid approval has been issued.")
 if title_image_path or sld_image_path:
-    st.caption("Gemini OCR was attempted for uploaded evidence; extracted results remain unverified and require human checking.")
+    st.caption(f"Google OCR model configured: {heliopolis_ocr.DEFAULT_MODEL}. Uploaded text remains unverified and needs human review. No data is sent without the permission checkbox.")
 if in_scenario == "c_i_nem":
     st.info("Historical NEM NOVA sensitivity only. The published NEM 3.0 quota offer period ended June 2025; do not treat the modeled rate as a current application or Solar ATAP eligibility.")
 if in_ac_capacity > 1.0:
@@ -838,7 +853,8 @@ with tabs[3]:
             "ocr_status": {
                 "title": "OCR_EXTRACTED_UNVERIFIED" if land_meta.source_type == "OCR_EXTRACTED_UNVERIFIED" else "NOT_USED",
                 "sld": "OCR_EXTRACTED_UNVERIFIED" if g.graph.get("source_type") == "OCR_EXTRACTED_UNVERIFIED" else "NOT_USED",
-                "model": "Gemini (GEMINI_MODEL configured; see server logs)" if (title_image_path or sld_image_path) else None,
+                "model": heliopolis_ocr.DEFAULT_MODEL if (title_image_path or sld_image_path) else None,
+                "third_party_cloud_upload_authorized": bool(allow_cloud_ocr) if (title_image_path or sld_image_path) else False,
             },
             "land_title_analysis": {
                 "title_no": land_meta.title_no, "lot_no": land_meta.lot_no, "state": land_meta.state,
