@@ -21,6 +21,36 @@ Keep the separate non-domestic Solar ATAP monthly energy-only calculator clearly
 | GitHub Perak form preset, >12 acres | Separate demo fixture | Must be labeled independent synthetic fixture, never the recovered 2-acre land title |
 | Saved 3.21 -> 2.00 MWac, HOLD, cost bars RM15.94m -> RM7.06m | Historical presentation build | Archive-only illustrative screenshot until its exact model/assumptions are reproduced; current master uses NEEDS_REVIEW and BESS off by default |
 
+## Exactly what the judges input and receive
+
+**Public synthetic path:** select "Prepared Perak 2026" -> inspect the two synthetic source images and shown input provenance -> specify the project AC rating and MV class -> click **Run Preliminary Review** -> read the three findings and download one source-qualified JSON. A single on-screen broken-wire toggle produces an updated, synchronized NEEDS_REVIEW report.
+
+**Private Vertex OCR path:** upload synthetic title.png + sld.png -> explicitly authorize sending to the configured Google Vertex project -> run extraction once -> inspect candidate source fields and labeled diagram elements -> reviewer confirms/corrects -> run the SAME deterministic preliminary checks -> export reviewer-labeled JSON. The model response is NOT a certified title or grid report.
+
+Suggested minimal report contract (illustrative schema; not implemented in existing master yet):
+
+```json
+{
+  "case_id": "MAIC-PERAK-SYNTHETIC-01",
+  "assessment_status": "NEEDS_REVIEW",
+  "source_type": "SYNTHETIC_DEMO",
+  "source_hashes": {"title_sha256": "...", "sld_sha256": "..."},
+  "inputs": {"land_area_acres": 2, "proposed_ac_mw": 3.21, "voltage_profile": "MV"},
+  "checks": {
+    "ownership_share_sum": 1.0,
+    "title_caveat": "REVIEW_REQUIRED",
+    "land_capacity_plausibility": "NEEDS_REVIEW",
+    "sld_power_route": "DRAWN",
+    "sld_anti_islanding_protection": "NOT_VERIFIED"
+  },
+  "finance": {"status": "ILLUSTRATIVE_ONLY_NOT_BANKABLE"},
+  "next_actions": ["Professional title review", "PV layout/footprint study", "Electrical protection review"]
+}
+```
+
+The goal is **traceable results and credible abstention**, not a green "APPROVED" button. JSON fields must be computed from the same case object rendered on screen, and a source change must invalidate stale results.
+
+---
 ## Critical blockers before the stage (implement in this order)
 
 ### P0-A: Consistent project inputs and finance — GitHub #17
