@@ -94,6 +94,9 @@ def build_land_metadata(
     if title_image_path:
         print("[app_logic] Building land metadata from OCR image...")
         land_meta = LandTitleParser.from_image(title_image_path)
+        # These two inputs are entered by the user, not inferred from the scan.
+        land_meta.project_company_name = project_company_name
+        land_meta.project_company_reg_no = project_company_reg_no
         owner_models = land_meta.owners
         hectares = land_meta.area_hectares
         sq_meters = land_meta.area_sq_meters
