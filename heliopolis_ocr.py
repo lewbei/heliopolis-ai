@@ -18,7 +18,9 @@ from PIL import Image
 
 load_dotenv()
 
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-002")
+# Current GA model; legacy gemini-1.5-flash-002 was shut down in 2025.
+# Override GEMINI_MODEL if your project/region uses a different supported deployment.
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
 _LAND_TITLE_PROMPT = """
 You are an expert Malaysian land-title (Geran) OCR extractor.  Read the attached scanned land title image and return ONLY a JSON object with no markdown, no explanation, and no code fences.
