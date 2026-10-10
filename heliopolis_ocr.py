@@ -57,7 +57,7 @@ Use these keys exactly:
   "symbols": [
     {
       "id": "unique_id",
-      "class": "One of: PV_Array, Inverter, Anti_Islanding_Relay, Transformer, Grid_Connection, Junction_Dot",
+      "class": "One of: PV_Array, Inverter, AC_Switch, PV_Meter, Anti_Islanding_Relay, Transformer, Grid_Connection, Junction_Dot",
       "bbox": [ymin, xmin, ymax, xmax],
       "integrated_anti_islanding_label": true if explicitly PRINTED on inverter, null otherwise,
       "anti_islanding_source_text": "Exact short printed label, or null if not visible"
@@ -75,6 +75,9 @@ The bbox values should be integer pixel coordinates [top, left, bottom, right].
 Extract ONLY printed symbols and visible wire endpoints. Never invent an external relay,
 transformer or wire segment to match an assumed PV -> Inverter -> Grid topology.
 For LV drawings, a separate transformer or relay may not be illustrated.
+Represent visible AC isolator/main switches as AC_Switch and PV meters as
+PV_Meter, preserving their actual wiring. Identify the utility L/N/E or L1/L2/L3
+incoming boundary as Grid_Connection, never as a guessed transformer.
 A generic inverter symbol DOES NOT establish anti-islanding. Set
 integrated_anti_islanding_label to true ONLY when an anti-islanding / non-islanding
 inverter label (or IEC 62116 annotation) is visibly printed with the inverter,
