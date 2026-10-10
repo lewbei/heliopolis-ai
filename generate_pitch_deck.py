@@ -1,262 +1,222 @@
-"""Generate a simple PDF pitch deck for Heliopolis-AI using Matplotlib."""
+"""Generate the MAIC Nexus T1 pitch PDF directly from PITCH_DECK.md."""
 
+from __future__ import annotations
+
+import re
+import textwrap
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Iterable
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from PIL import Image
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = ROOT / "PITCH_DECK.md"
+OUTPUT = ROOT / "pitch_deck.pdf"
+COLORS = {
+    "background": "#0B1020", "accent": "#36DDB4",
+    "heading": "#F5F7FB", "body": "#E5EDF5", "muted": "#A7B7C9"
+}
+BODY_TOP, LINE_STEP, MAX_LINES = 0.765, 0.043, 15
 
 
-REPO_ROOT = Path(__file__).resolve().parent
-OUTPUT_PDF = REPO_ROOT / "pitch_deck.pdf"
-SLOPE_PLOT = REPO_ROOT / "qrspi" / "plots" / "perak_slope_risk_contour.png"
-SLD_PLOT = REPO_ROOT / "qrspi" / "plots" / "sld_topology_flow_graph.png"
+@dataclass(frozen=True)
+class RenderLine:
+    text: str
+    style: str = "body"
 
 
-class PitchDeck:
-    def __init__(self, pdf_path: Path):
-        self.pdf = PdfPages(str(pdf_path))
-        self.fig_width = 16
-        self.fig_height = 9
-        self.colors = {
-            "bg": "#0f172a",
-            "title": "#f8fafc",
-            "subtitle": "#cbd5e1",
-            "accent": "#38bdf8",
-            "text": "#e2e8f0",
-            "muted": "#94a3b8",
-        }
+@dataclass(frozen=True)
+class Slide:
+    number: int
+    title: str
+    lines: tuple[RenderLine, ...]
 
-    def _new_slide(self, title: str, subtitle: Optional[str] = None):
-        fig = plt.figure(figsize=(self.fig_width, self.fig_height))
-        fig.patch.set_facecolor(self.colors["bg"])
-        ax = fig.add_axes([0, 0, 1, 1])
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.axis("off")
 
-        # Top accent bar
-        ax.add_patch(plt.Rectangle((0.05, 0.92), 0.9, 0.01, color=self.colors["accent"], transform=ax.transAxes))
+def parse_slides(md: str) -> list[Slide]:
+    pattern = re.compile(r"^## Slide (\d+)\s*[—–-]\s*(.+)$", re.MULTILINE)
+    anchors = list(pattern.finditer(md))
+    if not anchors:
+        raise ValueError("No numbered pitch slides found.")
+    slides = []
+    for idx, match in enumerate(anchors):
+        end = (
+            anchors[idx + 1].start() if idx + 1 < len(anchors)
+            else md.find("\n## Harsh-judge quick answers", match.end())
+        )
+        if end < 0:
+            end = len(md)
+        number = int(match.group(1))
+        if number != idx + 1:
+            raise ValueError("Non-consecutive pitch slide numbers.")
+        slides.append(
+            Slide(number, match.group(2).strip(),
+                  tuple(_render_lines(md[match.end():end].strip())))
+        )
+    return slides
 
-        # Title
-        ax.text(0.08, 0.86, title, fontsize=28, fontweight="bold", color=self.colors["title"], ha="left", va="top")
 
-        if subtitle:
-            ax.text(0.08, 0.78, subtitle, fontsize=16, color=self.colors["subtitle"], ha="left", va="top", style="italic")
+def _plain(s: str) -> str:
+    s = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", s)
+    s = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", s)
+    s = s.replace("**", "").replace(chr(96), "").replace("*", "")
+    return (
+        s.replace("≤", "<=").replace("≥", ">=").replace("→", "->")
+         .replace("\u00a0", " ").replace("$", r"\$").strip()
+    )
 
-        return fig, ax
 
-    def _save_slide(self, fig: plt.Figure):
-        self.pdf.savefig(fig, facecolor=self.colors["bg"], bbox_inches="tight")
-        plt.close(fig)
+def _wrap_line(text: str, style: str) -> Iterable[RenderLine]:
+    initial, indent = "", ""
+    if style == "bullet":
+        m = re.match(r"^(\d+\.\s+)", text)
+        if m:
+            initial, text = m.group(1), text[m.end():]
+        else:
+            initial, text = "•  ", re.sub(r"^[-*]\s*", "", text)
+        indent = " " * len(initial)
+    text = _plain(text)
+    if not text:
+        return
+    for part in textwrap.wrap(
+        initial + text,
+        width=100 if style == "code" else 90,
+        subsequent_indent=indent,
+        break_long_words=True,
+        break_on_hyphens=False,
+    ):
+        yield RenderLine(part, style)
 
-    def slide_title(self):
-        fig, ax = self._new_slide("")
-        ax.text(0.5, 0.62, "Heliopolis-AI", fontsize=54, fontweight="bold", color=self.colors["title"], ha="center", va="center")
-        ax.text(0.5, 0.50, "Solar Project Intelligence Agent", fontsize=26, color=self.colors["accent"], ha="center", va="center")
-        ax.text(0.5, 0.40,
-                 "Engineering-grade, neural-symbolic due diligence for LSS & C&I solar in Malaysia",
-                 fontsize=16, color=self.colors["subtitle"], ha="center", va="center")
-        ax.text(0.5, 0.22, "Track T1: AI for Clean Energy (Solarvest Holdings Berhad)",
-                fontsize=14, color=self.colors["muted"], ha="center", va="center")
-        ax.text(0.5, 0.16, "Multimedia University (MMU), Melaka, Malaysia",
-                fontsize=13, color=self.colors["muted"], ha="center", va="center")
-        ax.text(0.5, 0.10, "github.com/lewbei/heliopolis-ai",
-                fontsize=13, color=self.colors["accent"], ha="center", va="center")
-        self._save_slide(fig)
 
-    def slide_problem(self):
-        fig, ax = self._new_slide("Solar developers lose 2–6 weeks on every site intake")
-        lines = [
-            "• Land bottleneck: Geran scans use Ekar/Rood/Pole, fractured co-owners, hidden Caveat/Charge/Malay-Reserve flags.",
-            "• Grid bottleneck: SLDs must satisfy TNB ESAG / MS 1837:2010; errors trigger expensive rejections.",
-            "• Terrain risk: Satellite photos hide >15° slopes and monsoon landslide hazards.",
-            "• Financial uncertainty: LSS PPA, C&I NEM, and self-consumption tariffs produce radically different NPVs.",
-        ]
-        y = 0.68
-        for line in lines:
-            ax.text(0.10, y, line, fontsize=18, color=self.colors["text"], ha="left", va="top")
-            y -= 0.10
-        self._save_slide(fig)
+def _render_lines(raw: str) -> Iterable[RenderLine]:
+    in_code, source_emitted = False, False
+    for entry in raw.splitlines():
+        line, stripped = entry.rstrip(), entry.strip()
+        if stripped.startswith(chr(96) * 3):
+            in_code = not in_code
+            continue
+        if not stripped or stripped == "---":
+            yield RenderLine("", "space")
+            continue
+        if in_code:
+            yield RenderLine(line[:105], "code")
+            continue
+        if stripped.startswith(("http://", "https://", "- http://", "- https://")):
+            if not source_emitted:
+                yield RenderLine(
+                    "Primary references: official SEDA Malaysia ATAP and NEM programme guidance.",
+                    "source",
+                )
+                source_emitted = True
+            continue
+        if stripped.startswith("#"):
+            yield from _wrap_line(stripped.lstrip("#").strip(), "subheading")
+        elif re.match(r"^(?:[-*]\s+|\d+\.\s+)", stripped):
+            yield from _wrap_line(stripped, "bullet")
+        else:
+            yield from _wrap_line(stripped, "body")
 
-    def slide_solution(self):
-        fig, ax = self._new_slide("Heliopolis-AI automates land, grid, terrain & finance")
-        flow = [
-            ("Scanned Deed / SLD", 0.78),
-            ("Gemini Vision OCR", 0.68),
-            ("Legal Parser → Civil Slope → SLD Graph → Financial Engine", 0.56),
-            ("SEDA + TNB Prefilled Manifests", 0.44),
-        ]
-        for text, y in flow:
-            ax.text(0.5, y, text, fontsize=18, color=self.colors["text"], ha="center", va="center",
-                    bbox=dict(boxstyle="round,pad=0.4", facecolor="#1e293b", edgecolor=self.colors["accent"], linewidth=1.5))
-        ax.text(0.5, 0.28, "All math is deterministic — no LLM hallucination on engineering or finance.",
-                fontsize=16, color=self.colors["accent"], ha="center", va="center", fontweight="bold")
-        self._save_slide(fig)
 
-    def slide_demo(self):
-        fig, ax = self._new_slide("Demo output: C&I NEM / ATAP scenario")
-        metrics = [
-            ("Site", "Johor, 9.3 ha"),
-            ("DC Capacity", "6.90 MWp"),
-            ("Annual Yield", "~10,600 MWh/year"),
-            ("Final CAPEX", "RM 20.7M"),
-            ("NPV (21 yrs)", "RM 10.5M"),
-            ("IRR", "12.38%"),
-            ("Land Legal Status", "Flagged/Risky (Pertanian → NLC §124)"),
-            ("BESS Required", "No (injection < 15%)"),
-            ("NEMAS Required", "Yes (>72 kWac)"),
-            ("Applicant", "Solarvest Development Sdn Bhd"),
-        ]
-        y = 0.72
-        for label, value in metrics:
-            ax.text(0.12, y, label, fontsize=15, color=self.colors["muted"], ha="left", va="top")
-            ax.text(0.55, y, value, fontsize=15, color=self.colors["text"], ha="left", va="top", fontweight="bold")
-            y -= 0.055
-        self._save_slide(fig)
+def _paginate(lines: tuple[RenderLine, ...]) -> list[list[RenderLine]]:
+    pages: list[list[RenderLine]] = []
+    current: list[RenderLine] = []
+    for item in lines:
+        if item.style == "space" and (not current or current[-1].style == "space"):
+            continue
+        if len(current) >= MAX_LINES:
+            while current and current[-1].style == "space":
+                current.pop()
+            pages.append(current)
+            current = []
+        if item.style == "space" and not current:
+            continue
+        current.append(item)
+    while current and current[-1].style == "space":
+        current.pop()
+    if current:
+        pages.append(current)
+    if len(pages) > 1 and len(pages[-1]) < 10:
+        combined = pages[-2] + pages[-1]
+        midpoint = (len(combined) + 1) // 2
+        pages[-2:] = [combined[:midpoint], combined[midpoint:]]
+    return pages or [[RenderLine("No slide content supplied.")]]
 
-    def slide_modules(self):
-        fig, ax = self._new_slide("Six integrated modules")
-        modules = [
-            "1. Legal Parser — title metadata, imperial → metric, co-owner shares",
-            "2. Civil Slope Analyzer — 2D finite-difference gradients + earthworks premium",
-            "3. SLD Graph Resolver — NetworkX + TNB anti-islanding/grid-path audit",
-            "4. Financial Engine — tropical derating, degradation, BESS OPEX, IRR",
-            "5. Scenario Selector — LSS PPA / C&I NEM / self-consumption tariffs",
-            "6. Manifest Generator — SEDA & TNB prefilled forms + NEMAS checklist",
-        ]
-        y = 0.72
-        for mod in modules:
-            ax.text(0.10, y, mod, fontsize=18, color=self.colors["text"], ha="left", va="top")
-            y -= 0.09
-        self._save_slide(fig)
 
-    def slide_moat(self):
-        fig, ax = self._new_slide("Technical moat")
-        points = [
-            "• Junction-dot-aware SLD parsing — splits at real dots, ignores plain crossings",
-            "• Scale-invariant ε-neighbor search — works from A4 to A0 drawings",
-            "• Scenario-based finance — one model, three revenue realities",
-            "• Malaysian legal domain — NLC 1965, Ekar/Rood/Pole, SEDA NEMAS",
-            "• Offline core — symbolic solvers run locally; only OCR is cloud",
-        ]
-        y = 0.72
-        for pt in points:
-            ax.text(0.10, y, pt, fontsize=18, color=self.colors["text"], ha="left", va="top")
-            y -= 0.10
-        self._save_slide(fig)
+def _paint(
+    pdf: PdfPages, slide: Slide, part: int, total_parts: int,
+    content: list[RenderLine], page: int, total_pages: int,
+) -> None:
+    fig = plt.figure(figsize=(13.333, 7.5), dpi=120,
+                     facecolor=COLORS["background"])
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+    ax.add_patch(plt.Rectangle(
+        (0.062, 0.91), 0.875, 0.004,
+        color=COLORS["accent"], transform=ax.transAxes
+    ))
+    ax.text(
+        0.07, 0.944, "MAIC NEXUS 2026  /  T1 CLEAN ENERGY",
+        fontsize=10.5, color=COLORS["accent"], va="top", weight="bold",
+    )
+    heading = _plain(slide.title)
+    if total_parts > 1:
+        heading += f"  (part {part}/{total_parts})"
+    ax.text(0.07, 0.872, heading, fontsize=25,
+            color=COLORS["heading"], va="top", weight="bold")
+    for i, item in enumerate(content):
+        ypos = BODY_TOP - i * LINE_STEP
+        if ypos < 0.11:
+            raise ValueError(f"Overflow on PDF page {page}")
+        if item.style == "space":
+            continue
+        font_size = {
+            "subheading": 17, "body": 15.6, "bullet": 15.1,
+            "code": 13, "source": 12.5,
+        }[item.style]
+        color = (
+            COLORS["accent"] if item.style == "subheading"
+            else COLORS["muted"] if item.style == "source"
+            else COLORS["body"]
+        )
+        ax.text(
+            0.088 if item.style == "bullet" else 0.077, ypos,
+            item.text, fontsize=font_size, color=color,
+            family="DejaVu Sans Mono" if item.style == "code" else "DejaVu Sans",
+            weight="bold" if item.style == "subheading" else "normal",
+            va="top", ha="left",
+        )
+    ax.text(
+        0.07, 0.056,
+        "PRELIMINARY SCREENING  |  SYNTHETIC FIXTURES  |  NOT LEGAL / TNB APPROVAL",
+        fontsize=9.3, color=COLORS["muted"], ha="left", va="bottom",
+    )
+    ax.text(0.94, 0.056, f"{page} / {total_pages}",
+            fontsize=10.5, color=COLORS["muted"], ha="right", va="bottom")
+    pdf.savefig(fig, dpi=120, facecolor=COLORS["background"])
+    plt.close(fig)
 
-    def slide_market(self):
-        fig, ax = self._new_slide("Market & business model")
-        ax.text(0.10, 0.70, "Target customers:", fontsize=20, color=self.colors["accent"], ha="left", va="top", fontweight="bold")
-        targets = [
-            "• Solar EPC contractors",
-            "• Independent Power Producers (IPPs)",
-            "• Land-search / due-diligence consultancies",
-        ]
-        y = 0.62
-        for t in targets:
-            ax.text(0.12, y, t, fontsize=17, color=self.colors["text"], ha="left", va="top")
-            y -= 0.07
 
-        ax.text(0.10, 0.38, "Go-to-market:", fontsize=20, color=self.colors["accent"], ha="left", va="top", fontweight="bold")
-        gtm = [
-            "1. Pilot with Solarvest Innovation Lab or regional EPC — 3–5 live sites",
-            "2. B2B SaaS tiered by site-screening volume",
-            "3. Enterprise API integrations for large EPCs / IPPs",
-        ]
-        y = 0.30
-        for item in gtm:
-            ax.text(0.12, y, item, fontsize=17, color=self.colors["text"], ha="left", va="top")
-            y -= 0.07
-        self._save_slide(fig)
-
-    def slide_traction(self):
-        fig, ax = self._new_slide("Traction & verification")
-        points = [
-            "[OK] 28/28 unit & integration tests passing",
-            "[OK] Streamlit app passes health checks",
-            "[OK] Public GitHub repo: github.com/lewbei/heliopolis-ai",
-            "[OK] Complete QRSPI compliance folder",
-            "[OK] Positive-NPV demo output (C&I NEM: NPV RM 10.5M, IRR 12.38%)",
-            "[OK] Visual outputs: slope map + SLD graph",
-        ]
-        y = 0.72
-        for pt in points:
-            ax.text(0.10, y, pt, fontsize=18, color=self.colors["text"], ha="left", va="top")
-            y -= 0.10
-        self._save_slide(fig)
-
-    def slide_visuals(self):
-        fig, ax = self._new_slide("Visual proof")
-        # Two image axes side by side
-        if SLOPE_PLOT.exists():
-            img_ax = fig.add_axes([0.08, 0.15, 0.40, 0.60])
-            img_ax.imshow(Image.open(SLOPE_PLOT))
-            img_ax.axis("off")
-            img_ax.set_title("Terrain Slope Risk Map", color=self.colors["subtitle"], fontsize=13, pad=10)
-        if SLD_PLOT.exists():
-            img_ax2 = fig.add_axes([0.52, 0.15, 0.40, 0.60])
-            img_ax2.imshow(Image.open(SLD_PLOT))
-            img_ax2.axis("off")
-            img_ax2.set_title("SLD Topology Flow Graph", color=self.colors["subtitle"], fontsize=13, pad=10)
-        self._save_slide(fig)
-
-    def slide_team(self):
-        fig, ax = self._new_slide("Team")
-        ax.text(0.5, 0.55, "Multimedia University (MMU), Melaka, Malaysia",
-                fontsize=22, color=self.colors["text"], ha="center", va="center")
-        ax.text(0.5, 0.45,
-                 "Software engineering · Clean-energy domain research · Malaysian regulatory knowledge",
-                 fontsize=16, color=self.colors["subtitle"], ha="center", va="center")
-        ax.text(0.5, 0.35,
-                 "Clean-room code built on NumPy, NetworkX, Pydantic, Matplotlib, Plotly, Streamlit, Google GenAI",
-                 fontsize=14, color=self.colors["muted"], ha="center", va="center")
-        self._save_slide(fig)
-
-    def slide_ask(self):
-        fig, ax = self._new_slide("What we are looking for")
-        asks = [
-            "1. Pilot partner — Solarvest Innovation Lab or a Malaysian EPC to validate on 3–5 live sites",
-            "2. Investment / prize support — to build live e-Tanah / myTNB / SEDA integrations and hosted SaaS",
-            "3. MAIC Nexus + HATI mentorship — on B2B sales and regulatory partnerships",
-        ]
-        y = 0.68
-        for ask in asks:
-            ax.text(0.10, y, ask, fontsize=18, color=self.colors["text"], ha="left", va="top")
-            y -= 0.12
-        ax.text(0.5, 0.28,
-                 "Heliopolis-AI turns weeks of manual solar due diligence into auditable, minutes-long intelligence.",
-                 fontsize=17, color=self.colors["accent"], ha="center", va="center", fontweight="bold")
-        self._save_slide(fig)
-
-    def slide_closing(self):
-        fig, ax = self._new_slide("")
-        ax.text(0.5, 0.58, "Thank you", fontsize=52, fontweight="bold", color=self.colors["title"], ha="center", va="center")
-        ax.text(0.5, 0.44, "Heliopolis-AI  ·  Solar Project Intelligence Agent for Malaysia",
-                fontsize=18, color=self.colors["subtitle"], ha="center", va="center")
-        ax.text(0.5, 0.32, "github.com/lewbei/heliopolis-ai",
-                fontsize=16, color=self.colors["accent"], ha="center", va="center")
-        self._save_slide(fig)
-
-    def build(self):
-        self.slide_title()
-        self.slide_problem()
-        self.slide_solution()
-        self.slide_demo()
-        self.slide_modules()
-        self.slide_moat()
-        self.slide_market()
-        self.slide_traction()
-        self.slide_visuals()
-        self.slide_team()
-        self.slide_ask()
-        self.slide_closing()
-        self.pdf.close()
-        print(f"[Pitch Deck] Generated: {OUTPUT_PDF}")
+def build(source: Path = SOURCE, output: Path = OUTPUT) -> tuple[int, int]:
+    slides = parse_slides(source.read_text(encoding="utf-8"))
+    sections = [(slide, _paginate(slide.lines)) for slide in slides]
+    total_pages = sum(len(parts) for _, parts in sections)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    page = 0
+    with PdfPages(str(output)) as pdf:
+        for slide, parts in sections:
+            for part_number, lines in enumerate(parts, 1):
+                page += 1
+                _paint(pdf, slide, part_number, len(parts),
+                       lines, page, total_pages)
+    if output.stat().st_size < 10000:
+        raise RuntimeError("Pitch PDF appears truncated.")
+    return len(slides), total_pages
 
 
 if __name__ == "__main__":
-    deck = PitchDeck(OUTPUT_PDF)
-    deck.build()
+    print("[Pitch PDF] slides / pages:", build())
