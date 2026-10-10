@@ -115,7 +115,7 @@ def build_land_metadata(
 
         # Legacy form construction starts from a fixture; do NOT retain fixture identity/location.
         land_meta = LandTitleParser().parse("")
-        land_meta.source_type = "USER_ENTERED_UNVERIFIED"
+        land_meta.source_type = "DEMO_PRESET_OR_USER_ENTERED_UNVERIFIED"
         land_meta.review_status = "NEEDS_LEGAL_REVIEW"
         land_meta.district = ""
         land_meta.mukim = ""
