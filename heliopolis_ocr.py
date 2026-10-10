@@ -3,7 +3,7 @@
 Authentication order:
   1. AI Studio / API key: GEMINI_API_KEY or GOOGLE_API_KEY
   2. Vertex AI: GOOGLE_CLOUD_PROJECT (+ optional GOOGLE_CLOUD_LOCATION, default us-central1)
-  3. Fallback to None (caller should use registry / demo data)
+  3. Failure returns None (uploaded-document caller MUST fail closed; no demo substitution)
 """
 
 import io
@@ -154,7 +154,7 @@ def _generate_json(prompt: str, image: Image.Image) -> Optional[dict[str, Any]]:
             config=types.GenerateContentConfig(response_mime_type="application/json"),
         )
     except Exception as exc:
-        print(f"[HeliopolisOCR] Gemini generation failed: {exc}")
+        print(f"[HeliopolisOCR] Gemini request failed ({type(exc).__name__}); output requires review.")
         return None
 
     return _extract_json(response.text)
@@ -172,7 +172,12 @@ def parse_land_title_image(image_path: str | Path) -> Optional[dict[str, Any]]:
     if not path.exists():
         print(f"[HeliopolisOCR] Image not found: {image_path}")
         return None
-    image = Image.open(path).convert("RGB")
+    try:
+        with Image.open(path) as opened:
+            image = opened.convert("RGB")
+    except (OSError, ValueError, Image.DecompressionBombError):
+        print("[HeliopolisOCR] Invalid or unreadable uploaded image; manual review required.")
+        return None
     return _generate_json(_LAND_TITLE_PROMPT, image)
 
 
@@ -187,7 +192,12 @@ def parse_sld_image(image_path: str | Path) -> Optional[dict[str, Any]]:
     if not path.exists():
         print(f"[HeliopolisOCR] Image not found: {image_path}")
         return None
-    image = Image.open(path).convert("RGB")
+    try:
+        with Image.open(path) as opened:
+            image = opened.convert("RGB")
+    except (OSError, ValueError, Image.DecompressionBombError):
+        print("[HeliopolisOCR] Invalid or unreadable uploaded image; manual review required.")
+        return None
     result = _generate_json(_SLD_PROMPT, image)
     if result is None:
         return None

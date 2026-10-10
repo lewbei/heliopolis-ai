@@ -23,7 +23,45 @@ A prototype AI-assisted **preliminary** solar-site screening tool for Malaysia. 
 
 Solar ATAP is a **rooftop consumer solar** programme, not the default utility-scale LSS site prospecting mode. The project includes a pure [Solar ATAP monthly energy-component calculation](solar_atap_settlement.py) using only explicit, unverified/user-provided or synthetic inputs. It checks the published MAQ limit, import-energy cap, the preceding-month Average SMP, no credit rollover and the end of the ten-year offset term.
 
-It **does not** estimate complete TNB bills or full ATAP NPV/IRR, and there is **no real consumer load dataset** shipped with the repository. Refer to [official source research and the required datasets](qrspi/SOLAR_ATAP_OFFICIAL_RESEARCH.md) and [the independent regression tests](tests/test_solar_atap_settlement.py). The current Streamlit ATAP panel remains capacity-only; the standalone monthly helper is for reproducible technical checks rather than a new eligibility claim.
+It **does not** estimate complete TNB bills or full ATAP NPV/IRR, and there is **no real consumer load dataset** shipped with the repository. Refer to [official source research and the required datasets](qrspi/SOLAR_ATAP_OFFICIAL_RESEARCH.md) and [the independent regression tests](tests/test_solar_atap_settlement.py). The original LSS Streamlit dashboard retains its ATAP **capacity-only** warning. A separate Solar ATAP monthly page is now available in the Streamlit sidebar, with an explicit synthetic demo and user-supplied monthly totals or fully time-aligned CSV input; it never produces a full bill, NPV or regulatory approval.
+
+---
+
+### Run the separate Solar ATAP monthly user interface
+
+From the repository root:
+
+    pip install -r requirements.txt
+    streamlit run app.py
+
+Use the sidebar page named **Solar ATAP Monthly**. Alternatively run it directly:
+
+    streamlit run pages/1_Solar_ATAP_Monthly.py
+
+The default screen asks for real, user-provided values (NOT assumed). Select **Clearly synthetic MAIC judge fixture** to demonstrate the known January 2026 historical SMP example; it is not current SMP or customer evidence. Uploading a CSV uses STRICT full-period coverage with headers:
+
+    timestamp_myt,load_kwh,pv_kwh
+
+Use 30- or 60-minute rows in Malaysia local time for every interval of the chosen billing period, starting at 00:00. Omitted, repeated, shifted or non-finite values fail closed. Use **only approved/anonymized customer data**, and do not expose personally identifying utility-account details in a public Streamlit deployment.
+
+The form requires the billing month, **preceding** Single Buyer Average SMP month and rate, AC kW, customer MD, days, imported/exported energy or matched interval load/PV, and a contract-month assumption. It produces **energy-component-only** results and a downloadable preliminary audit. Contract month is NOT a signed commissioning date.
+
+### Record a fair three-method evaluation
+
+The [paired B0/B1/Heliopolis evaluation harness](benchmark_evidence.py) computes false clearances, critical-issue flags, abstentions, coverage and measured cost/latency **only after genuine model outputs and independent labels have been supplied**. To create an empty input sheet, run:
+
+    python benchmark_evidence.py --template PRIVATE_matched_results.csv
+
+Refer to [the evaluation runbook](qrspi/BENCHMARK_RUNBOOK.md). There is no real-document accuracy, speedup or commercial traction claim from the synthetic unit tests.
+
+### Verify live OCR only with authorized source images
+
+The app requires permission before transmitting uploaded title/SLD images to Google. For a privacy-preserving local test, run:
+
+    python verify_live_ocr.py --title /approved/local/title.png --confirm-cloud-processing
+
+Or use the SLD variant. The script refuses missing authorization/credentials and emits **sanitized outcome metadata only**. The actual extraction still needs a human reviewer to compare all fields against the original. Read the [live OCR and privacy runbook](qrspi/LIVE_OCR_RUNBOOK.md). **No live Gemini accuracy or field validation has been performed in this repository.**
+
 
 ---
 
