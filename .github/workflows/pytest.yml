@@ -22,6 +22,28 @@ jobs:
         run: python -m compileall -q solar_agent.py heliopolis_ocr.py app_logic.py app.py tests
       - name: Run offline regression tests
         run: pytest -q tests
+      - name: Verify a current synthetic CLI assessment report
+        run: |
+          python solar_agent.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("solar_assessment_report.json").read_text(encoding="utf-8"))
+          assert data["assessment_status"] == "PRELIMINARY_REVIEW_REQUIRED"
+          assert data["scope"] == "SYNTHETIC_DEMO_NOT_REGULATORY_APPROVAL"
+          assert data["data_provenance"]["land"] == "SYNTHETIC_DEMO"
+          assert data["regulatory_manifest"]["tnb_grid_request"]["Interconnection_Voltage_Level_kV"] is None
+          assert data["regulatory_manifest"]["tnb_grid_request"]["Transformer_Capacity_MVA"] is None
+          assert data["regulatory_manifest"]["solar_atap_precheck"]["status"] != "APPROVED"
+          assert data["technical_financial_feasibility"]["financial_status"] == "ILLUSTRATIVE_LSS_PPA_NO_SIGNED_CONTRACT"
+          print("Verified synthetic CLI report schema and safety markers")
+          PY
+      - name: Publish current synthetic report as a CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: heliopolis-synthetic-preliminary-report
+          path: solar_assessment_report.json
+          retention-days: 7
       - name: Smoke-test Streamlit app without Gemini credentials
         run: |
           python - <<'PY'
