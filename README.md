@@ -152,7 +152,7 @@ In the sidebar, fill in:
 1. **Site Mode** — choose a synthetic preset or a synthetic representative Malaysian site from the demo registry.
 2. **Land Attributes** — Title No, Lot No, State, Zoning, and land area in *Ekar / Rood / Pole*.
 3. **Legal Restrictions** — tick any Caveat, Charge, or Malay Reserve flags.
-4. **Project Company** — the company that will file SEDA/TNB applications (defaults to Solarvest Development Sdn Bhd).
+4. **Project Company** — the company that will file SEDA/TNB applications (defaults to an explicitly labeled fictional developer).
 5. **Technical Specifications** — slope profile, proposed AC capacity (MWac), and upstream substation limit (MVA).
 6. **Financial Scenario** — pick LSS PPA, illustrative C&I/NEM NOVA sensitivity (not Solar ATAP), or Self-Consumption / Premium tariff.
 7. **Scanned Document OCR** (optional) — upload a land-title scan and/or SLD scan to use Gemini Vision instead of the form values.
