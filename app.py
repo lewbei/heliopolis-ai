@@ -589,54 +589,64 @@ with tabs[2]:
         capex_delta_type = "down" if feasibility.grading_adjusted_capex_rm > feasibility.base_capex_rm else "up"
         st.markdown(metric_card("Final CAPEX Cost", f"RM {feasibility.grading_adjusted_capex_rm:,.2f}", delta=f"{((feasibility.grading_adjusted_capex_rm - feasibility.base_capex_rm) / 1000000.0):.2f}M Premiums added", delta_type=capex_delta_type), unsafe_allow_html=True)
     with col_fin_4:
-        irr_delta_type = "up" if feasibility.irr_percent > 6.5 else "down"
-        st.markdown(metric_card("Project IRR (%)", f"{feasibility.irr_percent:.2f}%", delta="Newton-Raphson Solver", delta_type=irr_delta_type), unsafe_allow_html=True)
+        if feasibility.irr_percent is None:
+            st.markdown(metric_card("Project IRR", "Not estimated",
+                delta="Customer load/tariff evidence missing", delta_type="warning"),
+                unsafe_allow_html=True)
+        else:
+            irr_delta_type = "up" if feasibility.irr_percent > 6.5 else "down"
+            st.markdown(metric_card("Illustrative IRR", f"{feasibility.irr_percent:.2f}%",
+                delta="No signed PPA or bankable yield", delta_type=irr_delta_type),
+                unsafe_allow_html=True)
 
     st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
 
     col_fin_left, col_fin_right = st.columns([7, 5])
 
     with col_fin_left:
-        # Build Cash Flow Plot using Plotly Go
-        st.markdown('<div class="card-title">21-Year Lifecycle Projected Net Cash Flows</div>', unsafe_allow_html=True)
+        if feasibility.financial_status != "ILLUSTRATIVE_LSS_PPA_NO_SIGNED_CONTRACT":
+            st.info("NPV, IRR and net cash-flow chart withheld: customer interval demand/export, applicable tariff, and 10-year offset limits are not verified. Gross yield and LCOE above are illustrative only.")
+        else:
+            # Build Cash Flow Plot using Plotly Go
+            st.markdown('<div class="card-title">Illustrative LSS PPA Cash Flows (21 years)</div>', unsafe_allow_html=True)
 
-        # Use the same lifecycle projection function as the backend engine.
-        projection = project_lifecycle_cashflows(
-            capacity_mwp=feasibility.capacity_mwp,
-            annual_yield_mwh=feasibility.annual_yield_mwh,
-            adjusted_capex_rm=feasibility.grading_adjusted_capex_rm,
-            bess_capex_rm=grid_audit.bess_specification.estimated_bess_capex_rm,
-            tariff_rm_kwh=feasibility.ppa_tariff_rm_kwh,
-        )
-        years = list(range(0, len(projection["cash_flows"])))
-        cf_vals = projection["cash_flows"]
+            # Use the same lifecycle projection function as the backend engine.
+            projection = project_lifecycle_cashflows(
+                capacity_mwp=feasibility.capacity_mwp,
+                annual_yield_mwh=feasibility.annual_yield_mwh,
+                adjusted_capex_rm=feasibility.grading_adjusted_capex_rm,
+                bess_capex_rm=grid_audit.bess_specification.estimated_bess_capex_rm,
+                tariff_rm_kwh=feasibility.ppa_tariff_rm_kwh,
+            )
+            years = list(range(0, len(projection["cash_flows"])))
+            cf_vals = projection["cash_flows"]
 
-        fig_cf = go.Figure()
-        fig_cf.add_trace(go.Bar(
-            x=years,
-            y=cf_vals,
-            marker_color=["#ef4444" if val < 0 else "#22c55e" for val in cf_vals],
-            name="Net Cash Flow"
-        ))
+            fig_cf = go.Figure()
+            fig_cf.add_trace(go.Bar(
+                x=years,
+                y=cf_vals,
+                marker_color=["#ef4444" if val < 0 else "#22c55e" for val in cf_vals],
+                name="Net Cash Flow"
+            ))
 
-        fig_cf.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="DM Sans, sans-serif", color="#71717a" if not IS_DARK else "#a1a1aa", size=10),
-            margin=dict(l=0, r=0, t=10, b=0),
-            xaxis=dict(
-                gridcolor="rgba(0,0,0,0.04)" if not IS_DARK else "rgba(255,255,255,0.04)",
-                tickmode="linear",
-                dtick=2,
-                title="Year"
-            ),
-            yaxis=dict(
-                gridcolor="rgba(0,0,0,0.04)" if not IS_DARK else "rgba(255,255,255,0.04)",
-                title="Net Cash Flow (RM)"
-            ),
-            height=300
-        )
-        st.plotly_chart(fig_cf, use_container_width=True, config={"displayModeBar": False})
+            fig_cf.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="DM Sans, sans-serif", color="#71717a" if not IS_DARK else "#a1a1aa", size=10),
+                margin=dict(l=0, r=0, t=10, b=0),
+                xaxis=dict(
+                    gridcolor="rgba(0,0,0,0.04)" if not IS_DARK else "rgba(255,255,255,0.04)",
+                    tickmode="linear",
+                    dtick=2,
+                    title="Year"
+                ),
+                yaxis=dict(
+                    gridcolor="rgba(0,0,0,0.04)" if not IS_DARK else "rgba(255,255,255,0.04)",
+                    title="Net Cash Flow (RM)"
+                ),
+                height=300
+            )
+            st.plotly_chart(fig_cf, use_container_width=True, config={"displayModeBar": False})
 
     with col_fin_right:
         # BESS Battery Specification Card
@@ -848,7 +858,9 @@ with tabs[3]:
                 "annual_yield_mwh": feasibility.annual_yield_mwh,
                 "adjusted_capex_rm": feasibility.grading_adjusted_capex_rm,
                 "project_npv_rm": feasibility.npv_rm,
-                "project_irr_percent": feasibility.irr_percent
+                "project_irr_percent": feasibility.irr_percent,
+                "financial_status": feasibility.financial_status,
+                "financial_notes": feasibility.financial_notes
             }
         }
         json_str = json.dumps(report_payload, indent=4)
