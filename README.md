@@ -14,8 +14,16 @@ A prototype AI-assisted **preliminary** solar-site screening tool for Malaysia. 
 > - The preliminary 15% MW/MVA injection metric is a **heuristic**, not a TNB 15% limit or proof that batteries are required. Any utility study fees or approval time are scheme-dependent.
 > - Tests establish particular software behaviors, **not** field extraction accuracy or time saved for actual solar developers.
 >
-> [Regulatory sources, dates and limitations](qrspi/REGULATORY_SCOPE_2026.md) · [Read the updated MAIC pitch](PITCH_DECK.md) · [Official Solar ATAP guidance](https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/) · [Official NEM/NOVA studies](https://www.seda.gov.my/reportal/nem/)
+> [Official Solar ATAP sources and MAQ/SMP method](qrspi/SOLAR_ATAP_OFFICIAL_RESEARCH.md) · [Regulatory sources, dates and limitations](qrspi/REGULATORY_SCOPE_2026.md) · [Read the updated MAIC pitch](PITCH_DECK.md) · [Official Solar ATAP guidance](https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/) · [Official NEM/NOVA studies](https://www.seda.gov.my/reportal/nem/)
 > **Pitch materials:** [Current 2026 pitch PDF](pitch_deck.pdf) is generated from [PITCH_DECK.md](PITCH_DECK.md). Follow the [judge demo runbook](qrspi/JUDGE_DEMO_RUNBOOK.md). The previously committed stale JSON report was removed. Run `python solar_agent.py` or retrieve the GitHub Actions **synthetic preliminary report** artifact to obtain an up-to-date, explicitly simulated report.
+
+---
+
+## Solar ATAP non-domestic (2026) — narrow source-grounded monthly checker
+
+Solar ATAP is a **rooftop consumer solar** programme, not the default utility-scale LSS site prospecting mode. The project includes a pure [Solar ATAP monthly energy-component calculation](solar_atap_settlement.py) using only explicit, unverified/user-provided or synthetic inputs. It checks the published MAQ limit, import-energy cap, the preceding-month Average SMP, no credit rollover and the end of the ten-year offset term.
+
+It **does not** estimate complete TNB bills or full ATAP NPV/IRR, and there is **no real consumer load dataset** shipped with the repository. Refer to [official source research and the required datasets](qrspi/SOLAR_ATAP_OFFICIAL_RESEARCH.md) and [the independent regression tests](tests/test_solar_atap_settlement.py). The current Streamlit ATAP panel remains capacity-only; the standalone monthly helper is for reproducible technical checks rather than a new eligibility claim.
 
 ---
 
