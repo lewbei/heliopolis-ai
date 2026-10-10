@@ -499,7 +499,7 @@ class LandTitleParser:
             is_malay_reserve=data["is_malay_reserve"], legal_assessment=legal,
         )
 
-        def parse(self, raw_ocr_text: str) -> LandTitleMetadata:
+    def parse(self, raw_ocr_text: str) -> LandTitleMetadata:
         print("[LandTitleParser] Executing layout-aware NLP metadata extraction...")
 
         # Demo fallback dataset; preserves the original sandbox title and ownership profile.
