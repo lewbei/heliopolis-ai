@@ -34,15 +34,15 @@ Use these keys exactly:
   "area_acres": float or null,
   "area_roods": float or null,
   "area_poles": float or null,
-  "has_caveats": true if a Caveat (Kaveat) is recorded, otherwise false,
-  "has_charges": true if a Charge/Gadaian or Dichaj is recorded, otherwise false,
-  "is_malay_reserve": true if Tanah Rezab Melayu / Malay Reserve appears, otherwise false,
+  "has_caveats": true if a Caveat (Kaveat) is recorded, false if legibly absent, null if unreadable,
+  "has_charges": true if a Charge/Gadaian or Dichaj is recorded, false if legibly absent, null if unreadable,
+  "is_malay_reserve": true if Tanah Rezab Melayu / Malay Reserve appears, false if legibly absent, null if unreadable,
   "owners": [
     {"name": "full name", "ic_or_co_no": "MyKad/SSM number", "share_fraction": "e.g. 11/120"}
   ]
 }
 
-If a field is unreadable, use null.  For owners, use an empty list if none are visible.  Share fractions are usually expressed as "X/120" in Malaysian titles.
+Never infer that a land restriction is absent from illegible text: return null for unknown flags. If an owner section is unreadable or not shown, return an empty list; do not invent owners.  Share fractions are usually expressed as "X/120" in Malaysian titles.
 """
 
 _SLD_PROMPT = """
@@ -188,17 +188,30 @@ def parse_sld_image(image_path: str | Path) -> Optional[dict[str, Any]]:
     if result is None:
         return None
 
-    # Normalise line endpoints and junction dot coordinates from nested lists to tuples for downstream code.
-    raw_lines = result.get("lines", [])
-    normalised_lines = []
-    for line in raw_lines:
-        if len(line) == 2:
-            normalised_lines.append(
-                ((float(line[0][0]), float(line[0][1])), (float(line[1][0]), float(line[1][1])))
-            )
-    result["lines"] = normalised_lines
-
-    raw_dots = result.get("junction_dots", [])
-    normalised_dots = [(float(dot[0]), float(dot[1])) for dot in raw_dots if len(dot) == 2]
-    result["junction_dots"] = normalised_dots
-    return result
+    # Reject malformed geometry as unreadable; never fabricate a safe graph.
+    try:
+        if not isinstance(result, dict):
+            return None
+        symbols = result.get("symbols")
+        raw_lines = result.get("lines")
+        raw_dots = result.get("junction_dots", [])
+        if not isinstance(symbols, list) or not isinstance(raw_lines, list) or not isinstance(raw_dots, list):
+            return None
+        normalized_lines = []
+        for line in raw_lines:
+            if not isinstance(line, list) or len(line) != 2:
+                return None
+            a, b = line
+            if not isinstance(a, (list, tuple)) or not isinstance(b, (list, tuple)) or len(a) != 2 or len(b) != 2:
+                return None
+            normalized_lines.append(((float(a[0]), float(a[1])), (float(b[0]), float(b[1]))))
+        normalized_dots = []
+        for dot in raw_dots:
+            if not isinstance(dot, (list, tuple)) or len(dot) != 2:
+                return None
+            normalized_dots.append((float(dot[0]), float(dot[1])))
+        result["lines"] = normalized_lines
+        result["junction_dots"] = normalized_dots
+        return result
+    except (ValueError, TypeError, IndexError):
+        return None
