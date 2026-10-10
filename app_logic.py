@@ -149,33 +149,62 @@ def build_land_metadata(
     return land_meta, hectares, sq_meters, acres, roods, poles, owner_rows_html
 
 
-def build_demo_sld(has_relay: bool = True, is_xfmr_connected: bool = True):
-    """Construct an explicit synthetic SLD fixture for judge/demo toggles only."""
-    symbols = [
-        {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
-        {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
-        {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 1000, 200, 1100]},
-        {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]}
-    ]
-    if has_relay:
-        symbols.append({"id": "RELAY_1", "class": "Anti_Islanding_Relay", "bbox": [100, 700, 200, 800]})
-
-    lines = [
-        ((200, 150), (400, 150)),  # PV to Inverter
-    ]
-    if has_relay:
-        lines.append(((500, 150), (700, 150)))  # Inverter to Relay
+def build_demo_sld(
+    has_relay: bool = True, is_xfmr_connected: bool = True,
+    connection_profile: str = "MV",
+):
+    """Synthetic primary LV or legacy MV fixture; neither is a real TNB diagram."""
+    if connection_profile == "LV":
+        symbols = [
+            {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
+            {
+                "id": "INV_1", "class": "Inverter",
+                "bbox": [100, 400, 200, 500],
+                # The explicit drawing label is simulated ONLY in this fixture.
+                "integrated_anti_islanding_label": has_relay,
+                "anti_islanding_source_text": (
+                    "Anti-islanding inverter (synthetic annotation)"
+                    if has_relay else ""
+                ),
+            },
+            {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 700, 200, 800]},
+        ]
+        lines = [((200, 150), (400, 150))]
         if is_xfmr_connected:
-            lines.append(((800, 150), (1000, 150)))  # Relay to Transformer
-            lines.append(((1100, 150), (1300, 150)))  # Transformer to Grid
-        else:
-            lines.append(((1100, 150), (1200, 150)))  # Broken wire
+            lines.append(((500, 150), (700, 150)))
+        graph = SLDTopologyResolver().resolve(
+            symbols, lines, connection_profile="LV"
+        )
     else:
-        if is_xfmr_connected:
-            lines.append(((500, 150), (1000, 150)))  # Inverter to Transformer directly
-            lines.append(((1100, 150), (1300, 150)))  # Transformer to Grid
-
-    graph = SLDTopologyResolver().resolve(symbols, lines)
+        symbols = [
+            {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
+            {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
+            {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 1000, 200, 1100]},
+            {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]},
+        ]
+        if has_relay:
+            symbols.append({
+                "id": "RELAY_1", "class": "Anti_Islanding_Relay",
+                "bbox": [100, 700, 200, 800],
+            })
+        lines = [((200, 150), (400, 150))]
+        if has_relay:
+            lines.append(((500, 150), (700, 150)))
+            if is_xfmr_connected:
+                lines.extend([
+                    ((800, 150), (1000, 150)),
+                    ((1100, 150), (1300, 150)),
+                ])
+            else:
+                lines.append(((1100, 150), (1200, 150)))
+        elif is_xfmr_connected:
+            lines.extend([
+                ((500, 150), (1000, 150)),
+                ((1100, 150), (1300, 150)),
+            ])
+        graph = SLDTopologyResolver().resolve(
+            symbols, lines, connection_profile=connection_profile
+        )
     graph.graph["source_type"] = "SYNTHETIC_DEMO"
     return graph
 
@@ -221,9 +250,13 @@ def compute_assessment(
     # Uploaded OCR graph is analyzed once; a synthetic fixture needs no cloud call.
     if sld_image_path:
         print("[app_logic] Resolving SLD topology from uploaded OCR image...")
-        sld_graph = SLDTopologyResolver().resolve_image(sld_image_path)
+        sld_graph = SLDTopologyResolver().resolve_image(
+            sld_image_path, connection_profile=voltage_class
+        )
     else:
-        sld_graph = build_demo_sld(has_relay, is_xfmr_connected)
+        sld_graph = build_demo_sld(
+            has_relay, is_xfmr_connected, connection_profile=voltage_class
+        )
 
     # --- Regulatory Manifest ---
     manifest = FormFiller.generate_manifest(

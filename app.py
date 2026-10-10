@@ -543,26 +543,67 @@ with tabs[1]:
         st.markdown('<div style="font-size: 0.8rem; margin-bottom: 1rem;">Assess a limited set of drawing connectivity relationships. This cannot certify protection or grid-code compliance.</div>', unsafe_allow_html=True)
 
         if sld_image_path:
-            st.caption("SLD upload mode: controls are disabled; the result uses only the uploaded drawing extraction.")
+            st.caption(
+                "Uploaded drawing: selected voltage class is a USER ASSUMPTION, "
+                "not inferred TNB connection approval. Demo controls are disabled."
+            )
         else:
-            st.caption("Synthetic fixture controls for an offline negative-control demonstration.")
-        has_relay = st.toggle("Include Anti-Islanding Protection Relay", value=True, disabled=bool(sld_image_path))
-        is_xfmr_connected = st.toggle("Connect Transformer to Grid", value=True, disabled=bool(sld_image_path))
+            st.caption(
+                f"SYNTHETIC {in_voltage_class} fixture. Select LV/MV in the "
+                "sidebar to choose the modeled drawing layout."
+            )
+        if in_voltage_class == "LV":
+            has_relay = st.toggle(
+                "Explicit inverter anti-islanding label shown (synthetic)",
+                value=True, disabled=bool(sld_image_path),
+            )
+            is_xfmr_connected = st.toggle(
+                "Connect inverter to grid (synthetic)",
+                value=True, disabled=bool(sld_image_path),
+            )
+        else:
+            has_relay = st.toggle(
+                "Include separate Anti-Islanding Relay (synthetic)",
+                value=True, disabled=bool(sld_image_path),
+            )
+            is_xfmr_connected = st.toggle(
+                "Connect Transformer to Grid (synthetic)",
+                value=True, disabled=bool(sld_image_path),
+            )
 
         # Never rerun an uploaded OCR/model or financial assessment for this tab.
         # The cheap fixture toggle only changes the displayed synthetic graph.
         g = (
             assessment["sld_graph"]
             if sld_image_path
-            else build_demo_sld(has_relay=has_relay, is_xfmr_connected=is_xfmr_connected)
+            else build_demo_sld(
+                has_relay=has_relay,
+                is_xfmr_connected=is_xfmr_connected,
+                connection_profile=in_voltage_class,
+            )
         )
 
         topology = g.graph.get("tnb_compliance", {})
         st.markdown("---")
         st.markdown('<div class="card-title">Preliminary SLD Topology Screen</div>', unsafe_allow_html=True)
-        st.caption("Checks modeled drawing connectivity only. Does not establish TNB compliance, relay configuration, protection settings or approval.")
+        st.caption(
+            f"Connection profile: {html_escape(str(topology.get('connection_profile', 'UNKNOWN')))} "
+            "(user assumed). Checks only drawing connectivity / explicit labels; "
+            "not inverter anti-islanding certification or TNB approval."
+        )
         if topology.get("preliminary_topology_status") == "PRELIMINARY_TOPOLOGY_PASS":
-            st.success("A connected modeled PV → inverter → relay → transformer → grid path was found. Independent engineering review remains required.")
+            if topology.get("connection_profile") == "LV":
+                st.success(
+                    "LV preliminary topology: modeled PV → inverter → grid path with "
+                    "an explicit anti-islanding label (or connected external protection). "
+                    "Inverter certification, AC switches, metering, settings and TNB "
+                    "approval remain UNVERIFIED."
+                )
+            else:
+                st.success(
+                    "MV preliminary topology: connected modeled PV → inverter → relay "
+                    "→ transformer → grid path. Independent engineering review remains required."
+                )
         else:
             st.error("NEEDS REVIEW: " + "; ".join(topology.get("findings", ["Incomplete or ambiguous SLD topology."])))
 

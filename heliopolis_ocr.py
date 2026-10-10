@@ -55,7 +55,13 @@ You are an electrical engineering drawing OCR extractor.  Read the attached sing
 Use these keys exactly:
 {
   "symbols": [
-    {"id": "unique_id", "class": "One of: PV_Array, Inverter, Anti_Islanding_Relay, Transformer, Grid_Connection, Junction_Dot", "bbox": [ymin, xmin, ymax, xmax]}
+    {
+      "id": "unique_id",
+      "class": "One of: PV_Array, Inverter, AC_Switch, PV_Meter, Anti_Islanding_Relay, Transformer, Grid_Connection, Junction_Dot",
+      "bbox": [ymin, xmin, ymax, xmax],
+      "integrated_anti_islanding_label": null,
+      "anti_islanding_source_text": null
+    }
   ],
   "lines": [
     [[x1, y1], [x2, y2]]
@@ -65,7 +71,19 @@ Use these keys exactly:
   ]
 }
 
-The bbox values should be integer pixel coordinates [top, left, bottom, right].  Lines should connect symbol bounding boxes in the direction of power flow (PV -> Inverter -> Relay -> Transformer -> Grid).  If the relay is not drawn, omit the Anti_Islanding_Relay symbol and skip that segment.
+The bbox values should be integer pixel coordinates [top, left, bottom, right].
+Extract ONLY printed symbols and visible wire endpoints. Never invent an external relay,
+transformer or wire segment to match an assumed PV -> Inverter -> Grid topology.
+For LV drawings, a separate transformer or relay may not be illustrated.
+Represent visible AC isolator/main switches as AC_Switch and PV meters as
+PV_Meter, preserving their actual wiring. Identify the utility L/N/E or L1/L2/L3
+incoming boundary as Grid_Connection, never as a guessed transformer.
+A generic inverter symbol DOES NOT establish anti-islanding. Set
+integrated_anti_islanding_label to true ONLY when an anti-islanding / non-islanding
+inverter label (or IEC 62116 annotation) is visibly printed with the inverter,
+and quote those exact words in anti_islanding_source_text. Otherwise use null
+for both fields (do not infer an inverter certificate from context).
+For other symbol categories set those optional fields to null.
 
 Junction dots (small filled circles) are electrical connection points.  Return a junction dot coordinate wherever two or more line segments are physically joined.  Do NOT return a junction dot where two lines simply cross without an explicit connection.  If the SLD contains a Junction_Dot symbol, include it in the symbols list instead of junction_dots.
 """

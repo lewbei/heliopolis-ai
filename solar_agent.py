@@ -675,15 +675,32 @@ class CivilSlopeAnalyzer:
 
 class SLDTopologyResolver:
     """
-    Processes symbol bounding boxes and wire layout lines to construct a directed
-    topological graph, validating compliance with TNB interconnection protection rules.
+    Processes extracted drawing geometry for bounded, preliminary connectivity
+    screening. MV and LV drawings have distinct modeled component expectations;
+    this is never a TNB approval, protection setting study, or equipment certificate.
     """
-    def resolve(self, symbols: List[Dict[str, Any]], lines: List[tuple], junction_dots: Optional[List[tuple]] = None) -> nx.DiGraph:
+    def resolve(
+        self, symbols: List[Dict[str, Any]], lines: List[tuple],
+        junction_dots: Optional[List[tuple]] = None,
+        connection_profile: str = "MV",
+    ) -> nx.DiGraph:
         print("[SLDTopologyResolver] Constructing directed topology graph...")
         g = nx.DiGraph()
 
         for sym in symbols:
-            g.add_node(sym["id"], category=sym["class"], bbox=sym["bbox"])
+            g.add_node(
+                sym["id"], category=sym["class"], bbox=sym["bbox"],
+                # This is ONLY a label visible in the drawing, not a verified
+                # certified inverter. Unknown/malformed evidence is not true.
+                integrated_anti_islanding_label=(
+                    sym.get("integrated_anti_islanding_label") is True
+                ),
+                anti_islanding_source_text=(
+                    sym.get("anti_islanding_source_text", "")
+                    if isinstance(sym.get("anti_islanding_source_text", ""), str)
+                    else ""
+                ),
+            )
 
         # --- Improvised Feature: Dynamic Scale-Invariant Epsilon Resolver ---
         # Instead of hardcoded 15.0px, calculate epsilon as 15% of the average inverter bounding box width!
@@ -736,7 +753,10 @@ class SLDTopologyResolver:
             if nearest_u and nearest_v and nearest_u != nearest_v:
                 g.add_edge(nearest_u, nearest_v)
 
-        g.graph["tnb_compliance"] = self.validate_tnb_compliance(g)
+        g.graph["connection_profile"] = connection_profile
+        g.graph["tnb_compliance"] = self.validate_tnb_compliance(
+            g, connection_profile=connection_profile
+        )
         return g
 
     @staticmethod
@@ -784,8 +804,162 @@ class SLDTopologyResolver:
             split_lines.extend(cls._split_segment_at_junctions(line, junction_dots, epsilon))
         return split_lines
 
-    def validate_tnb_compliance(self, g: nx.DiGraph) -> dict:
-        """Preliminary topology screening; cannot certify electrical/grid-code compliance."""
+    @staticmethod
+    def _lv_label_visible(attrs: Dict[str, Any]) -> bool:
+        """Only a *literal* extracted drawing label can support LV preliminary screening.
+
+        A model-inferred inverter capability, generic inverter symbol, or an
+        assertion lacking the underlying label remains UNKNOWN.
+        """
+        if attrs.get("integrated_anti_islanding_label") is not True:
+            return False
+        label = str(attrs.get("anti_islanding_source_text") or "").lower().replace("_", "-")
+        if any(phrase in label for phrase in (
+            "no anti-island", "no anti island", "without anti-island",
+            "not anti-island",
+        )):
+            return False
+        return any(phrase in label for phrase in (
+            "anti-island", "anti island", "non-island", "non island", "iec 62116",
+        ))
+
+    @classmethod
+    def _validate_lv_topology(cls, g: nx.DiGraph) -> dict:
+        """Screen modeled PV -> inverter -> grid; relay/transformer are optional.
+
+        TNB's LV Appendix B shows an inverter, AC switches and PV meter without
+        requiring a drawn external relay or separate transformer on each path.
+        Anti-islanding is still REQUIRED, but evidence is not inferred from a
+        generic inverter symbol and must be checked by a qualified reviewer.
+        """
+        groups: dict[str, list[str]] = {}
+        for node, attrs in g.nodes(data=True):
+            groups.setdefault(attrs.get("category", ""), []).append(node)
+        pvs = groups.get("PV_Array", [])
+        inverters = groups.get("Inverter", [])
+        grids = groups.get("Grid_Connection", [])
+        relays = groups.get("Anti_Islanding_Relay", [])
+        transformers = groups.get("Transformer", [])
+
+        missing = [
+            label for label, found in (
+                ("PV array", pvs), ("inverter", inverters),
+                ("grid connection", grids),
+            ) if not found
+        ]
+        findings = [f"Missing modeled component: {label}" for label in missing]
+
+        connected = bool(pvs and inverters and grids) and all(
+            any(nx.has_path(g, pv, inverter) and nx.has_path(g, inverter, grid)
+                for inverter in inverters for grid in grids)
+            for pv in pvs
+        )
+        if not connected and not missing:
+            findings.append("No complete modeled PV -> inverter -> grid connection.")
+
+        annotated_inverters = [
+            inverter for inverter in inverters
+            if cls._lv_label_visible(g.nodes[inverter])
+        ]
+        # A separate inline relay is also a possible displayed protection
+        # component, but merely being elsewhere in the drawing is not enough.
+        drawn_protection = annotated_inverters + relays
+        protected = bool(pvs and grids and drawn_protection) and all(
+            any(
+                nx.has_path(g, pv, item) and nx.has_path(g, item, grid)
+                for item in drawn_protection for grid in grids
+            )
+            for pv in pvs
+        )
+        if not drawn_protection:
+            findings.append(
+                "Anti-islanding evidence not visible on the modeled LV path; "
+                "verify grid-connected inverter labeling, device certification "
+                "and pre-commissioning testing."
+            )
+        elif not protected:
+            findings.append(
+                "Displayed anti-islanding element is disconnected from the "
+                "modeled PV-to-grid connection."
+            )
+
+        # Detect ANY path that can export without going through an inverter or
+        # a displayed protection element. Merely adding an annotated inverter
+        # on a separate branch must never produce a positive result.
+        no_inverters = g.copy()
+        no_inverters.remove_nodes_from(inverters)
+        bypass_inverter = any(
+            nx.has_path(no_inverters, pv, grid)
+            for pv in pvs for grid in grids
+        )
+        no_protection = g.copy()
+        no_protection.remove_nodes_from(drawn_protection)
+        bypass_protection = any(
+            nx.has_path(no_protection, pv, grid)
+            for pv in pvs for grid in grids
+        )
+        if bypass_inverter:
+            findings.append("Detected PV-to-grid path bypassing all modeled inverters.")
+        if bypass_protection:
+            findings.append("Detected PV-to-grid path bypassing displayed anti-islanding protection.")
+        valid = bool(connected and protected and not bypass_inverter
+                     and not bypass_protection and not missing)
+
+        return {
+            "connection_profile": "LV",
+            "anti_islanding_relay_present": bool(relays),
+            "integrated_anti_islanding_label_visible": bool(annotated_inverters),
+            "protection_path_valid": bool(protected and not bypass_protection),
+            "grid_path_valid": valid,
+            "preliminary_topology_status": (
+                "PRELIMINARY_TOPOLOGY_PASS" if valid else "NEEDS_REVIEW"
+            ),
+            "findings": findings,
+            "transformer_count": len(transformers),
+            "grid_connection_count": len(grids),
+            "disconnected_transformers": [],
+            "source_reference": (
+                "TNB Technical Guidebook on Grid-interconnection of PV "
+                "Generation to LV and MV Networks, Appendix B and clauses 6.6, 6.20"
+            ),
+            "scope_note": (
+                "LV drawing topology/visible annotation only. Not a TNB approval. "
+                "Missing independent verification of inverter anti-islanding "
+                "capability, protective settings, switchgear, meter and PCC."
+            ),
+        }
+
+    def validate_tnb_compliance(
+        self, g: nx.DiGraph, connection_profile: str = "MV"
+    ) -> dict:
+        """Preliminary LV/MV topology screen, not a regulatory compliance decision."""
+        if connection_profile == "LV":
+            return self._validate_lv_topology(g)
+        if connection_profile != "MV":
+            return {
+                "connection_profile": connection_profile,
+                "anti_islanding_relay_present": any(
+                    data.get("category") == "Anti_Islanding_Relay"
+                    for _, data in g.nodes(data=True)
+                ),
+                "protection_path_valid": False,
+                "grid_path_valid": False,
+                "preliminary_topology_status": "NEEDS_REVIEW",
+                "findings": [
+                    "No validated SLD topology profile for this connection class; "
+                    "select an appropriate LV/MV diagram or seek engineering review."
+                ],
+                "transformer_count": sum(
+                    data.get("category") == "Transformer"
+                    for _, data in g.nodes(data=True)
+                ),
+                "grid_connection_count": sum(
+                    data.get("category") == "Grid_Connection"
+                    for _, data in g.nodes(data=True)
+                ),
+                "disconnected_transformers": [],
+                "scope_note": "Unsupported/unknown drawing profile; not TNB compliance.",
+            }
         groups: dict[str, list[str]] = {}
         for node, data in g.nodes(data=True):
             groups.setdefault(data.get("category", ""), []).append(node)
@@ -833,6 +1007,7 @@ class SLDTopologyResolver:
             findings.append("At least one transformer has no modeled path to the grid.")
         grid_path_valid = protected and not bypass and not disconnected_transformers
         return {
+            "connection_profile": "MV",
             "anti_islanding_relay_present": bool(relays),
             "protection_path_valid": protected and not bypass,
             "grid_path_valid": bool(grid_path_valid),
@@ -846,8 +1021,10 @@ class SLDTopologyResolver:
             "scope_note": "Drawing topology only. Not a TNB interconnection or protection-engineering certification.",
         }
 
-    def resolve_image(self, image_path: str) -> nx.DiGraph:
-        """Run Gemini extraction on an uploaded drawing, without substituting a demo circuit."""
+    def resolve_image(
+        self, image_path: str, connection_profile: str = "MV"
+    ) -> nx.DiGraph:
+        """Run Google Vertex/Gemini extraction; never substitute demo evidence."""
         data = heliopolis_ocr.parse_sld_image(image_path)
         if not isinstance(data, dict):
             raise DocumentReviewRequired("SLD extraction failed; no grid-topology assessment is possible.")
@@ -863,6 +1040,16 @@ class SLDTopologyResolver:
                     raise ValueError("symbol has no ID/class")
                 if len(s["bbox"]) != 4:
                     raise ValueError("invalid symbol bbox")
+                # Accept unknown (null/missing). A malformed or inferred true
+                # is not valid evidence of an integrated protective function.
+                label_value = s.get("integrated_anti_islanding_label")
+                if label_value is not None and type(label_value) is not bool:
+                    raise ValueError("invalid anti-islanding label flag")
+                label_text = s.get("anti_islanding_source_text")
+                if label_text is not None and (
+                    not isinstance(label_text, str) or len(label_text) > 250
+                ):
+                    raise ValueError("invalid anti-islanding label quote")
                 if not all(np.isfinite(float(v)) for v in s["bbox"]):
                     raise ValueError("nonfinite bbox")
             for line in lines:
@@ -873,7 +1060,9 @@ class SLDTopologyResolver:
                 raise ValueError("invalid junction dots")
         except (KeyError, ValueError, TypeError, OverflowError) as exc:
             raise DocumentReviewRequired("SLD symbol/wire data is incomplete; manual review required.") from exc
-        graph = self.resolve(symbols, lines, dots)
+        graph = self.resolve(
+            symbols, lines, dots, connection_profile=connection_profile
+        )
         graph.graph["source_type"] = "OCR_EXTRACTED_UNVERIFIED"
         return graph
 
