@@ -90,7 +90,8 @@ class NonDomesticBillingPeriod:
     prevailing_energy_charge_rm_per_kwh: float
     average_smp_rm_per_kwh: float | None
     contract_month: int  # 1..120 = within ATAP; >=121 strictly self-consumption
-    smp_reference_month: str | None = None
+    billing_month: str | None = None  # YYYY-MM of billed energy
+    smp_reference_month: str | None = None  # MUST be previous calendar month
     input_basis: str = "USER_SUPPLIED_UNVERIFIED"
 
 
@@ -164,6 +165,22 @@ def settle_non_domestic_month(
             "Missing preceding-month Single Buyer Average SMP; never assume a "
             "flat NOVA or retail export tariff."
         )
+    if in_atap_term:
+        if not record.billing_month or not record.smp_reference_month:
+            raise ValueError("Require billing YYYY-MM and preceding SMP reference YYYY-MM.")
+        try:
+            bill_year, bill_month = map(int, record.billing_month.split("-"))
+            ref_year, ref_month = map(int, record.smp_reference_month.split("-"))
+            if not (2026 <= bill_year <= 2200 and 1 <= bill_month <= 12):
+                raise ValueError("invalid billing month")
+            if not (2025 <= ref_year <= 2200 and 1 <= ref_month <= 12):
+                raise ValueError("invalid SMP reference month")
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Expected valid YYYY-MM billing/SMP months.") from exc
+        prev_year = bill_year if bill_month > 1 else bill_year - 1
+        prev_month = bill_month - 1 if bill_month > 1 else 12
+        if (ref_year, ref_month) != (prev_year, prev_month):
+            raise ValueError("Solar ATAP credits use the PRECEDING calendar month's Average SMP.")
     smp = (
         _nonnegative_number("Monthly Average SMP", record.average_smp_rm_per_kwh)
         if in_atap_term else 0.0
