@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Compile Python modules
-        run: python -m compileall -q solar_agent.py heliopolis_ocr.py app_logic.py app.py tests
+        run: python -m compileall -q solar_agent.py heliopolis_ocr.py app_logic.py app.py solar_atap_settlement.py atap_profile_io.py benchmark_evidence.py pages tests
       - name: Run offline regression tests
         run: pytest -q tests
       - name: Verify a current synthetic CLI assessment report
