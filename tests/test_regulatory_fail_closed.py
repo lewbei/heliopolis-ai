@@ -54,7 +54,9 @@ def test_coowners_cannot_lease_from_majority_share_arithmetic():
     assert result.legal_assessment.status == "Needs Legal Review"
     assert any("do not establish authority" in finding
                for finding in result.legal_assessment.findings)
-    assert result.legal_assessment.poa_compliance.is_poa_required
+    assert result.legal_assessment.poa_compliance.requires_coowner_coordination
+    assert result.legal_assessment.poa_compliance.is_poa_required is None
+    assert result.legal_assessment.poa_compliance.min_co_owners_needed is None
     assert result.review_status == "NEEDS_LEGAL_REVIEW"
 
 
