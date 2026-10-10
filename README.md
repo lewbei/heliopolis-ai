@@ -1,11 +1,21 @@
-# Heliopolis-AI: Solar Project Intelligence Agent
+# Heliopolis-AI: Preliminary Solar Site Intelligence
 
-[![Python Version](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
-[![Testing Status](https://img.shields.io/badge/tests-28%20passed-green.svg)](https://pytest.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python Tests](https://github.com/lewbei/heliopolis-ai/actions/workflows/pytest.yml/badge.svg?branch=fix%2Fmaic-judge-reliability-20261010)](https://github.com/lewbei/heliopolis-ai/actions)
 [![Track](https://img.shields.io/badge/Track-T1%20(Clean%20Energy)-orange.svg)](https://maicnexus.com/)
 
-An engineering-grade, hybrid neural-symbolic software agent designed to accelerate clean energy site selection, legal land search due diligence, and electrical grid parallel compliance for Utility-Scale Solar (LSS) and Commercial & Industrial (C&I) project developers in Malaysia.
+A prototype AI-assisted **preliminary** solar-site screening tool for Malaysia. Gemini Vision extracts data from scanned titles and single-line diagrams; deterministic Python produces limited arithmetic, topology and financial **screening** results. It does not certify legal title, grid compliance, investment suitability or scheme eligibility.
+
+
+> **MAIC Nexus 2026 scope & provenance (updated 10 October 2026):**
+> - All built-in land registry and terrain fixtures are **synthetic**; they are not verified land-office records, surveyed elevation grids or actual project permissions.
+> - Uploaded-document OCR must fail closed if Gemini or critical evidence is unavailable. The app cannot silently replace an unreadable scan with a successful demo fixture.
+> - A passing SLD topology graph is **not** protection-setting verification or TNB approval. A land title with no selected flags is **not** legally cleared.
+> - LSS PPA and C&I/NEM NOVA financial cases use **illustrative**, non-bankable tariff and cost inputs. **Solar ATAP is not modeled** as a complete application/offset scenario; its non-domestic inverter output cap and 10-year export-offset term cannot be ignored.
+> - The preliminary 15% MW/MVA injection metric is a **heuristic**, not a TNB 15% limit or proof that batteries are required. Any utility study fees or approval time are scheme-dependent.
+> - Tests establish particular software behaviors, **not** field extraction accuracy or time saved for actual solar developers.
+>
+> [Read the updated MAIC pitch](PITCH_DECK.md) · [Official Solar ATAP guidance](https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/) · [Official NEM/NOVA studies](https://www.seda.gov.my/reportal/nem/)
+> **Archived artifacts:** `pitch_deck.pdf` and `solar_assessment_report.json` were generated before the October 2026 corrections and are **not current evidence**. Use `PITCH_DECK.md` for the updated narrative and run `python solar_agent.py` to generate a current synthetic report.
 
 ---
 
@@ -20,16 +30,16 @@ Most AI projects in this space are simple "prompt wrappers" that are prone to ha
                          └──► Gemini Vision (Google GenAI / Vertex AI)
                                     │
                          ( Programmatic Symbolic Solver )
-                         ├──► Legal Share & Imperial Unit Solver
+                         ├──► Land Share Arithmetic & Imperial Unit Converter
                          ├──► 2D Spatial Slope Finite Differences
-                         ├──► NetworkX Topological Graph Audits
+                         ├──► NetworkX Preliminary Topology Checks
                          └──► Newton-Raphson Financial Solvers
                                     │
-                       [ Prefilled SEDA & TNB Manifests ]
+                       [ Draft SEDA & TNB Planning Fields ]
 ```
 
 1. **Perception (Multimodal):** Uses **Gemini Vision** (Google GenAI / Vertex AI) to extract structured fields from scanned land titles and electrical single-line diagrams.
-2. **Reasoning (Symbolic):** Delegates all unit conversions, co-owner splits, directed graph parallel safety routing, and cash flows to **deterministic, mathematical Python engines**.
+2. **Reasoning (Symbolic):** Delegates all unit conversions, co-owner shares, modeled drawing connectivity, and cash flows to **deterministic, mathematical Python engines**.
 
 ---
 
@@ -55,19 +65,14 @@ Uses spatial $\epsilon$-neighbor distance search to connect wire segment vectors
 * **Scale-Invariant Epsilon:** Programmatically calculates matching thresholds as $15\%$ of average inverter bounding box widths, working across A4 to A0 drawings.
 * **Junction-Dot Aware SLD Resolver:** Splits wire segments at detected junction dots and ignores plain line crossings, preventing short-circuit hallucinations.
 * **TNB Substation Capacity Validator:** Audits peak AC solar output against the local substation limits. If it exceeds $15\%$, the agent sizes and costs a **Lithium Iron Phosphate (LFP) Battery Energy Storage System (BESS)** for peak-shaving.
-* **Scenario-Based Financial Model:** Switch between LSS PPA, C&I NEM/ATAP offset, and self-consumption tariffs to match the deal structure.
+* **Scenario-Based Financial Model:** Switch between LSS PPA, illustrative C&I/NEM NOVA sensitivity (not Solar ATAP), and self-consumption tariffs to match the deal structure.
 * **Newton-Raphson IRR Solver:** Solves lifecycle Internal Rate of Return iteratively with robust boundary clipping.
 
 ---
 
-## 🔒 Freedom-to-Operate (FTO) Patent Clearance Assessment
+## Legal and intellectual-property qualification
 
-We conducted a multi-database patent clearance search across **MyIPO (Malaysia), IPOS (Singapore), WIPO, and Google Patents** and found no obvious overlap with the following patent families for our specific implementation:
-* **PVcase / Anderson Optimization (2024):** No overlap. Their patents protect active 3D layout string routing. We perform offline civil risk and regulatory compliance.
-* **Tesla, Inc. (Powerwall/Opticaster):** No overlap. Their patents cover active, real-time power electronic hardware and microgrid master computers.
-* **CoreLogic & First American Financial:** No overlap. Their patents protect US-specific property data and title insurance plants. Our systems are engineered specifically for Peninsular Malaysia's **National Land Code 1965 (Act 828)**.
-* **MIMOS Berhad & SIT:** No overlap. Their patents cover physical solar tracking motors or tropical weather sensors.
-* *For the complete, audited list, refer to:* [qrspi/PATENT_SEARCH_RECORD.md](qrspi/PATENT_SEARCH_RECORD.md)
+This prototype has **not** received legal clearance, title approval, TNB study approval or a professional freedom-to-operate opinion. Earlier patent-search notes are preliminary research only. Confirm applicability with qualified advisers before any commercial use.
 
 ---
 
@@ -78,7 +83,7 @@ We conducted a multi-database patent clearance search across **MyIPO (Malaysia),
 * `heliopolis_ocr.py`: Gemini Vision OCR wrapper for scanned land titles and SLD images.
 * `app.py`: Streamlit frontend.
 * `app_config.py`, `app_components.py`, `app_logic.py`: Modular UI configuration, HTML components, and business logic.
-* `tests/`: Automated unit testing folder (**28/28 tests passing**).
+* `tests/`: Automated unit testing folder (see CI for latest test results).
 * `qrspi/`: Complete Quality & QRSPI Compliance portfolio:
   * `QUESTION_CONTRACT.md`: Measurable success criteria contract.
   * `RESEARCH_PACK.md`: Legal (NLC 1965) and Grid (TNB/SEDA) compliance facts.
@@ -116,14 +121,14 @@ GEMINI_API_KEY=your_key_here
 GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 GOOGLE_CLOUD_LOCATION=us-central1
 ```
-Without credentials the app and CLI still run using the built-in demo registry data.
+Without credentials, the **explicit synthetic/demo path** remains available. If you upload a document, OCR failure now returns a review/error condition rather than silently replacing it with a synthetic result.
 
 ### 3. Quick CLI Run
 Run the full backend pipeline on a selected demo site:
 ```bash
 python solar_agent.py
 ```
-This generates `solar_assessment_report.json`, which contains:
+This generates `solar_assessment_report.json`, which contains (all outputs are illustrative unless independently verified):
 * `land_title_analysis` — parsed title, owners, shares, and legal status.
 * `sld_topology_analysis` — directed graph and TNB grid-code audit.
 * `technical_financial_feasibility` — capacity, yield, LCOE, NPV, IRR, scenario.
@@ -132,7 +137,7 @@ This generates `solar_assessment_report.json`, which contains:
 You can override the financial scenario via an environment variable:
 ```bash
 HELIOPOLIS_SCENARIO=lss_ppa python solar_agent.py      # utility PPA
-HELIOPOLIS_SCENARIO=c_i_nem python solar_agent.py      # C&I NEM / ATAP (default)
+HELIOPOLIS_SCENARIO=c_i_nem python solar_agent.py      # C&I/NOVA illustrative sensitivity (not Solar ATAP)
 HELIOPOLIS_SCENARIO=self_consumption python solar_agent.py  # premium self-consumption
 ```
 
@@ -144,20 +149,20 @@ streamlit run app.py
 Then open the URL printed in the terminal (usually `http://localhost:8501`).
 
 In the sidebar, fill in:
-1. **Site Mode** — choose a synthetic preset or a real Malaysian site from the demo registry.
+1. **Site Mode** — choose a synthetic preset or a synthetic representative Malaysian site from the demo registry.
 2. **Land Attributes** — Title No, Lot No, State, Zoning, and land area in *Ekar / Rood / Pole*.
 3. **Legal Restrictions** — tick any Caveat, Charge, or Malay Reserve flags.
 4. **Project Company** — the company that will file SEDA/TNB applications (defaults to Solarvest Development Sdn Bhd).
 5. **Technical Specifications** — slope profile, proposed AC capacity (MWac), and upstream substation limit (MVA).
-6. **Financial Scenario** — pick LSS PPA, C&I NEM/ATAP offset, or Self-Consumption / Premium tariff.
+6. **Financial Scenario** — pick LSS PPA, illustrative C&I/NEM NOVA sensitivity (not Solar ATAP), or Self-Consumption / Premium tariff.
 7. **Scanned Document OCR** (optional) — upload a land-title scan and/or SLD scan to use Gemini Vision instead of the form values.
 
 The dashboard then shows:
-* Legal share split, POA requirement, and land-legal verdict.
+* Legal share arithmetic and preliminary flags requiring professional review (not a POA or lease determination).
 * 2D terrain slope risk map.
-* SLD topology graph and TNB ESAG compliance check.
+* SLD topology graph and limited protected-path checks (not TNB compliance certification).
 * Capacity, yield, CAPEX, LCOE, NPV, IRR, and payback for the selected scenario.
-* Pre-filled SEDA/TNB manifest fields and NEMAS checklist.
+* Draft planning fields and a scheme-dependent study screen (not filed SEDA/TNB applications).
 
 ### 5. Generate Plots
 After running `solar_agent.py`, generate the pitch-deck plots:
@@ -180,10 +185,10 @@ All 28 unit and integration tests should pass.
 
 | Section | What it tells you |
 |---|---|
-| `land_title_analysis` | Title and lot numbers, state/district/mukim, land area in imperial and metric, owners with fractional shares, controlling-interest check, caveats/charges/reserve flags, and the legal verdict (`Approved` / `Flagged/Risky` / `Rejected`). |
+| `land_title_analysis` | Title and lot numbers, state/district/mukim, land area in imperial and metric, owners with fractional shares, controlling-interest check, caveats/charges/reserve flags, and preliminary review flags (`Needs Legal Review` / `Flagged/Risky`). |
 | `sld_topology_analysis` | Node/edge count of the directed SLD graph, graph edges, and the TNB compliance result (`anti_islanding_relay_present`, `grid_path_valid`). |
 | `technical_financial_feasibility` | DC capacity (MWp), annual yield (MWh/year), base and adjusted CAPEX, LCOE (RM/kWh), PPA/displaced tariff (RM/kWh), selected scenario, NPV (RM), IRR (%), and payback (years). |
-| `regulatory_manifest` | Pre-filled SEDA application fields, TNB grid-connection request, and NEMAS checklist (triggered when AC capacity > 72 kWac). |
+| `regulatory_manifest` | Pre-filled SEDA application fields, TNB grid-connection request, and programme-appropriate study screen (does not universally mandate NEMAS at 72 kWac). |
 
 ---
 
@@ -191,7 +196,7 @@ All 28 unit and integration tests should pass.
 
 * `real_malaysian_sites_registry.json` is a **synthetic demo registry** of representative Malaysian solar sites. It is used to demonstrate the pipeline without live e-Tanah or land-office integrations.
 * `generate_precise_terrain()` produces **synthetic elevation grids** calibrated to a target mean slope. Real project due diligence would replace this with SRTM DEM, Lidar, or survey contour data.
-* Default financial assumptions (tariff, WACC, degradation, CAPEX) are illustrative. A production deployment should load scenario-specific assumptions (LSS PPA, C&I NEM/ATAP, or self-consumption tariffs).
+* Default financial assumptions (tariff, WACC, degradation, CAPEX) are illustrative. A production deployment should load scenario-specific assumptions (LSS PPA, C&I/NOVA illustrative sensitivity, or self-consumption tariff sensitivity).
 
 ---
 

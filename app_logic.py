@@ -62,9 +62,9 @@ def _sld_node_style(category: str, node_id: str) -> dict:
 
 def _imperial_string_to_parts(area_imperial: str) -> tuple[float, float, float]:
     """Parse an 'X Ekar Y Rood Z Pole' string into (acres, roods, poles)."""
-    match = re.search(r"(\d+)\s*Ekar", area_imperial, re.IGNORECASE)
+    match = re.search(r"(\d+(?:\.\d+)?)\s*Ekar", area_imperial, re.IGNORECASE)
     acres = float(match.group(1)) if match else 0.0
-    match = re.search(r"(\d+)\s*Rood", area_imperial, re.IGNORECASE)
+    match = re.search(r"(\d+(?:\.\d+)?)\s*Rood", area_imperial, re.IGNORECASE)
     roods = float(match.group(1)) if match else 0.0
     match = re.search(r"([\d.]+)\s*Pole", area_imperial, re.IGNORECASE)
     poles = float(match.group(1)) if match else 0.0
@@ -113,8 +113,12 @@ def build_land_metadata(
             zoning, caveats, charges, reserve, poa_model
         )
 
-        # Start from the demo parser output so we inherit sensible district/mukim defaults.
+        # Legacy form construction starts from a fixture; do NOT retain fixture identity/location.
         land_meta = LandTitleParser().parse("")
+        land_meta.source_type = "DEMO_PRESET_OR_USER_ENTERED_UNVERIFIED"
+        land_meta.review_status = "NEEDS_LEGAL_REVIEW"
+        land_meta.district = ""
+        land_meta.mukim = ""
         land_meta.title_no = title_no
         land_meta.lot_no = lot_no
         land_meta.state = state
@@ -146,8 +150,8 @@ def compute_assessment(
     scenario: str = DEFAULT_SCENARIO,
 ):
     """Run the full technical assessment pipeline and return a result dict."""
-    # --- Civil Terrain Grid Generator ---
-    if site_mode == "Real Malaysian Sites (500)":
+    # --- Civil Terrain Grid Generator (synthetic terrain until real DEM is supplied) ---
+    if site_mode == "Synthetic Malaysian Sites (500)":
         target_slope = parse_mean_slope(slope_profile)
         elevation_grid = generate_precise_terrain(target_slope)
     else:
@@ -201,9 +205,11 @@ def compute_assessment(
         sld_graph = resolver.resolve(symbols, lines)
 
     # --- Regulatory Manifest ---
-    manifest = FormFiller.generate_manifest(land=land_meta, tech=feasibility)
+    manifest = FormFiller.generate_manifest(land=land_meta, tech=feasibility, proposed_ac_mw=ac_capacity)
 
     return {
+        "data_provenance": {"land": land_meta.source_type, "terrain": "SYNTHETIC_TERRAIN", "sld": sld_graph.graph.get("source_type", "SYNTHETIC_DEMO")},
+        "assessment_scope": "PRELIMINARY_SCREENING_ONLY",
         "terrain_model": terrain_model,
         "grid_audit": grid_audit,
         "feasibility": feasibility,

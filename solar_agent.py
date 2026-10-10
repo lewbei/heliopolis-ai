@@ -8,6 +8,12 @@ from typing import List, Dict, Any, Optional
 
 import heliopolis_ocr
 
+
+class DocumentReviewRequired(ValueError):
+    """Uploaded evidence could not be verified; do not substitute demonstration fixtures."""
+
+
+
 # --- Shared Financial Constants ---
 DEFAULT_PROJECT_LIFETIME = 21
 DEFAULT_OPEX_PER_MWP_YEAR = 45000.0
@@ -27,15 +33,15 @@ SCENARIO_C_I_NEM = "c_i_nem"
 SCENARIO_SELF_CONSUMPTION = "self_consumption"
 SCENARIO_LABELS = {
     SCENARIO_LSS_PPA: "LSS PPA (Utility-Scale)",
-    SCENARIO_C_I_NEM: "C&I NEM / ATAP Offset",
-    SCENARIO_SELF_CONSUMPTION: "Self-Consumption / Premium Tariff",
+    SCENARIO_C_I_NEM: "C&I / NEM NOVA sensitivity (NOT Solar ATAP)",
+    SCENARIO_SELF_CONSUMPTION: "Self-consumption tariff sensitivity (illustrative)",
 }
 SCENARIO_TARIFFS: dict[str, float] = {
     SCENARIO_LSS_PPA: 0.17,
     SCENARIO_C_I_NEM: 0.37,
     SCENARIO_SELF_CONSUMPTION: 0.45,
 }
-DEFAULT_SCENARIO = SCENARIO_C_I_NEM
+DEFAULT_SCENARIO = SCENARIO_LSS_PPA
 
 # --- Deterministic owner-name helper (used by CLI and Streamlit) ---
 
@@ -124,6 +130,8 @@ class LegalAssessmentModel(BaseModel):
     poa_compliance: PowerOfAttorneyModel
 
 class LandTitleMetadata(BaseModel):
+    source_type: str = Field(default="SYNTHETIC_DEMO", description="Origin of title evidence; not an independent verification.")
+    review_status: str = Field(default="NEEDS_LEGAL_REVIEW", description="Preliminary screening only; never legal clearance.")
     title_no: str = Field(description="Title reference number, e.g., 'GRN 45293'.")
     lot_no: str = Field(description="Lot or PT number, e.g., 'Lot 8192'.")
     state: str = Field(description="Malaysian state.")
@@ -180,7 +188,10 @@ class NEMASChecklistSchema(BaseModel):
     is_nemas_required: bool = Field(description="True if proposed AC capacity exceeds 72 kWac.")
     voltage_rise_study_required: bool = Field(description="True if AC generation can trigger local grid overvoltage.")
     estimated_regulatory_fee_rm: float = Field(description="Estimate of TNB/SEDA assessment study fees.")
-    estimated_processing_days: int = Field(description="Estimated regulatory queue wait time in calendar days.")
+    estimated_processing_days: Optional[int] = Field(default=None, description="Estimated calendar days, or None if not supported by evidence.")
+    assessment_type: str = Field(default="UNCONFIRMED", description="Applicable connection study, not a permit.")
+    source_url: str = Field(default="", description="Scheme-specific reference used for study fees.")
+    eligibility_notes: List[str] = Field(default_factory=list, description="Requirements needing independent confirmation.")
     mandatory_technical_studies: List[str] = Field(default=[], description="List of engineering studies required for grid filing.")
 
 class SEDAApplicationSchema(BaseModel):
@@ -322,69 +333,53 @@ class LandTitleParser:
 
     @classmethod
     def _compute_poa(cls, owners: List[OwnerModel]) -> PowerOfAttorneyModel:
-        """
-        Computes the Power-of-Attorney / joint-execution requirements for the given owners.
-        """
-        sorted_owners = sorted(owners, key=lambda x: x.calculated_share_float, reverse=True)
-        running_sum = 0.0
-        min_co_owners_needed = 0
-        is_poa_required = True
-
-        for owner in sorted_owners:
-            running_sum += owner.calculated_share_float
-            min_co_owners_needed += 1
-            if owner.calculated_share_float >= 0.50:
-                is_poa_required = False  # Single controlling owner exists
-            if running_sum >= 0.51:
-                break
-
-        required_deeds = []
-        if is_poa_required:
-            required_deeds = [
-                "Joint Venture Lease Agreement executed by registered co-owners",
-                f"Power of Attorney (Surat Kuasa Wakil) co-signed by at least {min_co_owners_needed} co-owners to secure controlling 51% land rights",
-                "Form 14A (Pindahmilik Tanah) or Form 15A (Pajakan Tanah) registered at Land Office / Pejabat Tanah dan Galian"
-            ]
-
+        """Preliminary co-owner coordination flag, NOT a determination of legal POA requirements."""
+        # A majority ownership percentage does not establish the right to execute
+        # a lease for the entire property on behalf of all registered proprietors.
+        multiple_owners = len(owners) > 1
         return PowerOfAttorneyModel(
-            is_poa_required=is_poa_required,
-            min_co_owners_needed=min_co_owners_needed,
-            required_deeds=required_deeds
+            is_poa_required=multiple_owners,  # Legacy field: means legal coordination must be checked.
+            min_co_owners_needed=len(owners),
+            required_deeds=(
+                [
+                    "Conveyancing review: confirm consent and authority of all registered proprietors.",
+                    "Ask a qualified Malaysian solicitor/land office whether a power of attorney, lease or other instrument is required."
+                ] if multiple_owners else [
+                    "Verify registered title, legal capacity, restrictions and required land-office instruments before proceeding."
+                ]
+            )
         )
 
     @classmethod
     def _compute_legal_assessment(cls, zoning: str, has_caveats: bool, has_charges: bool, is_malay_reserve: bool, poa: PowerOfAttorneyModel) -> LegalAssessmentModel:
-        """
-        Derives the legal status and findings, including the POA compliance verdict.
-        """
-        legal_status = "Approved"
-        findings = []
-
-        if zoning == "Pertanian":
-            legal_status = "Flagged/Risky"
-            findings.append("Category 'Pertanian' requires NLC Section 124 land conversion to 'Perindustrian' or a special state temporary permit before solar development can proceed.")
+        """Screen visible restrictions; do not substitute for registered-title legal advice."""
+        findings = ["Preliminary screening only: registered-title and state-specific legal review are required."]
+        status = "Needs Legal Review"
+        if not zoning or zoning.strip().lower() not in {"pertanian", "bangunan", "perindustrian"}:
+            findings.append("Land-use category is missing or outside the modeled categories; verify with the land office.")
+            status = "Flagged/Risky"
+        if zoning and zoning.strip().lower() == "pertanian":
+            findings.append("Agricultural land category: verify solar land-use permission or conversion under applicable state/NLC procedures.")
+            status = "Flagged/Risky"
         if has_caveats:
-            legal_status = "Flagged/Risky"
-            findings.append("Active Private Caveat detected. Land transactions are legally frozen until formal withdrawal is filed.")
+            findings.append("Caveat indicated: solicitor must confirm its effect and requirements.")
+            status = "Flagged/Risky"
         if has_charges:
-            legal_status = "Flagged/Risky"
-            findings.append("Active Bank Charge (Gadaian) detected. Requires bank letter of consent prior to registering lease.")
+            findings.append("Registered charge indicated: verify chargee consent and instrument requirements.")
+            status = "Flagged/Risky"
         if is_malay_reserve:
-            legal_status = "Rejected"
-            findings.append("Tanah Rezab Melayu (Malay Reserve) detected. Absolute transaction blocker for public-listed entities.")
-
-        return LegalAssessmentModel(
-            status=legal_status,
-            findings=findings,
-            poa_compliance=poa
-        )
+            findings.append("Malay Reserve indicated: check eligibility and state legislation with a qualified professional.")
+            status = "Flagged/Risky"
+        if poa.is_poa_required:
+            findings.append("Multiple proprietors: ownership percentages alone do not establish authority to lease the whole lot.")
+        return LegalAssessmentModel(status=status, findings=findings, poa_compliance=poa)
 
     @classmethod
     def from_registry(cls, site_data: dict) -> LandTitleMetadata:
         """
         Builds a proper LandTitleMetadata object from the real_malaysian_sites_registry.json fields.
         """
-        print("[LandTitleParser] Building LandTitleMetadata from real production registry...")
+        print("[LandTitleParser] Building metadata from selected registry fixture...")
 
         region = site_data["region"]
         if "(" in region and ")" in region:
@@ -416,6 +411,8 @@ class LandTitleParser:
         project_company_reg_no = site_data.get("project_company_reg_no", "1234567-U")
 
         return LandTitleMetadata(
+            source_type=site_data.get("source_type", "SYNTHETIC_DEMO"),
+            review_status="NEEDS_LEGAL_REVIEW",
             title_no=site_data["title_no"],
             lot_no=site_data["lot_no"],
             state=state,
@@ -436,43 +433,71 @@ class LandTitleParser:
 
     @classmethod
     def from_image(cls, image_path: str) -> LandTitleMetadata:
-        """
-        Builds a LandTitleMetadata object by OCR-ing a scanned land title image
-        via the Gemini-powered heliopolis_ocr module.  Falls back to the demo
-        parser if OCR is unavailable or fails.
-        """
-        ocr_result = heliopolis_ocr.parse_land_title_image(image_path)
-        if ocr_result is None:
-            print("[LandTitleParser] OCR failed; falling back to demo parser.")
-            return cls().parse("")
+        """Read a supplied title; require evidence rather than inventing a passing result."""
+        data = heliopolis_ocr.parse_land_title_image(image_path)
+        if not isinstance(data, dict):
+            raise DocumentReviewRequired("Land-title OCR unavailable or failed; review uploaded title manually.")
 
-        acres = float(ocr_result.get("area_acres") or 0.0)
-        roods = float(ocr_result.get("area_roods") or 0.0)
-        poles = float(ocr_result.get("area_poles") or 0.0)
-        hectares, sq_meters = cls.convert_imperial_to_metric(acres, roods, poles)
+        required_text = ("title_no", "lot_no", "state", "zoning")
+        if any(not isinstance(data.get(key), str) or not data[key].strip() for key in required_text):
+            raise DocumentReviewRequired("Unreadable title number, lot, state or land category; legal review required.")
+        if any(type(data.get(key)) is not bool for key in ("has_caveats", "has_charges", "is_malay_reserve")):
+            raise DocumentReviewRequired("Unknown caveat/charge/reserve evidence; cannot treat unreadable restrictions as absent.")
 
-        state = ocr_result.get("state") or "Perak"
-        district = ocr_result.get("district") or ""
-        mukim = ocr_result.get("mukim") or district
+        try:
+            area = [float(data[key]) for key in ("area_acres", "area_roods", "area_poles")]
+        except (KeyError, TypeError, ValueError, OverflowError) as exc:
+            raise DocumentReviewRequired("Land area could not be extracted reliably.") from exc
+        if not all(np.isfinite(x) and x >= 0 for x in area) or area[1] >= 4 or area[2] >= 40:
+            raise DocumentReviewRequired("Land-area fields are invalid or contradictory.")
+        hectares, sq_meters = cls.convert_imperial_to_metric(*area)
+        if sq_meters <= 0:
+            raise DocumentReviewRequired("Land area is zero; cannot assess this site.")
 
-        owner_templates = ocr_result.get("owners") or []
+        raw_owners = data.get("owners")
+        if not isinstance(raw_owners, list) or not raw_owners:
+            raise DocumentReviewRequired("Owner information missing; cannot infer consent or legal entitlement.")
+        owners = []
+        try:
+            for owner in raw_owners:
+                if not isinstance(owner, dict) or any(
+                    not isinstance(owner.get(k), str) or not owner[k].strip()
+                    for k in ("name", "ic_or_co_no", "share_fraction")
+                ):
+                    raise ValueError("incomplete registered-owner record")
+                share = owner["share_fraction"]
+                fraction = cls.parse_fraction(share)
+                if not (0 < fraction <= 1):
+                    raise ValueError("invalid owner share")
+                owners.append(OwnerModel(
+                    name=owner["name"],
+                    ic_or_co_no=owner["ic_or_co_no"],
+                    share_fraction=share,
+                    calculated_share_float=fraction,
+                ))
+        except (TypeError, ValueError, ZeroDivisionError) as exc:
+            raise DocumentReviewRequired("Owner shares or identities are unreadable/inconsistent.") from exc
+        if abs(sum(o.calculated_share_float for o in owners) - 1.0) > 0.001:
+            raise DocumentReviewRequired("Registered owner shares do not sum to 100%; verify original title.")
 
-        site_data = {
-            "site_id": f"OCR-{ocr_result.get('title_no') or 'UNKNOWN'}",
-            "region": f"{state} ({district})" if district else state,
-            "title_no": ocr_result.get("title_no") or "OCR-UNKNOWN",
-            "lot_no": ocr_result.get("lot_no") or "OCR-UNKNOWN",
-            "zoning": ocr_result.get("zoning") or "Pertanian",
-            "area_sq_meters": sq_meters,
-            "mukim": mukim,
-            "co_owners_count": len(owner_templates) or 1,
-            "is_malay_reserve": bool(ocr_result.get("is_malay_reserve", False)),
-            "has_caveats": bool(ocr_result.get("has_caveats", False)),
-            "has_charges": bool(ocr_result.get("has_charges", False)),
-            "owner_templates": owner_templates,
-        }
-
-        return cls.from_registry(site_data)
+        state, district = data["state"].strip(), data.get("district") or ""
+        mukim = data.get("mukim") or district
+        poa = cls._compute_poa(owners)
+        legal = cls._compute_legal_assessment(
+            data["zoning"], data["has_caveats"], data["has_charges"],
+            data["is_malay_reserve"], poa,
+        )
+        return LandTitleMetadata(
+            source_type="OCR_EXTRACTED_UNVERIFIED",
+            review_status="NEEDS_LEGAL_REVIEW",
+            title_no=data["title_no"], lot_no=data["lot_no"], state=state,
+            district=district, mukim=mukim, zoning=data["zoning"],
+            area_imperial=f"{area[0]} Ekar {area[1]} Rood {area[2]} Pole",
+            area_hectares=hectares, area_sq_meters=sq_meters,
+            owners=owners, project_company_name="", project_company_reg_no="",
+            has_caveats=data["has_caveats"], has_charges=data["has_charges"],
+            is_malay_reserve=data["is_malay_reserve"], legal_assessment=legal,
+        )
 
     def parse(self, raw_ocr_text: str) -> LandTitleMetadata:
         print("[LandTitleParser] Executing layout-aware NLP metadata extraction...")
@@ -716,132 +741,142 @@ class SLDTopologyResolver:
         return split_lines
 
     def validate_tnb_compliance(self, g: nx.DiGraph) -> dict:
-        print("[SLDTopologyResolver] Auditing electrical safety against TNB ESAG grid codes...")
-        nodes_by_cat = {}
-        for n, data in g.nodes(data=True):
-            cat = data["category"]
-            nodes_by_cat.setdefault(cat, []).append(n)
+        """Preliminary topology screening; cannot certify electrical/grid-code compliance."""
+        groups: dict[str, list[str]] = {}
+        for node, data in g.nodes(data=True):
+            groups.setdefault(data.get("category", ""), []).append(node)
 
-        is_islanding_relay_present = "Anti_Islanding_Relay" in nodes_by_cat
-        if not is_islanding_relay_present:
-            print(" [WARNING] TNB Code Violation: Anti-Islanding Protection Relay missing from schematic.")
-        else:
-            print(" [PASS] Anti-Islanding Protection Relay is correctly configured.")
+        pvs = groups.get("PV_Array", [])
+        inverters = groups.get("Inverter", [])
+        relays = groups.get("Anti_Islanding_Relay", [])
+        transformers = groups.get("Transformer", [])
+        grids = groups.get("Grid_Connection", [])
+        missing = [name for name, present in (
+            ("PV array", pvs), ("inverter", inverters),
+            ("anti-islanding relay", relays), ("transformer", transformers),
+            ("grid connection", grids),
+        ) if not present]
+        findings = [f"Missing modeled component: {name}" for name in missing]
 
-        transformers = nodes_by_cat.get("Transformer", [])
-        grid_interconnections = nodes_by_cat.get("Grid_Connection", [])
+        def protected_path_from(pv: str) -> bool:
+            return any(
+                nx.has_path(g, pv, inverter)
+                and nx.has_path(g, inverter, relay)
+                and nx.has_path(g, relay, xfmr)
+                and nx.has_path(g, xfmr, grid)
+                for inverter in inverters for relay in relays
+                for xfmr in transformers for grid in grids
+            )
 
-        disconnected_transformers = []
-        connected_transformers = []
+        protected = bool(pvs and inverters and relays and transformers and grids)
+        if protected:
+            protected = all(protected_path_from(pv) for pv in pvs)
 
-        if transformers and grid_interconnections:
-            for xfmr in transformers:
-                reachable = any(nx.has_path(g, xfmr, grid) for grid in grid_interconnections)
-                if not reachable:
-                    disconnected_transformers.append(xfmr)
-                    print(f" [VIOLATION] Disconnected Flow: No electrical path from Transformer {xfmr} to any Grid Interconnection.")
-                else:
-                    connected_transformers.append(xfmr)
-
-        if transformers and connected_transformers:
-            print(" [PASS] All Transformers connect safely to a TNB Grid Interconnection.")
-
+        # A bare PV->grid path bypassing all protection nodes is a negative finding.
+        without_relays = g.copy()
+        without_relays.remove_nodes_from(relays)
+        bypass = any(nx.has_path(without_relays, pv, grid)
+                     for pv in pvs for grid in grids)
+        if bypass:
+            findings.append("Detected PV-to-grid path that bypasses all modeled protection relays.")
+        if not protected and not missing:
+            findings.append("No complete PV -> inverter -> protection -> transformer -> grid path.")
+        disconnected_transformers = [
+            xfmr for xfmr in transformers
+            if not any(nx.has_path(g, xfmr, grid) for grid in grids)
+        ]
+        if disconnected_transformers:
+            findings.append("At least one transformer has no modeled path to the grid.")
+        grid_path_valid = protected and not bypass and not disconnected_transformers
         return {
-            "anti_islanding_relay_present": is_islanding_relay_present,
-            "grid_path_valid": not disconnected_transformers and bool(grid_interconnections),
+            "anti_islanding_relay_present": bool(relays),
+            "protection_path_valid": protected and not bypass,
+            "grid_path_valid": bool(grid_path_valid),
+            "preliminary_topology_status": (
+                "PRELIMINARY_TOPOLOGY_PASS" if grid_path_valid else "NEEDS_REVIEW"
+            ),
+            "findings": findings,
             "transformer_count": len(transformers),
-            "grid_connection_count": len(grid_interconnections),
-            "disconnected_transformers": disconnected_transformers
+            "grid_connection_count": len(grids),
+            "disconnected_transformers": disconnected_transformers,
+            "scope_note": "Drawing topology only. Not a TNB interconnection or protection-engineering certification.",
         }
 
     def resolve_image(self, image_path: str) -> nx.DiGraph:
-        """
-        OCR an SLD image via Gemini and then resolve the topology graph.
-        Falls back to the default hard-coded symbols/lines if OCR fails.
-        """
-        ocr_result = heliopolis_ocr.parse_sld_image(image_path)
-        if ocr_result is None:
-            print("[SLDTopologyResolver] SLD OCR failed; falling back to default schematic.")
-            symbols = [
-                {"id": "PV_1", "class": "PV_Array", "bbox": [100, 100, 200, 200]},
-                {"id": "INV_1", "class": "Inverter", "bbox": [100, 400, 200, 500]},
-                {"id": "RELAY_1", "class": "Anti_Islanding_Relay", "bbox": [100, 700, 200, 800]},
-                {"id": "XFMR_1", "class": "Transformer", "bbox": [100, 1000, 200, 1100]},
-                {"id": "GRID_1", "class": "Grid_Connection", "bbox": [100, 1300, 200, 1400]}
-            ]
-            lines = [
-                ((200, 150), (400, 150)),
-                ((500, 150), (700, 150)),
-                ((800, 150), (1000, 150)),
-                ((1100, 150), (1300, 150))
-            ]
-            return self.resolve(symbols, lines)
-
-        return self.resolve(
-            ocr_result.get("symbols", []),
-            ocr_result.get("lines", []),
-            ocr_result.get("junction_dots", [])
-        )
+        """Run Gemini extraction on an uploaded drawing, without substituting a demo circuit."""
+        data = heliopolis_ocr.parse_sld_image(image_path)
+        if not isinstance(data, dict):
+            raise DocumentReviewRequired("SLD extraction failed; no grid-topology assessment is possible.")
+        symbols, lines = data.get("symbols"), data.get("lines")
+        if not isinstance(symbols, list) or not symbols or not isinstance(lines, list) or not lines:
+            raise DocumentReviewRequired("SLD extraction has no usable symbols or wire segments.")
+        try:
+            ids = [s["id"] for s in symbols]
+            if len(set(ids)) != len(ids):
+                raise ValueError("duplicate symbol IDs")
+            for s in symbols:
+                if not isinstance(s["id"], str) or not isinstance(s["class"], str):
+                    raise ValueError("symbol has no ID/class")
+                if len(s["bbox"]) != 4:
+                    raise ValueError("invalid symbol bbox")
+                if not all(np.isfinite(float(v)) for v in s["bbox"]):
+                    raise ValueError("nonfinite bbox")
+            for line in lines:
+                if len(line) != 2 or any(len(pt) != 2 for pt in line):
+                    raise ValueError("invalid wire endpoints")
+            dots = data.get("junction_dots", [])
+            if not isinstance(dots, list):
+                raise ValueError("invalid junction dots")
+        except (KeyError, ValueError, TypeError, OverflowError) as exc:
+            raise DocumentReviewRequired("SLD symbol/wire data is incomplete; manual review required.") from exc
+        graph = self.resolve(symbols, lines, dots)
+        graph.graph["source_type"] = "OCR_EXTRACTED_UNVERIFIED"
+        return graph
 
 
 class TNBSubstationCapacityValidator:
-    """
-    Improvised Module: Audits solar injection against upstream TNB substation capacities.
-    If AC solar injection exceeds the 15% line/substation rating, it triggers reverse
-    power risk and automatically sizes a Battery Energy Storage System (BESS) for peak shaving.
-    """
+    """Preliminary injection-ratio screen; NO grid study or mandatory BESS determination."""
+
     @staticmethod
-    def audit_injection(proposed_ac_mw: float, upstream_substation_mva: float = 15.0) -> GridCapacityValidationModel:
-        print("[TNBSubstationCapacityValidator] Running 15% substation injection audit...")
+    def audit_injection(proposed_ac_mw: float, upstream_substation_mva: float = 15.0,
+                        hypothetical_bess: bool = False) -> GridCapacityValidationModel:
+        if not np.isfinite(proposed_ac_mw) or not np.isfinite(upstream_substation_mva):
+            raise ValueError("Grid ratings must be finite.")
+        if proposed_ac_mw <= 0 or upstream_substation_mva <= 0:
+            raise ValueError("Grid ratings must be positive.")
 
+        # MW / MVA is only a rough ratio; not a load-flow result (power factor
+        # and upstream network conditions are not modeled).
         injection_percent = (proposed_ac_mw / upstream_substation_mva) * 100.0
-
-        # Core TNB reverse power and load flow risk threshold
-        if injection_percent >= 25.0:
-            risk = "Severe (Reverse power flows will trip substation safety relays)"
-            is_bess_required = True
-        elif injection_percent >= 15.0:
-            risk = "Moderate (Requires stabilization or zero-export control)"
-            is_bess_required = True
-        else:
-            risk = "Negligible"
-            is_bess_required = False
-
-        reasons = []
-        battery_power = 0.0
-        battery_capacity = 0.0
-        bess_capex = 0.0
-
-        if is_bess_required:
-            # Sizing formula: Battery power covers the injection peak exceeding 15% threshold
-            excess_mw = proposed_ac_mw - (0.15 * upstream_substation_mva)
-            battery_power = round(float(excess_mw), 2)
-            # 4-hour storage capacity standard for utility peak-shaving
-            battery_capacity = round(float(battery_power * 4.0), 2)
-            # Estimated LFP Battery CAPEX standard: RM 1.2M per MWh
-            bess_capex = battery_capacity * 1200000.0
-
-            reasons = [
-                f"Peak solar AC output ({proposed_ac_mw:.2f} MW) exceeds the 15% TNB substation thermal threshold ({0.15 * upstream_substation_mva:.2f} MVA) by {excess_mw:.2f} MW.",
-                "To secure SEDA NEM/NOVA approval, a Battery Energy Storage System (BESS) must be integrated at the Point of Common Coupling (PCC) to execute dynamic peak-shaving."
-            ]
-            print(f" [Grid Audit] RISK DETECTED: {risk}. Sizing LFP Battery: {battery_power} MW / {battery_capacity} MWh.")
-        else:
-            print(" [Grid Audit] PASS: Peak solar injection sits safely below the 15% substation thermal rating.")
+        elevated = injection_percent >= 15.0  # illustrative sensitivity threshold
+        risk = ("SCREENING_FLAG_NEEDS_UTILITY_STUDY" if elevated
+                else "NOT_EVALUATED_BY_GRID_STUDY")
+        reasons = [
+            f"Illustrative AC MW / upstream MVA ratio = {injection_percent:.1f}%; "
+            "this is not a TNB thermal limit or grid approval.",
+            "A utility network study and power-factor/load-flow data are required "
+            "to determine export limits, protection and any storage requirement.",
+        ]
+        battery_power = battery_capacity = bess_capex = 0.0
+        if hypothetical_bess and elevated:
+            # Optional financial stress test ONLY; not a BESS requirement.
+            battery_power = round(max(0.0, proposed_ac_mw - 0.15 * upstream_substation_mva), 2)
+            battery_capacity = round(battery_power * 4.0, 2)
+            bess_capex = battery_capacity * 1_200_000.0
+            reasons.append("Hypothetical four-hour BESS scenario enabled by user; NOT required by this screen.")
 
         bess = BESSRecommendationModel(
-            is_bess_required=is_bess_required,
+            is_bess_required=False,  # Not established without independent grid studies.
             recommended_battery_power_mw=battery_power,
             recommended_battery_capacity_mwh=battery_capacity,
             estimated_bess_capex_rm=bess_capex,
-            reasons=reasons
+            reasons=reasons,
         )
-
         return GridCapacityValidationModel(
             upstream_substation_capacity_mva=upstream_substation_mva,
             substation_injection_percent=round(injection_percent, 2),
             reverse_power_risk=risk,
-            bess_specification=bess
+            bess_specification=bess,
         )
 
 
@@ -909,7 +944,9 @@ class YieldFeasibilityEngine:
         performance_ratio = 0.78 # Standard system loss index
 
         # Select scenario tariff
-        tariff_rm_kwh = SCENARIO_TARIFFS.get(scenario, DEFAULT_TARIFF_RM_KWH)
+        if scenario not in SCENARIO_TARIFFS:
+            raise ValueError(f"Unsupported financial scenario: {scenario}")
+        tariff_rm_kwh = SCENARIO_TARIFFS[scenario]  # illustrative input; not a tariff quote or eligibility decision
 
         # Dynamically load real meteorological observations from Open-Meteo dataset
         avg_ghi = 1550.0 # Default fallback
@@ -1021,48 +1058,68 @@ class YieldFeasibilityEngine:
 
 
 class FormFiller:
-    """
-    Maps verified legal, technical, and financial attributes into compliant,
-    pre-filled regulatory filing manifests for SEDA and TNB, including NEMAS triggers.
-    """
+    """Generate PRELIMINARY planning fields; never a completed regulatory filing."""
+
     @staticmethod
-    def generate_manifest(land: LandTitleMetadata, tech: TechnicalFeasibilityModel) -> RegulatoryFilingManifest:
-        print("[FormFiller] Generating pre-filled SEDA & TNB grid application manifest...")
+    def generate_manifest(land: LandTitleMetadata, tech: TechnicalFeasibilityModel,
+                          proposed_ac_mw: Optional[float] = None) -> RegulatoryFilingManifest:
+        ac_capacity_kw = float(
+            proposed_ac_mw * 1000 if proposed_ac_mw is not None
+            else tech.capacity_mwp * 1000.0 * 0.85
+        )
+        if not np.isfinite(ac_capacity_kw) or ac_capacity_kw <= 0:
+            raise ValueError("Proposed inverter AC capacity must be positive.")
 
-        ac_capacity_kw = float(tech.capacity_mwp * 1000.0 * 0.85)
+        assessment_type = "GRID_STUDY_TO_CONFIRM"
+        study_required = False
+        study_fee = 0.0
+        source_url = ""
+        notes = [
+            "Preliminary manifest only. No TNB/SEDA application submitted or approved.",
+            "Capacity, connection voltage and applicant eligibility need independent verification.",
+        ]
+        mandatory_studies = ["Obtain utility's project-specific study/connection requirements."]
 
-        # --- Improvised Feature: SEDA NEMAS Compliance Checklist ---
-        is_nemas_required = ac_capacity_kw > 72.0
-        mandatory_studies = []
-        nemas_fee = 0.0
-        processing_days = 15
+        if tech.scenario == SCENARIO_C_I_NEM:
+            # NEM NOVA legacy scheme study bands, NOT Solar ATAP. Tariff is
+            # merely a financial sensitivity until contract and bills are reviewed.
+            source_url = "https://www.seda.gov.my/reportal/nem/"
+            notes.append("NEM NOVA scenario and RM/kWh rate are illustrative; verify current programme eligibility and customer bills.")
+            if ac_capacity_kw <= 72.0:
+                assessment_type = "CAS_NOT_CAPACITY_TRIGGERED"
+                mandatory_studies = []
+            elif ac_capacity_kw <= 180.0:
+                assessment_type, study_fee = "CAS", 1000.0
+            elif ac_capacity_kw <= 425.0:
+                assessment_type, study_fee = "CAS", 5000.0
+            elif ac_capacity_kw <= 1000.0:
+                assessment_type, study_fee = "CAS", 8000.0
+            elif ac_capacity_kw <= 2000.0:
+                assessment_type, study_fee = "CAS", 15000.0
+            elif ac_capacity_kw <= 5000.0:
+                assessment_type, study_fee = "CAS", 20000.0
+            else:
+                assessment_type = "OUTSIDE_MODELED_NOVA_STUDY_BANDS"
+                notes.append("AC capacity exceeds published 5 MW LV/MV CAS fee table; require project-specific review.")
+            study_required = assessment_type == "CAS"
+            if study_required:
+                mandatory_studies = ["NEM NOVA connection assessment (CAS) – applicable to LV/MV; verify voltage classification."]
+        else:
+            notes.append("LSS/self-consumption does not inherit NEM/NOVA/ATAP study fees or eligibility.")
+        notes.append("Solar ATAP is not implemented in this prototype: non-domestic inverter output is capped at 1 MW and <=100% maximum demand; export offset lasts 10 years.")
+        if ac_capacity_kw > 1000:
+            notes.append("Above 1 MWac: do not market this modeled project as Solar ATAP eligible.")
 
-        if is_nemas_required:
-            nemas_fee = 8000.0 # Estimated TNB process fee in RM
-            processing_days = 90
-            mandatory_studies = [
-                "Power Quality & Harmonic Distortion Assessment",
-                "Voltage-Rise and Steady State Injections Study",
-                "Protection Coordination & Anti-Islanding Trip Integration Study",
-                "Utility Fault Ride-Through (FRT) Compliance Study"
-            ]
-
-        # Use the project development company as the applicant when available;
-        # otherwise fall back to the largest landowner.
         if land.project_company_name:
-            applicant_name = land.project_company_name
-            applicant_id = land.project_company_reg_no or "N/A"
+            applicant_name, applicant_id = land.project_company_name, land.project_company_reg_no or "N/A"
         elif land.owners:
             applicant = max(land.owners, key=lambda o: o.calculated_share_float)
-            applicant_name = applicant.name
-            applicant_id = applicant.ic_or_co_no
+            applicant_name, applicant_id = applicant.name, applicant.ic_or_co_no
+            notes.append("Largest landowner is only a proposed contact; legal authority to apply is unverified.")
         else:
-            applicant_name = "N/A"
-            applicant_id = "N/A"
+            applicant_name = applicant_id = "N/A"
 
-        # Prefer Mukim, fall back to District for the Point of Common Coupling.
-        coupling_location = land.mukim if land.mukim else land.district
-
+        coupling_location = land.mukim or land.district
         seda = SEDAApplicationSchema(
             Part_A_Applicant_Name=applicant_name,
             Part_A_Company_Registration=applicant_id,
@@ -1071,30 +1128,28 @@ class FormFiller:
             Part_B_Mukim_Daerah_Negeri=f"{land.mukim}, {land.district}, {land.state}",
             Part_C_Proposed_DC_Capacity_kWp=float(tech.capacity_mwp * 1000.0),
             Part_C_Proposed_AC_Capacity_kWac=ac_capacity_kw,
-            Part_D_PPA_Tariff_Rate_RM_kWh=tech.ppa_tariff_rm_kwh
+            Part_D_PPA_Tariff_Rate_RM_kWh=tech.ppa_tariff_rm_kwh,
         )
-
         tnb = TNBConnectionSchema(
             Applicant_Company=applicant_name,
             Interconnection_Voltage_Level_kV=33.0 if tech.capacity_mwp >= 2.0 else 11.0,
             Total_Generation_Capacity_MWac=ac_capacity_kw / 1000.0,
             Inverter_Compliance_Standards=["IEC 62116", "IEC 61727", "MS 1837:2010"],
-            Point_of_Common_Coupling=f"TNB Substation - Mukim {coupling_location}",
-            Transformer_Capacity_MVA=float(tech.capacity_mwp * 1.2)
+            Point_of_Common_Coupling=f"Proposed site: {coupling_location} (actual PCC unverified)",
+            Transformer_Capacity_MVA=float(tech.capacity_mwp * 1.2),
         )
-
         nemas = NEMASChecklistSchema(
-            is_nemas_required=is_nemas_required,
-            voltage_rise_study_required=ac_capacity_kw >= 250.0, # required above 250kW under TNB code
-            estimated_regulatory_fee_rm=nemas_fee,
-            estimated_processing_days=processing_days,
-            mandatory_technical_studies=mandatory_studies
+            is_nemas_required=study_required,
+            voltage_rise_study_required=False,  # not determinable without network study
+            estimated_regulatory_fee_rm=study_fee,
+            estimated_processing_days=None,
+            assessment_type=assessment_type,
+            source_url=source_url,
+            eligibility_notes=notes,
+            mandatory_technical_studies=mandatory_studies,
         )
-
         return RegulatoryFilingManifest(
-            seda_application=seda,
-            tnb_grid_request=tnb,
-            nemas_checklist=nemas
+            seda_application=seda, tnb_grid_request=tnb, nemas_checklist=nemas,
         )
 
 

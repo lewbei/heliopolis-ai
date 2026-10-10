@@ -1,170 +1,130 @@
-# Heliopolis-AI — Pitch Deck
+# Heliopolis-AI — MAIC Nexus T1 Semifinal Pitch
 
-**Track T1: AI for Clean Energy (Solarvest Holdings Berhad)**  
-**MAIC Nexus Challenge 2026**
+**Positioning:** AI-assisted **preliminary** solar-project screening in Malaysia. Not a legal opinion, professional electrical design, grid approval, or bankable financial recommendation.
 
----
-
-## Slide 1 — Title
-
-# Heliopolis-AI
-## Solar Project Intelligence Agent
-
-**Engineering-grade, neural-symbolic due diligence for LSS & C&I solar in Malaysia.**
-
-*Multimedia University (MMU), Melaka, Malaysia*  
-*GitHub: https://github.com/lewbei/heliopolis-ai*
+**Repository:** https://github.com/lewbei/heliopolis-ai  
+**Demo:** `streamlit run app.py`  
+**Evidence status:** Synthetic/illustrative fixtures and unit tests are available; independent field-validation accuracy, customer adoption and time savings have **not** been established.
 
 ---
 
-## Slide 2 — The Problem
+## Slide 1 — Opening
 
-Solar developers in Malaysia lose **2–6 weeks** on every new site intake.
+### A solar site can look promising until the documents disagree.
 
-| Bottleneck | Why it hurts |
-|---|---|
-| **Land Titles** | *Geran* scans use archaic *Ekar/Rood/Pole* units, fractured co-owners, and hidden Caveat/Charge/Malay-Reserve flags. |
-| **Grid Compliance** | SLDs must satisfy **TNB ESAG / MS 1837:2010**; errors = expensive rejections. |
-| **Terrain Risk** | Satellite photos hide >15° slopes and monsoon landslide hazards. |
-| **Finance** | LSS PPA, C&I NEM, and self-consumption tariffs give completely different NPVs — but most tools only assume one. |
+Project teams reconcile land titles, protection diagrams, land conditions and financial assumptions before making expensive engineering decisions. Heliopolis-AI combines AI document extraction with deterministic checks to flag **issues requiring human review earlier**.
 
-Result: slow screening, missed red flags, and bad capital allocation.
+**One-line product:** "Preliminary solar-site screening with traceable calculations and explicit uncertainty."
 
 ---
 
-## Slide 3 — The Solution
+## Slide 2 — The user's problem
 
-**Heliopolis-AI** automates land, grid, terrain, and financial due diligence in one auditable pipeline.
+Solar project-development analysts receive different file types, inconsistent fields and site assumptions. A wrong land area, overlooked encumbrance, omitted protection relay or unsuitable financing scheme can change an early screening decision.
 
+**Pilot hypothesis — not a validated fact:** structured extraction plus auditable checks can reduce manual reconciliation and help identify problems earlier. Time saved and false-clearance rates must be measured on real, permitted project documents.
+
+---
+
+## Slide 3 — System architecture
+
+```text
+Uploaded land title / electrical SLD
+                |
+        Gemini Vision extraction
+                |
+  Schema checks + missing-field detection
+                |
+  +-------------+-------------------+
+  |             |                   |
+Title/share   SLD graph        Terrain + finance
+arithmetic    connectivity      assumptions
+  |             |                   |
+  +-------------+-------------------+
+                |
+      PRELIMINARY SCREENING
+       - findings and caveats
+       - source/fixture provenance
+       - needs-human-review conditions
 ```
-[ Scanned Deed / SLD ]
-         │
-   Gemini Vision OCR
-         │
-   ├─ Legal Parser      (NLC 1965, share splits, imperial → metric)
-   ├─ Civil Slope       (2D finite-difference gradients)
-   ├─ SLD Graph         (NetworkX + TNB anti-islanding audit)
-   └─ Financial Engine  (LCOE / NPV / IRR by scenario)
-         │
-[ SEDA + TNB Prefilled Manifests ]
-```
 
-**All math is deterministic — no LLM hallucination on engineering or finance.**
+**AI's exact role:** multimodal perception. **Python's role:** unit conversions, ownership share sums, topology traversal, yield/cash-flow arithmetic. No trained Heliopolis foundation model is claimed.
 
 ---
 
-## Slide 4 — Product Demo
+## Slide 4 — Product demonstration: three outcomes
 
-Run `python solar_agent.py` → `solar_assessment_report.json`
+1. **Clearly labeled synthetic scenario:** show the input, selected finance scenario, numerical outputs, SLD topology and review notes.
+2. **Faulty SLD:** a present-but-disconnected protection relay must yield `NEEDS_REVIEW` rather than a confident grid-compliance claim.
+3. **Failed extraction:** missing Gemini credentials, unreadable legal restrictions or malformed SLD geometry must **stop** the uploaded-document assessment, not silently produce a compliant demo fixture.
 
-**Example output (C&I NEM / ATAP scenario):**
-
-| Metric | Value |
-|---|---|
-| Site | Johor, 9.3 ha (22 Ekar 3 Rood 38 Pole) |
-| DC Capacity | 6.90 MWp |
-| Annual Yield | ~10,600 MWh/year |
-| Final CAPEX | RM 20.7M |
-| NPV (21 yrs) | **RM 10.5M** |
-| IRR | **12.38%** |
-| Land Legal Status | Flagged/Risky (Pertanian → needs NLC §124 conversion) |
-| BESS Required | No (substation injection < 15%) |
-| NEMAS Required | Yes (>72 kWac) |
-| Applicant | Solarvest Development Sdn Bhd |
+The demonstration is **not** a live Malaysian land-office or TNB integration.
 
 ---
 
-## Slide 5 — How It Works: 6 Modules
+## Slide 5 — Engineering scope and limits
 
-1. **Legal Parser** — reads title no, lot, state, zoning, area, co-owner shares.
-2. **Slope Analyzer** — finite-difference terrain gradients + earthworks premium.
-3. **SLD Graph Resolver** — symbol detection → directed graph → TNB compliance.
-4. **Financial Engine** — tropical derating, degradation, BESS OPEX, Newton-Raphson IRR.
-5. **Scenario Selector** — LSS PPA / C&I NEM / self-consumption tariffs.
-6. **Manifest Generator** — SEDA & TNB pre-filled forms + NEMAS checklist.
-
----
-
-## Slide 6 — Technical Moat
-
-**Why this is hard to copy:**
-
-* **Junction-dot-aware SLD parsing** — splits wires at real connection dots and ignores plain crossings, preventing short-circuit hallucinations.
-* **Scale-invariant ε-neighbor search** — works across A4 to A0 drawings.
-* **Scenario-based finance** — one model, three revenue realities.
-* **Malaysian legal domain** — NLC 1965, *Ekar/Rood/Pole*, caveats, Malay Reserve, SEDA NEMAS.
-* **Offline core** — symbolic solvers run locally; OCR is the only cloud call.
+- **Land:** preliminary field and owner-share consistency; no claim that 51% share automatically authorizes lease execution.
+- **SLD:** check modeled PV -> inverter -> anti-islanding relay -> transformer -> grid connectivity. A graph pass is **not** a TNB approval, relay-settings study or electrical certification.
+- **Terrain:** generated elevation profiles are synthetic, not surveyed or lidar-derived project terrain.
+- **Finance:** CAPEX, loss factors, PPA/offset rates, WACC and yield assumptions are scenario inputs, not bankable quotes.
+- **BESS/grid:** simple AC-MW / upstream-MVA ratio is a sensitivity screen, not a load-flow study or mandatory 15% battery trigger.
 
 ---
 
-## Slide 7 — Market & Business Model
+## Slide 6 — Regulations matter: do not mix schemes
 
-**Target customers:**
-* Solar EPC contractors
-* Independent Power Producers (IPPs)
-* Land-search / due-diligence consultancies
+**LSS PPA:** standalone utility-scale economic sensitivity, subject to applicable procurement and connection requirements.
 
-**Go-to-market:**
-1. **Pilot** with Solarvest Innovation Lab or a regional EPC — 3–5 live sites.
-2. **B2B SaaS** tiered by site-screening volume.
-3. **Enterprise API** for large EPCs / IPPs.
+**NEM NOVA / illustrative C&I offset:** separate earlier scheme; current eligibility and export credit must be verified independently. Rate assumptions are not customer-specific electricity-bill calculations.
 
-**Revenue:** subscriptions + integration fees.
+**Solar ATAP (2026):** **not implemented** as a complete eligibility/financial model. The published non-domestic rule caps inverter output at **1 MW** and **100% of consumer maximum demand**; export-credit arrangement is **10 years**, followed by self-consumption without export offsets. Do **not** present the example ~5.9 MWac system as Solar ATAP eligible. Actual offsets require load/export profiles and verified tariff components.
 
----
-
-## Slide 8 — Traction
-
-* ✅ **28/28** unit & integration tests passing (`pytest tests/`)
-* ✅ Streamlit app passes health checks (`/_stcore/health` = 200)
-* ✅ Public GitHub repo: `https://github.com/lewbei/heliopolis-ai`
-* ✅ Complete QRSPI compliance folder (`qrspi/`)
-* ✅ Sample `solar_assessment_report.json` with positive-NPV demo
-* ✅ Visual outputs: slope map + SLD graph in `qrspi/plots/`
+**Authorities:** 
+- https://www.seda.gov.my/reportal/atap/solaratap-general/
+- https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/
+- https://www.seda.gov.my/reportal/nem/
 
 ---
 
-## Slide 9 — Visual Proof
+## Slide 7 — Evidence, not inflated benchmarks
 
-**Terrain Slope Risk Map**
-*Identifies flat, manageable, and critical slope zones with earthworks cost premiums.*
+What exists: an executable Python/Streamlit prototype, unit/integration tests and reproducible synthetic fixtures. The repo's CI runs tests and performs Python compilation.
 
-`qrspi/plots/perak_slope_risk_contour.png`
+What is **not** yet demonstrated: field OCR accuracy on held-out legal records, SLD error rates on real drawings, time savings against a manual process, utility validation, Solarvest partnership, or revenue.
 
-**SLD Topology Flow Graph**
-*Directed graph verifying TNB anti-islanding and transformer-to-grid connectivity.*
-
-`qrspi/plots/sld_topology_flow_graph.png`
+**Next empirical pilot:** 3–5 consented real projects, blinded expert labels, comparison with direct Gemini extraction and ordinary spreadsheet checks, measurement of correction time, false-clearance rate, abstention, accuracy and latency. Do not score "needs review" as a verified negative.
 
 ---
 
-## Slide 10 — Team
+## Slide 8 — Customer and commercial validation
 
-**Multimedia University (MMU), Melaka, Malaysia**
+Potential users: solar EPC project developers, IPPs and due-diligence analysts.
 
-* Software engineering + clean-energy domain research
-* Malaysian regulatory & land-code knowledge
-* Clean-room code built on NumPy, NetworkX, Pydantic, Matplotlib, Plotly, Streamlit, Google GenAI
+**Starting integration:** project-development analyst uploads title/SLD and enters proposed technical assumptions, receives a preliminary issue report before engaging a surveyor, conveyancing lawyer and power-systems engineer.
 
----
-
-## Slide 11 — Ask
-
-We are seeking:
-
-1. **Pilot partner** — Solarvest Innovation Lab or a Malaysian EPC to validate on 3–5 live sites.
-2. **Investment / prize support** — to build live e-Tanah / myTNB / SEDA integrations and a hosted SaaS.
-3. **MAIC Nexus + HATI mentorship** — on B2B sales and regulatory partnerships.
-
-**Heliopolis-AI turns weeks of manual solar due diligence into auditable, minutes-long intelligence.**
+**Proposed business model (unvalidated):** enterprise screening/workflow subscription or integration. Test willingness to pay and time saved during a pilot. Do not claim signed customer contracts.
 
 ---
 
-## Slide 12 — Closing
+## Slide 9 — Final ask
 
-# Thank you
+We seek an industry pilot partner to validate the accuracy and decision value of preliminary screening on 3–5 real Malaysian solar projects. The pilot will define measurable go/no-go criteria before adding registry integration or automatic application drafting.
 
-**Heliopolis-AI**  
-*Solar Project Intelligence Agent for Malaysia*
+**Closing:** "Heliopolis-AI does not replace the engineers. It makes early assumptions visible, repeatable and reviewable."
 
-🌐 GitHub: https://github.com/lewbei/heliopolis-ai
+---
+
+## Harsh-judge quick answers
+
+**Q: What is AI here?** Gemini Vision extracts unstructured fields and diagram geometry; deterministic code checks those outputs. We do not call fixed calculations "AI inference".
+
+**Q: Can it legally approve a title?** No. It reports preliminary flags. Owner shares cannot prove legal authority to lease an entire lot.
+
+**Q: Does a green electrical graph mean TNB compliance?** No. It means only that the modeled drawing passes specific path checks; protection settings, utility studies, and approvals remain external.
+
+**Q: How accurate is real OCR?** Not enough evidence yet. Unit-test success does not quantify production document accuracy.
+
+**Q: Are the 500 sites real?** No. They are representative synthetic site fixtures. Weather figures and tariffs also require source-appropriate verification.
+
+**Q: Why invest in this?** Only if a controlled field pilot demonstrates lower review effort with an acceptable false-clearance rate and practical deployment costs.

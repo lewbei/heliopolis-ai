@@ -12,8 +12,12 @@ from solar_agent import (
     CivilSlopeAnalyzer,
     TNBSubstationCapacityValidator,
     SLDTopologyResolver,
-    YieldFeasibilityEngine
+    YieldFeasibilityEngine,
+    FormFiller,
+    SCENARIO_C_I_NEM,
+    DocumentReviewRequired,
 )
+from unittest.mock import patch
 
 # Shared SLD fixture used by the resolver test (kept in one place).
 SAMPLE_SLD_SYMBOLS = [
@@ -89,20 +93,23 @@ def test_sld_topology_resolver():
     assert compliance.get("grid_path_valid") is True
 
 def test_bess_sizing_triggers():
-    """
-    Verifies that local substation capacity audits correctly trigger
-    Battery Energy Storage (BESS) sizing above the 15% thermal threshold.
-    """
+    """The 15% MW/MVA heuristic does NOT establish a TNB-mandated BESS requirement."""
     # Case 1: Peak AC is 1.0 MW, Substation is 10.0 MVA (10% injection, below 15%)
     safe_audit = TNBSubstationCapacityValidator.audit_injection(proposed_ac_mw=1.0, upstream_substation_mva=10.0)
     assert not safe_audit.bess_specification.is_bess_required
     
     # Case 2: Peak AC is 3.21 MW, Substation is 10.0 MVA (32.1% injection, above 15%)
     bess_audit = TNBSubstationCapacityValidator.audit_injection(proposed_ac_mw=3.21, upstream_substation_mva=10.0)
-    assert bess_audit.bess_specification.is_bess_required
-    assert bess_audit.bess_specification.recommended_battery_power_mw == 1.71
-    assert bess_audit.bess_specification.recommended_battery_capacity_mwh == 6.84
-    assert bess_audit.bess_specification.estimated_bess_capex_rm == 8208000.0
+    assert not bess_audit.bess_specification.is_bess_required
+    assert bess_audit.reverse_power_risk == "SCREENING_FLAG_NEEDS_UTILITY_STUDY"
+    assert bess_audit.bess_specification.recommended_battery_capacity_mwh == 0.0
+
+    # Explicit hypothetical BESS sizing is permitted, but is not labeled mandatory.
+    optional = TNBSubstationCapacityValidator.audit_injection(3.21, 10.0, hypothetical_bess=True)
+    assert not optional.bess_specification.is_bess_required
+    assert optional.bess_specification.recommended_battery_power_mw == 1.71
+    assert optional.bess_specification.recommended_battery_capacity_mwh == 6.84
+    assert optional.bess_specification.estimated_bess_capex_rm == 8208000.0
 
 
 def test_sld_junction_dot_connects_branch():
@@ -159,3 +166,113 @@ def test_sld_crossing_without_junction_dot_is_not_connected():
     # endpoints (300,150) and (300,450) have no nearby symbols. Therefore no
     # spurious connection between the two circuits should be created.
     assert g.number_of_edges() == 0 or not nx.has_path(g, "PV_1", "INV_2")
+
+
+# Adversarial reliability tests: malformed inputs must not quietly become
+# synthetic approvals. These fixtures test engineering logic, NOT field accuracy.
+def _valid_title_extraction():
+    return {
+        "title_no": "GRN 100", "lot_no": "Lot 10", "state": "Kedah",
+        "district": "Kubang Pasu", "mukim": "A", "zoning": "Bangunan",
+        "area_acres": 1.0, "area_roods": 0.0, "area_poles": 0.0,
+        "has_caveats": False, "has_charges": False, "is_malay_reserve": False,
+        "owners": [{"name": "Test Owner", "ic_or_co_no": "TEST-1", "share_fraction": "1/1"}],
+    }
+
+
+@pytest.mark.parametrize("extracted", [None, {}, {"title_no": "GRN 100"}])
+def test_uploaded_title_does_not_fallback_to_demo(extracted):
+    with patch("solar_agent.heliopolis_ocr.parse_land_title_image", return_value=extracted):
+        with pytest.raises(DocumentReviewRequired):
+            LandTitleParser.from_image("a-malformed-upload.png")
+
+
+@pytest.mark.parametrize("key,value", [
+    ("has_caveats", None), ("has_charges", None), ("is_malay_reserve", None),
+    ("area_acres", None), ("area_roods", 4.0),
+    ("owners", []),
+    ("owners", [{"name": "Test", "ic_or_co_no": "1", "share_fraction": "1/2"}]),
+])
+def test_uploaded_title_unknown_restrictions_and_inconsistent_fields_require_review(key, value):
+    extracted = _valid_title_extraction()
+    extracted[key] = value
+    with patch("solar_agent.heliopolis_ocr.parse_land_title_image", return_value=extracted):
+        with pytest.raises(DocumentReviewRequired):
+            LandTitleParser.from_image("bad-title.png")
+
+
+def test_valid_title_is_extracted_but_never_legally_approved():
+    with patch("solar_agent.heliopolis_ocr.parse_land_title_image", return_value=_valid_title_extraction()):
+        result = LandTitleParser.from_image("valid-title.png")
+    assert result.title_no == "GRN 100"
+    assert result.source_type == "OCR_EXTRACTED_UNVERIFIED"
+    assert result.review_status == "NEEDS_LEGAL_REVIEW"
+    assert result.legal_assessment.status != "Approved"
+
+
+def test_uploaded_sld_does_not_fallback_to_compliant_fixture():
+    with patch("solar_agent.heliopolis_ocr.parse_sld_image", return_value=None):
+        with pytest.raises(DocumentReviewRequired):
+            SLDTopologyResolver().resolve_image("bad-sld.png")
+    with patch("solar_agent.heliopolis_ocr.parse_sld_image", return_value={"symbols": [], "lines": []}):
+        with pytest.raises(DocumentReviewRequired):
+            SLDTopologyResolver().resolve_image("empty-sld.png")
+
+
+def test_disconnected_relay_cannot_pass_topology():
+    lines = [
+        SAMPLE_SLD_LINES[0],  # PV -> INV
+        ((500, 150), (1000, 150)),  # INV -> transformer, bypass relay
+        SAMPLE_SLD_LINES[3],  # transformer -> grid
+    ]
+    graph = SLDTopologyResolver().resolve(SAMPLE_SLD_SYMBOLS, lines)
+    result = graph.graph["tnb_compliance"]
+    assert result["anti_islanding_relay_present"] is True
+    assert result["grid_path_valid"] is False
+    assert result["preliminary_topology_status"] == "NEEDS_REVIEW"
+
+
+def test_missing_relay_cannot_pass_topology():
+    symbols = [s for s in SAMPLE_SLD_SYMBOLS if s["class"] != "Anti_Islanding_Relay"]
+    graph = SLDTopologyResolver().resolve(symbols, [
+        SAMPLE_SLD_LINES[0], ((500, 150), (1000, 150)), SAMPLE_SLD_LINES[3],
+    ])
+    assert graph.graph["tnb_compliance"]["grid_path_valid"] is False
+
+
+def test_valid_topology_is_only_preliminary():
+    result = SLDTopologyResolver().resolve(SAMPLE_SLD_SYMBOLS, SAMPLE_SLD_LINES).graph["tnb_compliance"]
+    assert result["preliminary_topology_status"] == "PRELIMINARY_TOPOLOGY_PASS"
+    assert "not a tnb" in result["scope_note"].lower()
+
+
+@pytest.mark.parametrize("capacity_kw,study,fee", [
+    (72.0, False, 0.0),
+    (72.01, True, 1000.0),
+    (180.0, True, 1000.0),
+    (180.01, True, 5000.0),
+    (425.0, True, 5000.0),
+    (425.01, True, 8000.0),
+    (1000.01, True, 15000.0),
+    (5000.01, False, 0.0),
+])
+def test_nova_study_bands_are_scheme_specific(capacity_kw, study, fee):
+    land = LandTitleParser().parse("")
+    terrain = CivilSlopeAnalyzer.analyze_topography(np.zeros((5, 5)), 10.0)
+    grid = TNBSubstationCapacityValidator.audit_injection(1.0, 10.0)
+    tech = YieldFeasibilityEngine(land, terrain, grid).calculate(scenario=SCENARIO_C_I_NEM)
+    manifest = FormFiller.generate_manifest(land, tech, proposed_ac_mw=capacity_kw / 1000.0)
+    assert manifest.nemas_checklist.is_nemas_required is study
+    assert manifest.nemas_checklist.estimated_regulatory_fee_rm == fee
+    assert manifest.seda_application.Part_C_Proposed_AC_Capacity_kWac == pytest.approx(capacity_kw)
+
+
+def test_lss_does_not_inherit_nova_study_fee():
+    land = LandTitleParser().parse("")
+    terrain = CivilSlopeAnalyzer.analyze_topography(np.zeros((5, 5)), 10.0)
+    grid = TNBSubstationCapacityValidator.audit_injection(3.0, 15.0)
+    tech = YieldFeasibilityEngine(land, terrain, grid).calculate()
+    m = FormFiller.generate_manifest(land, tech, proposed_ac_mw=3.0)
+    assert not m.nemas_checklist.is_nemas_required
+    assert m.nemas_checklist.estimated_regulatory_fee_rm == 0.0
+    assert "not implemented" in " ".join(m.nemas_checklist.eligibility_notes).lower()

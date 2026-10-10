@@ -1,0 +1,33 @@
+name: Python regression tests
+
+on:
+  push:
+    branches: [fix/maic-judge-reliability-20261010]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile Python modules
+        run: python -m compileall -q solar_agent.py heliopolis_ocr.py app_logic.py app.py tests
+      - name: Run offline regression tests
+        run: pytest -q tests
+      - name: Smoke-test Streamlit app without Gemini credentials
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+          at = AppTest.from_file("app.py", default_timeout=30).run()
+          if at.exception:
+              raise AssertionError(str([str(e.message) for e in at.exception]))
+          print("Streamlit AppTest: no uncaught exceptions")
+          PY
