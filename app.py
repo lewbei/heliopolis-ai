@@ -20,6 +20,7 @@ from app_config import (
     SAMPLE_OWNERS,
 )
 from app_components import clean_html_markdown, metric_card, status_badge
+from solar_agent import DocumentReviewRequired
 from app_logic import (
     get_state_from_region,
     generate_co_owners,
@@ -59,7 +60,7 @@ with head_left:
         <span class="brand-badge">Solar Project Intelligence</span>
     </div>
     <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: -0.2rem; margin-bottom: 1.25rem;">
-        Neural-Symbolic Site Prospection & Regulatory Compliance Auditor (Peninsular Malaysia NLC 1965 & TNB Grid Standards)
+        AI-assisted Preliminary Solar Site Screening (Malaysia) · Not a legal or grid-connection approval
     </div>
     """, unsafe_allow_html=True)
 with head_right:
@@ -109,7 +110,8 @@ if "prev_selected_site" not in st.session_state:
 # --- Sidebar Inputs ---
 with st.sidebar:
     st.markdown('<div class="card-title">Scenario Control Panel</div>', unsafe_allow_html=True)
-    site_mode = st.radio("Selection Mode", ["Standard Presets", "Real Malaysian Sites (500)"], horizontal=True, key="site_mode_selector")
+    st.caption("Presets, site registry and terrain are synthetic demonstrations unless independent project evidence is supplied.")
+    site_mode = st.radio("Selection Mode", ["Standard Presets", "Synthetic Malaysian Sites (500)"], horizontal=True, key="site_mode_selector")
 
     selected_preset = None
     selected_site = None
@@ -153,7 +155,7 @@ with st.sidebar:
             site_data = filtered_sites[selected_idx]
 
             # If selection mode or target changed, update inputs in session_state
-            if st.session_state.prev_selected_mode != "Real Malaysian Sites" or st.session_state.prev_selected_site != site_data["site_id"]:
+            if st.session_state.prev_selected_mode != "Synthetic Malaysian Sites" or st.session_state.prev_selected_site != site_data["site_id"]:
                 st.session_state.in_title = site_data["title_no"]
                 st.session_state.in_lot = site_data["lot_no"]
                 st.session_state.in_state = get_state_from_region(site_data["region"])
@@ -177,7 +179,7 @@ with st.sidebar:
                 st.session_state.in_ac_capacity = float(round(mwp_est * 0.85, 2))
                 st.session_state.in_substation_mva = float(site_data["substation_capacity_mva"])
 
-                st.session_state.prev_selected_mode = "Real Malaysian Sites"
+                st.session_state.prev_selected_mode = "Synthetic Malaysian Sites"
                 st.session_state.prev_selected_site = site_data["site_id"]
 
     st.markdown("---")
@@ -247,7 +249,7 @@ with st.sidebar:
     sld_image_file = st.file_uploader("SLD Diagram Scan (PNG/JPG)", type=["png", "jpg", "jpeg"])
 
 # --- Compute Ownership Splits ---
-if site_mode == "Real Malaysian Sites (500)":
+if site_mode == "Synthetic Malaysian Sites (500)":
     active_site_id = st.session_state.get("prev_selected_site", "MY-SITE-0001")
     matching_site = next((s for s in real_sites if s["site_id"] == active_site_id), None)
     co_owners_cnt = matching_site["co_owners_count"] if matching_site else 5
@@ -287,22 +289,26 @@ if sld_image_file:
         sld_image_path = tmp.name
 
 # --- Build Grounded Land Metadata Object ---
-land_meta, hectares, sq_meters, in_acres, in_roods, in_poles, owner_rows = build_land_metadata(
-    title_no=in_title,
-    lot_no=in_lot,
-    state=in_state,
-    zoning=in_zoning,
-    acres=in_acres,
-    roods=in_roods,
-    poles=in_poles,
-    caveats=in_caveats,
-    charges=in_charges,
-    reserve=in_reserve,
-    owners_list=owners_list,
-    title_image_path=title_image_path,
-    project_company_name=in_project_company_name,
-    project_company_reg_no=in_project_company_reg,
-)
+try:
+    land_meta, hectares, sq_meters, in_acres, in_roods, in_poles, owner_rows = build_land_metadata(
+        title_no=in_title,
+        lot_no=in_lot,
+        state=in_state,
+        zoning=in_zoning,
+        acres=in_acres,
+        roods=in_roods,
+        poles=in_poles,
+        caveats=in_caveats,
+        charges=in_charges,
+        reserve=in_reserve,
+        owners_list=owners_list,
+        title_image_path=title_image_path,
+        project_company_name=in_project_company_name,
+        project_company_reg_no=in_project_company_reg,
+    )
+except DocumentReviewRequired as exc:
+    st.error(f"Uploaded land-title evidence needs review: {exc}")
+    st.stop()
 
 legal_status = land_meta.legal_assessment.status
 findings = land_meta.legal_assessment.findings
@@ -311,19 +317,28 @@ required_deeds = land_meta.legal_assessment.poa_compliance.required_deeds
 total_share = sum(o.calculated_share_float for o in land_meta.owners)
 
 # --- Run Base Technical Assessment ---
-assessment = compute_assessment(
-    land_meta=land_meta,
-    slope_profile=in_slope_profile,
-    ac_capacity=in_ac_capacity,
-    substation_mva=in_substation_mva,
-    site_mode=site_mode,
-    sld_image_path=sld_image_path,
-    scenario=in_scenario,
-)
+try:
+    assessment = compute_assessment(
+        land_meta=land_meta,
+        slope_profile=in_slope_profile,
+        ac_capacity=in_ac_capacity,
+        substation_mva=in_substation_mva,
+        site_mode=site_mode,
+        sld_image_path=sld_image_path,
+        scenario=in_scenario,
+    )
+except DocumentReviewRequired as exc:
+    st.error(f"Uploaded SLD evidence needs review: {exc}")
+    st.stop()
 terrain_model = assessment["terrain_model"]
 grid_audit = assessment["grid_audit"]
 feasibility = assessment["feasibility"]
 manifest = assessment["manifest"]
+st.warning(f"PRELIMINARY SCREENING ONLY — Title source: {land_meta.source_type}; SLD source: {assessment['data_provenance']['sld']}; terrain: SYNTHETIC_TERRAIN. No legal or grid approval has been issued.")
+if in_scenario == "c_i_nem":
+    st.info("C&I/NEM NOVA tariff is illustrative and is NOT Solar ATAP eligibility. Confirm current scheme, applicable consumption/export profile and tariff before financial reliance.")
+if in_ac_capacity > 1.0:
+    st.caption("Proposed capacity exceeds 1 MWac; do not present this project as eligible for non-domestic Solar ATAP.")
 
 # --- Page Layout Tabs ---
 tabs = st.tabs([
@@ -341,7 +356,7 @@ with tabs[0]:
     with c_status:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-label">Legal Land Status</div>
+            <div class="metric-label">Preliminary Legal Flags</div>
             <div style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">{status_badge(legal_status)}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -389,15 +404,15 @@ with tabs[0]:
         """), unsafe_allow_html=True)
 
         # Power of Attorney & Joint-Execution Manifest Card
-        poa_badge = '<span class="badge badge-amber">POA REQUIRED</span>' if is_poa_required else '<span class="badge badge-green">POA NOT REQUIRED</span>'
-        poa_reasons_html = "".join([f'<div class="checklist-item"><span class="checklist-dot"></span>{d}</div>' for d in required_deeds]) if is_poa_required else '<div class="checklist-item"><span class="checklist-dot"></span>Single controlling entity holds ≥50% share; standard lease can be registered directly without Power of Attorney.</div>'
+        poa_badge = '<span class="badge badge-amber">CO-OWNER REVIEW</span>' if is_poa_required else '<span class="badge badge-amber">LEGAL REVIEW</span>'
+        poa_reasons_html = "".join([f'<div class="checklist-item"><span class="checklist-dot"></span>{d}</div>' for d in required_deeds])
 
         st.markdown(clean_html_markdown(f"""
         <div class="card">
-            <div class="card-title">Joint-Execution Power of Attorney Manifest {poa_badge}</div>
-            <div class="card-subtitle">Minimum co-owners signature count required to bypass 51% controlling interest threshold</div>
+            <div class="card-title">Ownership / Instrument Review {poa_badge}</div>
+            <div class="card-subtitle">Ownership shares are arithmetic facts, not sufficient evidence of legal execution authority</div>
             <div style="font-size: 0.8rem; margin-bottom: 0.8rem;">
-                To legally lease or acquire this land for solar utility deployment under NLC Section 124, a controlling interest must be established.
+                Confirm co-owner consent, legal capacity and title-specific instruments with a qualified solicitor or land office.
             </div>
             {poa_reasons_html}
         </div>
@@ -410,12 +425,12 @@ with tabs[0]:
             for f in findings:
                 findings_html += f'<div class="checklist-item"><span class="checklist-dot" style="background: var(--red);"></span>{f}</div>'
         else:
-            findings_html = '<div class="checklist-item"><span class="checklist-dot" style="background: var(--green);"></span>No critical legal encumbrances, caveats, charges, or reserve flags detected. Clear title.</div>'
+            findings_html = '<div class="checklist-item"><span class="checklist-dot" style="background: var(--green);"></span>No selected restriction flags were reported. Legal status remains unverified.</div>'
 
         st.markdown(f"""
         <div class="card">
             <div class="card-title">Legal Encumbrances & Restrictions Checklist</div>
-            <div class="card-subtitle">NLP Named Entity Recognition audit against administrative land titles</div>
+            <div class="card-subtitle">Preliminary screening from reported title fields; not a land-office search</div>
             {findings_html}
         </div>
         """, unsafe_allow_html=True)
@@ -463,41 +478,38 @@ with tabs[1]:
     col_sld_ctrl, col_sld_chart = st.columns([5, 7])
 
     with col_sld_ctrl:
-        st.markdown('<div class="card-title">TNB ESAG Grid Code Auditor</div>', unsafe_allow_html=True)
-        st.markdown('<div style="font-size: 0.8rem; margin-bottom: 1rem;">Verify if the electrical schematic contains necessary protective coordinates before submitting to Tenaga Nasional Berhad (TNB).</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card-title">Preliminary Drawing Connectivity Review</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size: 0.8rem; margin-bottom: 1rem;">Assess a limited set of drawing connectivity relationships. This cannot certify protection or grid-code compliance.</div>', unsafe_allow_html=True)
 
         has_relay = st.toggle("Include Anti-Islanding Protection Relay", value=True)
         is_xfmr_connected = st.toggle("Connect Transformer safely to Grid Incomer", value=True)
 
         # Recompute SLD graph based on user switches or uploaded OCR image
-        sld_assessment = compute_assessment(
-            land_meta=land_meta,
-            slope_profile=in_slope_profile,
-            ac_capacity=in_ac_capacity,
-            substation_mva=in_substation_mva,
-            site_mode=site_mode,
-            has_relay=has_relay,
-            is_xfmr_connected=is_xfmr_connected,
-            sld_image_path=sld_image_path,
-            scenario=in_scenario,
-        )
+        try:
+            sld_assessment = compute_assessment(
+                land_meta=land_meta,
+                slope_profile=in_slope_profile,
+                ac_capacity=in_ac_capacity,
+                substation_mva=in_substation_mva,
+                site_mode=site_mode,
+                has_relay=has_relay,
+                is_xfmr_connected=is_xfmr_connected,
+                sld_image_path=sld_image_path,
+                scenario=in_scenario,
+            )
+        except DocumentReviewRequired as exc:
+            st.error(f"Uploaded SLD evidence needs review: {exc}")
+            st.stop()
         g = sld_assessment["sld_graph"]
 
-        relay_present = "RELAY_1" in g.nodes()
-        path_exists = nx.has_path(g, "XFMR_1", "GRID_1") if ("XFMR_1" in g.nodes() and "GRID_1" in g.nodes()) else False
-
+        topology = g.graph.get("tnb_compliance", {})
         st.markdown("---")
-        st.markdown('<div class="card-title">Live Grid Code Verification Result</div>', unsafe_allow_html=True)
-
-        if relay_present:
-            st.markdown('<div class="checklist-item"><span class="checklist-dot" style="background: var(--green);"></span><strong>PASS:</strong> Anti-Islanding Protection Relay correctly integrated into circuit.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card-title">Preliminary SLD Topology Screen</div>', unsafe_allow_html=True)
+        st.caption("Checks modeled drawing connectivity only. Does not establish TNB compliance, relay configuration, protection settings or approval.")
+        if topology.get("preliminary_topology_status") == "PRELIMINARY_TOPOLOGY_PASS":
+            st.success("A connected modeled PV → inverter → relay → transformer → grid path was found. Independent engineering review remains required.")
         else:
-            st.markdown('<div class="checklist-item"><span class="checklist-dot" style="background: var(--red);"></span><strong>VIOLATION:</strong> TNB Code ESAG Section 3.2.1: Anti-Islanding Protection Relay missing from schematic. Connection will be rejected.</div>', unsafe_allow_html=True)
-
-        if path_exists:
-            st.markdown('<div class="checklist-item"><span class="checklist-dot" style="background: var(--green);"></span><strong>PASS:</strong> Safe path verified from local generation transformer to grid incomer point.</div>', unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="checklist-item"><span class="checklist-dot" style="background: var(--red);"></span><strong>VIOLATION:</strong> Floating Circuitry: No continuous conductive electrical path detected from Transformer to TNB Grid Incomer.</div>', unsafe_allow_html=True)
+            st.error("NEEDS REVIEW: " + "; ".join(topology.get("findings", ["Incomplete or ambiguous SLD topology."])))
 
     with col_sld_chart:
         # Recreate horizontal networkx plot
@@ -589,19 +601,17 @@ with tabs[2]:
     with col_fin_right:
         # BESS Battery Specification Card
         bess = grid_audit.bess_specification
-        bess_badge = '<span class="badge badge-red">BESS REQUIRED</span>' if bess.is_bess_required else '<span class="badge badge-green">GRID COMPLIANT</span>'
+        bess_badge = '<span class="badge badge-amber">UTILITY STUDY NEEDED</span>'
 
-        bess_reasons_html = ""
-        if bess.is_bess_required:
-            for r in bess.reasons:
-                bess_reasons_html += f'<div class="checklist-item"><span class="checklist-dot" style="background: var(--red);"></span>{r}</div>'
-        else:
-            bess_reasons_html = '<div class="checklist-item"><span class="checklist-dot" style="background: var(--green);"></span>Proposed solar AC capacity sits comfortably below the Upstream TNB Substation 15% thermal load-flow threshold. No battery storage required for grid injection.</div>'
+        bess_reasons_html = "".join(
+            f'<div class="checklist-item"><span class="checklist-dot" style="background: var(--amber);"></span>{reason}</div>'
+            for reason in bess.reasons
+        )
 
         st.markdown(f"""
         <div class="card">
-            <div class="card-title">Battery Energy Storage Sizing (BESS) {bess_badge}</div>
-            <div class="card-subtitle">Peak-Shaving Lithium Iron Phosphate (LFP) Sizing Module</div>
+            <div class="card-title">Preliminary Grid Ratio / Optional BESS Sensitivity {bess_badge}</div>
+            <div class="card-subtitle">Illustrative MW/MVA ratio; no load-flow model or automatic BESS requirement</div>
             <table class="data-table">
                 <tbody>
                     <tr>
@@ -613,15 +623,15 @@ with tabs[2]:
                         <td><strong>{grid_audit.substation_injection_percent}%</strong></td>
                     </tr>
                     <tr>
-                        <td>Recommended BESS Power</td>
+                        <td>Hypothetical BESS Power (off by default)</td>
                         <td><strong>{bess.recommended_battery_power_mw:.2f} MW</strong></td>
                     </tr>
                     <tr>
-                        <td>Recommended BESS Capacity</td>
+                        <td>Hypothetical BESS Capacity</td>
                         <td><strong>{bess.recommended_battery_capacity_mwh:.2f} MWh (4-hr)</strong></td>
                     </tr>
                     <tr>
-                        <td>Estimated BESS CAPEX</td>
+                        <td>Hypothetical BESS CAPEX</td>
                         <td><strong>RM {bess.estimated_bess_capex_rm:,.2f}</strong></td>
                     </tr>
                 </tbody>
@@ -636,8 +646,8 @@ with tabs[2]:
 # TAB 4: SEDA & TNB FILING MANIFESTS
 # ==========================================
 with tabs[3]:
-    st.markdown('<div class="brand-name" style="margin-bottom: 0.5rem;">Pre-filled SEDA & TNB Regulatory Application Manifests</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size: 0.8rem; margin-bottom: 1.25rem;">Heliopolis-AI automatically maps civil, legal, and financial dimensions to structure pre-filled filings for Malaysian grid-connection requests.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="brand-name" style="margin-bottom: 0.5rem;">Preliminary SEDA / TNB Planning Fields (Not a Filed Application)</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size: 0.8rem; margin-bottom: 1.25rem;">These are indicative planning fields only; actual filing, eligibility and grid requirements require qualified review.</div>', unsafe_allow_html=True)
 
     # Patch values from sidebar
     seda = manifest.seda_application
@@ -725,58 +735,47 @@ with tabs[3]:
         """, unsafe_allow_html=True)
 
     with col_man_right:
-        # NEMAS Checklist Card
+        # Study fees are for the modeled financial scheme and applicable
+        # voltage band; do not override with a universal >72 kW rule.
         nemas = manifest.nemas_checklist
-        # Override based on sidebar input capacity
-        nemas.is_nemas_required = (in_ac_capacity * 1000.0) > 72.0
-
-        nemas_badge = '<span class="badge badge-red">NEMAS MANDATORY</span>' if nemas.is_nemas_required else '<span class="badge badge-green">NEMAS EXEMPT</span>'
-        nemas_fee_val = 8000.0 if nemas.is_nemas_required else 0.0
-        nemas_days_val = 90 if nemas.is_nemas_required else 15
-
-        nemas_studies_html = ""
-        if nemas.is_nemas_required:
-            for s in nemas.mandatory_technical_studies:
-                nemas_studies_html += f'<div class="checklist-item"><span class="checklist-dot" style="background: var(--amber);"></span>{s}</div>'
-        else:
-            nemas_studies_html = '<div class="checklist-item"><span class="checklist-dot" style="background: var(--green);"></span>Exempt: proposed AC capacity sits comfortably below the 72 kWac net metering assessment study threshold. Direct fast-track connection approved.</div>'
-
+        study_label = nemas.assessment_type.replace("_", " ")
+        nemas_fee_text = (
+            f"RM {nemas.estimated_regulatory_fee_rm:,.2f}"
+            if nemas.is_nemas_required else "Not established / scheme dependent"
+        )
+        study_notes = "".join(
+            f'<div class="checklist-item"><span class="checklist-dot" style="background: var(--amber);"></span>{note}</div>'
+            for note in nemas.eligibility_notes + nemas.mandatory_technical_studies
+        )
         st.markdown(f"""
         <div class="card">
-            <div class="card-title">SEDA NEMAS Grid Assessment Study Checklist {nemas_badge}</div>
-            <div class="card-subtitle">Required Studies for AC Capacity Exceeding 72 kWac</div>
+            <div class="card-title">Preliminary Connection Study Screen</div>
+            <div class="card-subtitle">No filing, technical study or approval has been completed.</div>
             <table class="data-table">
                 <tbody>
-                    <tr>
-                        <td style="width: 50%;">NEMAS Study Trigger Threshold</td>
-                        <td><strong>&gt; 72.0 kWac</strong></td>
-                    </tr>
-                    <tr>
-                        <td>Proposed Plant AC Capacity</td>
-                        <td><strong>{(in_ac_capacity * 1000.0):,.1f} kWac</strong></td>
-                    </tr>
-                    <tr>
-                        <td>Estimated Regulatory Review Fees</td>
-                        <td><strong>RM {nemas_fee_val:,.2f}</strong></td>
-                    </tr>
-                    <tr>
-                        <td>Estimated Processing Duration</td>
-                        <td><strong>{nemas_days_val} Calendar Days</strong></td>
-                    </tr>
+                    <tr><td>Proposed AC Capacity</td><td>{in_ac_capacity * 1000:,.1f} kWac</td></tr>
+                    <tr><td>Study Classification</td><td>{study_label}</td></tr>
+                    <tr><td>Indicative Published Study Fee</td><td>{nemas_fee_text}</td></tr>
+                    <tr><td>Processing Time</td><td>Not verified</td></tr>
                 </tbody>
             </table>
-            <div style="margin-top: 1rem; font-weight: 600; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Mandatory Engineering Studies:</div>
-            {nemas_studies_html}
+            {study_notes}
         </div>
         """, unsafe_allow_html=True)
+        if nemas.source_url:
+            st.caption(f"Fee/assessment reference: {nemas.source_url} (scheme and voltage applicability must be verified).")
 
         # Download button
         report_payload = {
+            "scope": "PRELIMINARY_SCREENING_ONLY; NO LEGAL/TNB/SEDA APPROVAL",
+            "data_provenance": assessment["data_provenance"],
+            "sld_topology_screen": assessment["sld_graph"].graph.get("tnb_compliance", {}),
+            "regulatory_study": manifest.nemas_checklist.model_dump(),
             "land_title_analysis": {
-                "title_no": in_title, "lot_no": in_lot, "state": in_state,
+                "title_no": land_meta.title_no, "lot_no": land_meta.lot_no, "state": land_meta.state,
                 "area_hectares": hectares, "area_sq_meters": sq_meters,
-                "has_caveats": in_caveats, "has_charges": in_charges, "is_malay_reserve": in_reserve,
-                "legal_status": legal_status
+                "has_caveats": land_meta.has_caveats, "has_charges": land_meta.has_charges, "is_malay_reserve": land_meta.is_malay_reserve,
+                "legal_status": legal_status, "source_type": land_meta.source_type, "review_status": land_meta.review_status
             },
             "terrain_profile": {
                 "mean_slope_degrees": terrain_model.mean_slope_degrees,
@@ -784,6 +783,8 @@ with tabs[3]:
                 "grading_multiplier": terrain_model.grading_capex_premium_multiplier
             },
             "financial_feasibility": {
+                "scenario": feasibility.scenario,
+                "assumption_status": "ILLUSTRATIVE_NOT_BANKABLE",
                 "capacity_mwp": feasibility.capacity_mwp,
                 "annual_yield_mwh": feasibility.annual_yield_mwh,
                 "adjusted_capex_rm": feasibility.grading_adjusted_capex_rm,
