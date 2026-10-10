@@ -1,83 +1,74 @@
-# Heliopolis-AI: Five-Phase Victory & Commercialization Roadmap
+# Heliopolis-AI — Measurable Top-10 and Post-Pilot Roadmap (PROPOSED REVISION)
 
-**Document Ref:** RDMP-MAIC-NEXUS-T1-01  
-**Project:** Heliopolis-AI (Solar Project Intelligence Agent)  
-**Track:** Track T1 — AI for Clean Energy (Solarvest Holdings Berhad)  
-**Objective:** Secure Semi-Finals Slot, Dominate Grand Finals, and Execute Post-Hackathon Startup Integration (RM 100k Cash + RM 100k Equity).
+Review: 10 October 2026. This document replaces an outdated speculative roadmap. No grand-final placement, cash, equity, Solarvest partnership, automated TNB filing, registry access, freedom-to-operate clearance or price/revenue is guaranteed.
 
----
+## Stage 0 — Do not fail the competition's artifact gate
 
-## The Strategic Reality of the MAIC Nexus Challenge
-To win this competition, we must treat it not as a programming hackathon, but as a **Venture Creation Program**. Solarvest and Huntier AI are not looking for elegant code; they are looking for **viable, investable startups** that solve their multi-million dollar operational bottlenecks.
+Sources: https://www.maicnexus.com/en/terms and organizer's team dashboard/emails.
 
-Our roadmap is structured into 5 logical phases designed to maximize our score across all 100 points of the official evaluation rubric.
+- Confirm the team is eligible, T1 selection remains correct, and the semifinal Participation & Release Agreement has been signed as required.
+- Verify whether the current stage's **judging review window is LOCKED**. If locked, do NOT modify submitted deck, repo/demo artifacts or team submission without explicit organizer authorization.
+- Make sure the exact linked repo/demo/video opens for judges without login and without exposing actual customer personal documents or Vertex credentials.
+- Keep an offline synthetic negative-control presentation available if Google credentials or cloud access fail on stage.
 
-```
-       PHASE 1                  PHASE 2                  PHASE 3                  PHASE 4                  PHASE 5
-[ Core Compliance ] ──► [ Interactive Canvas ] ──► [ Auto-Filing Agent ] ──► [ Registry API ]   ──► [ Solarvest JV ]
-  - Clean-Room FTO        - Next.js BBox Drag      - Puppeteer TNB Form     - e-Tanah Selangor       - Est. Sdn. Bhd.
-  - NetworkX Solvers      - Local OCR pipeline     - SEDA NOVA offsets      - State Land Premiums    - Global SEA licensing
- (COMPLETED)              (JUNE - AUG 2026)        (SEPT - OCT 2026)        (OCT - NOV 2026)         (NOV 2026 - BEYOND)
-```
+## Stage 1 — Honest four-minute live demo, current prototype
 
----
+Existing:
+- Clear labelled synthetic Malaysian document input and LSS PPA sensitivity.
+- LV SLD synthetic PV-inverter-grid example; remove displayed anti-islanding evidence or disconnect circuit to trigger NEEDS_REVIEW.
+- Download JSON with matching preliminary flag, and show fail-closed behavior for corrupt uploaded document.
+- Separate Solar ATAP 2026 consumer one-month energy-only example demonstrating MAQ/SMP/billing constraints.
 
-## Phase 1: Core Compliance & Engineering Rigor (The Initial Shield)
-* **Goal:** Pass the administrative, repository-history, and technical filters to secure a strong pass into the Semi-Finals.
-* **Milestones Completed:**
-  * Developed the core **Heliopolis-AI Hybrid Neural-Symbolic Solver** (`solar_agent.py`) written entirely in clean-room Python.
-  * Solved the single-line diagram (SLD) coordinate matching bug, and successfully verified directed graph parallel-connection paths in **NetworkX**.
-  * Coded deterministic, exact models for local Malaysian land searches under the **National Land Code 1965** (imperial unit conversions and co-owner fractional share matrices).
-  * Audited global and local registries and found no obvious overlap with 12 patent families (clearing Tesla, Siemens, CoreLogic, Aurora Solar, and MMU plagiarism checks).
-  * Generated a **thirteen (13) progressive conventional commit timeline** satisfying the Section 05 Repository Mandate.
+Do not claim the app performs full project approval, creates actual project land-rights entitlement, predicts TNB reverse-power trips or delivers a signed tariff.
 
----
+## Stage 2 — Independent empirical killer experiment
 
-## Phase 2: Interactive Canvas & Local Edge Processing (The Semi-Finals Weapon)
-* **Timeline:** June – August 2026
-* **Goal:** Deliver an outstanding, interactive presentation (Score 10/10 on Solution Maturity & Demo) for the KL Semi-Finals in September 2026.
-* **Milestones:**
-  1. **Next.js Web Canvas Interface:**
-     * Render the processed scanned PDFs and drawings directly on an interactive web canvas.
-     * Render the detected symbol bounding boxes and wire segments as interactive, draggable canvas elements.
-     * Allow solar engineers to manually adjust boxes, drag-and-drop missing components (such as an anti-islanding relay), and connect wire lines on the fly, with the canvas automatically updating the coordinate JSON.
-  2. **Local Edge Inference (Future):**
-     * Evaluate local or containerized vision models (e.g. Gemini Vision via Vertex AI endpoints, or exported ONNX vision models) to keep sensitive land-record images within the user's secure environment.
-     * This ensures the application remains **offline-capable and highly secure**, matching government and corporate data privacy policies regarding sovereign land records.
+Blocking evidence needed:
+- One consented, anonymized genuine title and LV SLD with source-by-source manual annotations (not a synthetic form masquerading as a real record).
+- Run Google Vertex AI OCR locally/privately, verify actual fields and wires.
+- Matched B0 direct Vision, B1 ordinary checklist, H Heliopolis on the SAME source/model/call budget.
+- Log false clearances, missed critical issues, abstention, coverage, reviewer correction time, latency, API cost and error modes.
+- If baseline performs as well, simplify Heliopolis instead of inventing a percentage accuracy gain.
 
----
+The benchmark harness and protocols exist but no real execution has been verified.
 
-## Phase 3: SEDA / TNB Automated Filing (The Integration Play)
-* **Timeline:** August – September 2026
-* **Goal:** Automate the manual administrative paperwork entirely (Score 10/10 on Problem-Market Fit & Business Model).
-* **Milestones:**
-  1. **Automated Browser Filing Agent:**
-     * Use **Puppeteer or Playwright** to build a localized browser automation agent.
-     * Take our prefilled `RegulatoryFilingManifest` (generated by the backend) and programmatically log into simulated **myTNB** or **SEDA** application portals, auto-filling the entire application, uploading PDFs, and preparing the submission draft.
-     * *The Pitch Impact:* Show the judges the browser agent literally filling in SEDA applications in real-time. This is a massive "Aha!" moment for Solarvest's operational executives.
-  2. **NEM NOVA Virtual Offset Simulator:**
-     * Integrate virtual meter aggregation into the web UI, allowing C&I clients to map and simulate bill offsets for up to three other corporate locations in Malaysia.
+## Stage 3 — Business evidence
 
----
+Identify ONE buyer role: Malaysian solar EPC/IPP early-development document review analyst. Ask for source authorizations and a small pilot with scoped expectations, rather than promising nationwide government integrations.
 
-## Phase 4: Land-Search Registry Integrations (The Scalability Play)
-* **Timeline:** October 2026
-* **Goal:** Transition from a file-uploader into an active, national land intelligence system.
-* **Milestones:**
-  1. **e-Tanah API Integrations:**
-     * Establish pathways to query digital land records (such as Selangor's or Kuala Lumpur's *e-Tanah* portals) directly using unique Parcel IDs (UPI) or Lot numbers, pulling clean, structured digital title databases and eliminating document scan bottlenecks entirely.
-  2. **Automated JPPH Land Conversion Estimator:**
-     * Programmatically pull local state-level Land Rules and JPPH historical market valuations to automatically calculate exact NLC Section 124 land conversion premiums for any Lot.
+Pilot scope: 3–5 site dossiers and a fixed review checklist, with independent conveyancer/engineering oversight. This is not enough to establish broad field accuracy; it is a feasibility/cost exercise.
 
----
+Success gates to pre-register before running:
+- No critical erroneous CLEAR outcomes in the pilot, while disclosing the denominator; any such error gets root-cause analysis.
+- Actual correction minutes per case compared with B1, and meaningful (not 0%) automatic coverage.
+- Measured all-in cost per file, including Vertex, server, human reviewer and storage.
+- Buyer confirms what actions change after a report and whether they would pay for it.
 
-## Phase 5: Venture Onboarding & Solarvest Joint-Venture (The Grand Finals Victory)
-* **Timeline:** November 2026 – Beyond
-* **Goal:** Claim the RM 100k cash and secure the RM 100k equity investment from Solarvest Innovation Lab.
-* **Milestones:**
-  1. **Heliopolis Sdn. Bhd. Incorporation:**
-     * Incorporate a Malaysian private limited company (*Sdn. Bhd.*) with at least one Malaysian director (satisfying the 90-day prize release clause).
-  2. **Solarvest Licensing & SEA Expansion:**
-     * Pitch a dual-pronged business model:
-       * **B2B Enterprise License:** License the software directly to Solarvest's land acquisition and engineering teams to audit their national Utility-Scale and C&I project pipelines under a secure SLA.
-       * **Southeast Asia SaaS Expansion:** Customize the modular land and grid rules (converting from Malaysia's National Land Code to Thailand's Land Code or Vietnam's Civil Code) to license Heliopolis-AI to developers and EPCs across Southeast Asia.
+Do not quote a commercial ROI, target price or savings percentage before obtaining data.
+
+## Stage 4 — Scaling gates (not current features)
+
+Only after Stage 2/3 results:
+- Controlled multi-user deployment using a managed Python backend, scoped cloud service identity, access control, per-account rate limits and secure temporary storage/retention.
+- Async jobs for repeatable dossier processing, re-usable versioned validation rules, error audit and manual correction.
+- State-specific land laws and utilities need reviewed source/version and independent case tests; do not reuse the same assumptions across all Malaysian states.
+- Southeast Asia extension is a separate later legal and engineering effort; not an automatic configuration toggle.
+
+Do not build speculative Next.js canvas, Puppeteer permit-filing robot or scraped e-Tanah API before these basic value/security gates pass.
+
+## ESG reporting as measured work
+
+Environment: first measure early verified screening flags and avoided unproductive reviews. Actual emissions benefit requires a deployed, generating project, counterfactual power mix, additionality and attribution. No verified CO2 saving is claimed from this app.
+
+Social: record co-owner / restriction flags reviewed by experts, consent and privacy protections; no automated approval or land-rights decision.
+
+Governance: source versions, human overrides, false-clearance monitoring and no silent fabricated results. Security/retention audit is future operational work.
+
+Official GHG context: https://ghgprotocol.org/blog/inventory-and-project-accounting
+Official provisional GEF: https://myenergystats.st.gov.my/documents/d/guest/grid-emission-factor-gef-in-malaysia-2022-2024-provisional-
+
+## Competition and investment boundaries
+
+A demo victory does not validate product-market fit. MAIC organizers provide optional/prize-related investment terms only subject to the competition agreements. Do not represent an investment, joint venture, customer pilot or Solarvest deployment as already secured.
+
+The useful outcome before top-10 decision is: a live credible tool, harsh negative-control demo, sober competitor comparison, transparent unknowns and a testable small pilot ask.
