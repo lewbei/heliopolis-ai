@@ -211,3 +211,22 @@ def test_uploaded_lv_explicit_label_is_still_preliminary():
     assert r["preliminary_topology_status"] == "PRELIMINARY_TOPOLOGY_PASS"
     assert "Not a TNB approval" in r["scope_note"]
     assert g.graph["source_type"] == "OCR_EXTRACTED_UNVERIFIED"
+
+
+
+def test_tnb_appendix_b_lv_route_with_switch_and_pv_meter_is_not_mv_path():
+    """The drawn AC switch/meter may occur between inverter and LV grid terminals."""
+    g = lv_graph(annotated=True, text="Anti-islanding grid inverter")
+    g.remove_edge("inv", "grid")
+    g.add_node("switch", category="AC_Switch")
+    g.add_node("pv_meter", category="PV_Meter")
+    g.add_edges_from([
+        ("inv", "switch"),
+        ("switch", "pv_meter"),
+        ("pv_meter", "grid"),
+    ])
+    lv = screen(g)
+    assert lv["preliminary_topology_status"] == "PRELIMINARY_TOPOLOGY_PASS"
+    assert lv["transformer_count"] == 0
+    mv = SLDTopologyResolver().validate_tnb_compliance(g, connection_profile="MV")
+    assert mv["preliminary_topology_status"] == "NEEDS_REVIEW"
