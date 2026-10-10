@@ -15,7 +15,7 @@ A prototype AI-assisted **preliminary** solar-site screening tool for Malaysia. 
 > - Tests establish particular software behaviors, **not** field extraction accuracy or time saved for actual solar developers.
 >
 > [Read the updated MAIC pitch](PITCH_DECK.md) · [Official Solar ATAP guidance](https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/) · [Official NEM/NOVA studies](https://www.seda.gov.my/reportal/nem/)
-> **Archived artifacts:** `pitch_deck.pdf` and `solar_assessment_report.json` were generated before the October 2026 corrections and are **not current evidence**. Use `PITCH_DECK.md` for the updated narrative and run `python solar_agent.py` to generate a current synthetic report.
+> **Pitch materials:** [Current 2026 pitch PDF](pitch_deck.pdf) is generated from [PITCH_DECK.md](PITCH_DECK.md). Follow the [judge demo runbook](qrspi/JUDGE_DEMO_RUNBOOK.md). The committed `solar_assessment_report.json` remains an **older synthetic demo snapshot**, not current empirical evidence; run `python solar_agent.py` to regenerate an illustrative report.
 
 ---
 
