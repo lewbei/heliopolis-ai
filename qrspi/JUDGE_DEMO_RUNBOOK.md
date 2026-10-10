@@ -1,63 +1,68 @@
-# Heliopolis-AI — MAIC T1 Semifinal Demonstration Runbook
+# Heliopolis-AI — Semifinal 4–5 Minute Judge Demonstration (PROPOSED REVISION)
 
-**Duration target:** 4–5 minutes demo + Q&A.  
-**Product claim:** AI-assisted *preliminary* solar-site screening, not final engineering or legal clearance.  
-**Pitch PDF:** [pitch_deck.pdf](../pitch_deck.pdf) (generated from [PITCH_DECK.md](../PITCH_DECK.md)).
+Updated 10 October 2026. A draft for review; no changes to locked judging artifacts without the organizers' permission.
 
-## Before going on stage
+**One primary product:** preliminary incoming-document checks for Malaysian solar EPC/IPP development analysts, NOT another bankable PV design tool.
 
-Run `pip install -r requirements.txt` and `streamlit run app.py`. Open the local URL. Keep a terminal with `pytest -q tests` ready if the judges request reproducibility.
+## Before the presentation
 
-Use the built-in preset/demo mode. The site registry, owner names, terrain and financial parameters are **synthetic/illustrative**, not verified documents or real project deals.
+- Confirm the official semifinal Participation & Release Agreement and stage review-window dates. Official terms: https://www.maicnexus.com/en/terms
+- Verify the EXACT submitted GitHub/repo/demo URL is publicly accessible to the judges. Private cloud OCR for confidential documents must stay behind authentication, not in a publicly exposed demo.
+- Locally run: pip install -r requirements.txt ; then streamlit run app.py.
+- Set the connection voltage class explicitly to MV for the default larger LSS demo. The default UNKNOWN cannot pass a scoped SLD topology screen.
+- Have a pre-recorded offline synthetic demo if live connectivity fails. No private personal data or hidden API secrets in video.
+- Use the latest PR/repository test result that you have ACTUALLY verified; at draft review 186 offline Python tests passed, not OCR accuracy.
+- If organizer materials are LOCKED, do not replace submitted pitch materials until permission is granted.
 
-Do not rely on live Gemini credentials for the fallback presentation. Run a separate live upload demonstration **only if** it has already been tested with valid credentials and permissible example documents.
+## Timed demonstration (only what currently works)
 
-## Demonstration sequence
-
-| Time | Action | What judges should see |
+| Time | Action | Judge takeaway |
 | --- | --- | --- |
-| 0:00–0:35 | State the problem and narrow product claim. | Preliminary screening, not approval. |
-| 0:35–1:15 | In the sidebar, select a synthetic site and LSS PPA scenario. | Clearly labeled synthetic inputs and illustrative calculations. |
-| 1:15–2:15 | Open **Electrical SLD Graph Audit** with both synthetic toggles on. | A modeled protected path; result says **PRELIMINARY**, not TNB-approved. |
-| 2:15–2:45 | Turn **Connect Transformer to Grid** off, leaving relay present. | `NEEDS_REVIEW` for the broken circuit. |
-| 2:45–3:10 | Open the **SEDA/TNB Planning** tab and download JSON. | The exported `sld_topology_screen` matches the currently shown failure. |
-| 3:10–3:35 | Reset the circuit; explain that an uploaded unreadable document stops with a downloadable review report. | No fabricated compliance after extraction failure. |
-| 3:35–4:30 | Explain commercial hypothesis, intended pilot and key known limitations. | Demonstrated logic vs unvalidated impact are separated. |
+| 0:00–0:35 | Describe an EPC/IPP analyst receiving land title, electrical SLD and technical assumptions. | One buyer and one narrow pain, not generic AI-for-everything. |
+| 0:35–1:05 | Select an explicitly SYNTHETIC LSS example, MV connection profile and illustrative LSS PPA sensitivity. | Source labels, no claim of government cadastral or actual grid data. |
+| 1:05–1:45 | Open Electrical SLD Graph Audit; separate relay, transformer and grid connected. | Bounded preliminary modeled protection route, never TNB certification. |
+| 1:45–2:15 | Toggle Connect Transformer to Grid OFF, keeping the drawn relay present. | NEEDS_REVIEW: present device does not prove continuous protected path. |
+| 2:15–2:40 | In planning fields, download report JSON and verify grid_path_valid=false and the displayed source/assumptions. | Provenance and safe negative-control behavior. |
+| 2:40–3:05 | Explain that corrupt uploaded scans or missing critical fields fail closed. Optional: set LV profile and show it needs visible inverter anti-islanding evidence even without external transformer. | Useful no-fabricated-clearance result; LV/MV profiles differ. |
+| 3:05–3:35 | Contrast PVcase, Glint and RatedPower: stronger GIS/site/CAD; Heliopolis proposes Malaysian title/SLD dossier review before engineers. | Honest competitive wedge. |
+| 3:35–4:05 | State 3-stage scaling hypothesis: current app, secure private Vertex pilot, account/rule-versioned repeatable dossiers. | Measurable scale, not imaginary nationwide integrations. |
+| 4:05–4:30 | ESG: visible title restrictions/consent review and transparent assumptions; zero verified avoided CO2. Ask for 3–5 consented site pilot. | Impact measurement plan rather than greenwashing. |
 
-### Optional live OCR exercise (not a required proof)
+## Alternative standalone Solar ATAP 30-second explanation
 
-Use a non-sensitive title/SLD that you have the right to upload, with an already-tested Gemini API key. If the model cannot extract critical title fields or diagram geometry, let the app display `NEEDS_REVIEW`; do **not** swap into a synthetic fixture and call it successful OCR.
+The separate **Solar ATAP Monthly** Streamlit page handles explicitly user-provided/synthetic non-domestic one-month import/export energy, MAQ and prior-month Average SMP, with no rollover. This is NOT the same buyer/scheme as a large utility LSS plant, not a full TNB bill, and not a bankable consumer ROI. Do not let this secondary feature dilute the main pitch.
 
-An uploaded document is one cloud OCR invocation per assessment render; Streamlit reruns on widget changes and may make further calls. SLD fixture toggles are disabled in uploaded-SLD mode. Review privacy/retention requirements before using genuine title deeds.
+## Optional real Vertex AI OCR, only with authorization
 
-## What **not** to claim
+Use a permitted, anonymized actual title or TNB reference drawing and a configured Google Vertex AI project. The upload authorization checkbox allows transmission, but does NOT make public uploading of sensitive owner/NRIC records safe; proper tenancy/security review is separate. Field-by-field compare the Vertex output with original source; do NOT claim model success merely because JSON parsed. Corrupt or unreadable uploaded images MUST produce review/error, not synthetic data.
 
-- No verified OCR accuracy on independent Malaysian real titles/SLDs or demonstrated customer savings.
-- No SEDA/TNB authorization, electrical protection setting verification, or land-office clearance.
-- The >15% AC-MW/MVA metric is a **heuristic**, not a TNB battery requirement.
-- Solar ATAP has only a **capacity precheck**, not an offset economic model; multi-MW demo sites are not eligible by simply selecting a C&I scenario.
-- An illustrative LSS positive NPV does not establish investment viability. Historical NOVA/self-consumption scenarios deliberately abstain from NPV/IRR without load/tariff evidence.
-- Do not imply Solarvest is an existing customer or commercial partner.
+The repository's current OCR inputs are PNG/JPG (no general PDF page ingestion yet). Do not claim a complete metric-only/multi-page land-title extraction pipeline. The public RISDA/TNB reference sample sources are documented in PUBLIC_VERTEX_OCR_DOCUMENT_SOURCES.md, with privacy caveats.
 
-## Likely skeptical questions
+## Harsh-judge Q&A
 
-**What does the AI actually do?** Gemini Vision extracts fields and diagram geometry. The legal-share arithmetic, graph checks, and cash-flow calculation use deterministic Python. No custom trained solar foundation model is claimed.
+**Why not direct Gemini?** That may be sufficient. We have a matched B0/B1/H evaluator and need measured critical-error/reviewer-time evidence to justify extra logic. No false accuracy number is claimed.
 
-**Why not a spreadsheet and a generic OCR prompt?** That is a valid baseline. The proposed pilot compares Gemini-only extraction and spreadsheet checklists with the full pipeline using identical documents and review budgets.
+**What does PVcase/Glint/ RatedPower already do?** Broad GIS/grid/site search, site design, yield and layout. We do not compete on that depth. We address upstream, uploaded Malaysian title/SLD dossier triage as an evidence-based pilot hypothesis.
 
-**How safe is a green result?** It is a bounded preliminary result, not a safety certificate. The system fails closed on OCR errors and flags selected structural inconsistencies; real protections and ownership constraints need expert review.
+**How does this generate money?** A project-development analyst would potentially pay to reduce measured dossier handling and error-remediation costs; no pricing, volume, time savings or paying customer is yet verified.
 
-**What about the 51% co-owner rule?** Ownership fractions do not establish power to lease a whole parcel. The software marks legal coordination for professional review.
+**What does an LV graph pass mean?** The modeled path and visible protection label pass bounded checks, not manufacturer's inverter certification, current utility settings or signed electrical approval.
 
-**How do you know it saves time?** We do not yet. The first 3–5-site pilot would measure review effort and false-clearance rates.
+**How will 100+ customers use it?** Cloud deployment, scoped Vertex service identity, per-user role control, temporary protected storage, independent review queues and measured cost/latency are a FUTURE plan; no production multi-user scaling has been tested.
 
-**Is your 500-site dataset real?** No: synthetic scenarios to demonstrate the interface. We will not present them as field-validation results.
+**What is the ESG benefit?** Earlier possible red flags and record integrity are process benefits to measure. No real solar project has been developed or commissioned by this prototype, so no measurable direct avoided carbon can be attributed today.
 
-## Verification checklist
+**Does the 186-pass test prove OCR accuracy?** No. It proves only covered software behaviors under mocked/synthetic/offline conditions.
 
-- [ ] Open app successfully in offline preset mode.
-- [ ] Visible SLD changes to `NEEDS_REVIEW` when the transformer path is disconnected.
-- [ ] Downloaded JSON reports `grid_path_valid: false` in that state.
-- [ ] Error uploads do not silently produce a successful synthetic analysis.
-- [ ] Latest GitHub Actions Python tests and PDF rendering jobs are green.
-- [ ] Present [the generated PDF](../pitch_deck.pdf), **not** a stale copy stored on a different device.
+**Can Solarvest sign on today?** No established customer partnership or signed agreement. We want a small permissioned evaluation first; the tool is standalone from Solarvest systems.
+
+## Final verification checklist
+
+- [ ] Reviewer/Organizer authorizes any updates to submitted locked artifacts.
+- [ ] Exact current submission link accessible without a password and without exposing real personal data.
+- [ ] Test MV demo pass -> disconnect transformer -> NEEDS_REVIEW.
+- [ ] Downloaded SLD status and UI status agree.
+- [ ] If LV demonstrated, generic inverter without explicit anti-islanding evidence remains NEEDS_REVIEW.
+- [ ] Demo clearly says SYNTHETIC when appropriate; live OCR is not pretended.
+- [ ] Latest CI test count and PDF match current branch/commit.
+- [ ] Provide a field evaluation gate and a concrete pilot ask, not a guaranteed Top-10/win claim.
