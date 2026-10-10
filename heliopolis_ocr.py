@@ -3,7 +3,7 @@
 Authentication order:
   1. AI Studio / API key: GEMINI_API_KEY or GOOGLE_API_KEY
   2. Vertex AI: GOOGLE_CLOUD_PROJECT (+ optional GOOGLE_CLOUD_LOCATION, default us-central1)
-  3. Fallback to None (caller should use registry / demo data)
+  3. Failure returns None (uploaded-document caller MUST fail closed; no demo substitution)
 """
 
 import io
