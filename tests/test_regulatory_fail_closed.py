@@ -195,3 +195,53 @@ def test_atap_oversize_demo_report_cannot_imply_eligibility():
     )
     assert m.solar_atap_precheck.status == "OUTSIDE_ATAP_NON_DOMESTIC_CAP"
     assert m.nemas_checklist.estimated_regulatory_fee_rm is None
+
+
+
+def test_historical_nova_must_not_have_21_year_export_credit_profitability():
+    land, tech = _tech(SCENARIO_C_I_NEM)
+    assert tech.financial_status == "NEEDS_LOAD_PROFILE_AND_VERIFIED_TARIFF"
+    assert tech.npv_rm is None
+    assert tech.irr_percent is None
+    assert tech.payback_years is None
+    assert "null" in tech.model_dump_json()
+    assert any("11-21" in note for note in tech.financial_notes)
+
+
+def test_self_consumption_without_load_profile_must_abstain_from_roi():
+    land, tech = _tech("self_consumption")
+    assert tech.npv_rm is None
+    assert tech.irr_percent is None
+    assert tech.financial_status == "NEEDS_LOAD_PROFILE_AND_VERIFIED_TARIFF"
+
+
+def test_lss_retains_only_illustrative_nonbankable_financials():
+    land, tech = _tech("lss_ppa")
+    assert tech.npv_rm is not None
+    assert tech.irr_percent is not None
+    assert tech.financial_status == "ILLUSTRATIVE_LSS_PPA_NO_SIGNED_CONTRACT"
+    assert any("not a signed" in note for note in tech.financial_notes)
+
+
+def test_uploaded_title_location_is_not_replaced_by_perak_sidebar_defaults():
+    title = _title_record()
+    title["state"] = "Johor"
+    title["district"] = "Batu Pahat"
+    title["mukim"] = "Simpang Kiri"
+    with patch("solar_agent.heliopolis_ocr.parse_land_title_image", return_value=title):
+        land, *_ = build_land_metadata(
+            title_no="SIDE-INVALID", lot_no="SIDE-INVALID", state="Perak",
+            zoning="Pertanian", acres=12.0, roods=0, poles=0,
+            caveats=False, charges=False, reserve=False,
+            owners_list=[{"name": "Side", "id": "DEMO", "share": "1/1"}],
+            title_image_path="synthetic-path.png",
+            project_company_name="User-entered applicant",
+            project_company_reg_no="TEST-REG",
+        )
+    _, tech = _tech("lss_ppa")
+    manifest = FormFiller.generate_manifest(land, tech, proposed_ac_mw=0.5)
+    assert manifest.seda_application.Part_B_Site_Title_Number == "SYNTHETIC GRN 100"
+    assert manifest.seda_application.Part_B_Mukim_Daerah_Negeri == "Simpang Kiri, Batu Pahat, Johor"
+    assert "Perak" not in manifest.seda_application.Part_B_Mukim_Daerah_Negeri
+    assert manifest.seda_application.Part_A_Applicant_Name == "User-entered applicant"
+    assert land.source_type == "OCR_EXTRACTED_UNVERIFIED"
