@@ -60,6 +60,9 @@ def test_imperial_string_to_parts():
     assert roods == 0.0
     assert poles == 0.0
 
+    fractional = _imperial_string_to_parts("0.5 Ekar 1.25 Rood 2.5 Pole")
+    assert fractional == (0.5, 1.25, 2.5)
+
 
 def test_sld_node_style():
     style = _sld_node_style("Inverter", "INV_1")
