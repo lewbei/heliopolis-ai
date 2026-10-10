@@ -249,6 +249,11 @@ with st.sidebar:
     in_slope_profile = st.selectbox("Terrain Slope Profile", slope_profiles_list, index=slope_profiles_list.index(current_slope_profile))
 
     in_ac_capacity = st.number_input("Proposed AC Capacity (MWac)", value=st.session_state.get("in_ac_capacity", 3.21), step=0.1)
+    st.caption(
+        "Yield/CAPEX follow the entered AC rating; modeled DC peak = AC MWac / 0.85. "
+        "The separate land-footprint limit is an illustrative 90%-usable, "
+        "12,140 m²/MWp heuristic, NOT a surveyed plant layout."
+    )
     in_substation_mva = st.number_input("Assumed Upstream Substation Rating (MVA)", value=st.session_state.get("in_substation_mva", 15.0), step=1.0)
     in_voltage_class = st.selectbox(
         "Connection voltage class (user assumption)",
@@ -392,8 +397,24 @@ finally:
 terrain_model = assessment["terrain_model"]
 grid_audit = assessment["grid_audit"]
 feasibility = assessment["feasibility"]
+footprint = assessment["land_footprint_screen"]
 manifest = assessment["manifest"]
 st.warning(f"PRELIMINARY SCREENING ONLY — Title source: {land_meta.source_type}; SLD source: {assessment['data_provenance']['sld']}; terrain: SYNTHETIC_TERRAIN. No legal or grid approval has been issued.")
+if footprint.status == "NEEDS_REVIEW":
+    st.error(
+        f"NEEDS_REVIEW: {footprint.proposed_ac_mw:.3f} MWac exceeds "
+        f"the assumed land-footprint screen ({footprint.max_screened_ac_mw:.3f} MWac "
+        f"on {land_meta.area_hectares:.4f} ha). "
+        "Gross modeled yield/CAPEX are hypothetical; NPV/IRR are withheld. "
+        "Use a professionally reviewed site layout before feasibility claims."
+    )
+else:
+    st.info(
+        f"Land-footprint plausibility only: assumed maximum "
+        f"{footprint.max_screened_ac_mw:.3f} MWac; selected "
+        f"{footprint.proposed_ac_mw:.3f} MWac. "
+        "This is not legal, electrical, or buildable-area approval."
+    )
 if title_image_path or sld_image_path:
     st.caption(f"Google OCR model configured: {heliopolis_ocr.DEFAULT_MODEL}. Uploaded text remains unverified and needs human review. No data is sent without the permission checkbox.")
 if in_scenario == "c_i_nem":
@@ -432,6 +453,16 @@ with tabs[0]:
             <div style="font-size: 1.25rem; font-weight: 800; margin-top: 0.5rem; color: var(--text);">{in_zoning} ({in_lot})</div>
         </div>
         """, unsafe_allow_html=True)
+
+    st.markdown("#### Land footprint vs proposed capacity — preliminary check")
+    a, b, c = st.columns(3)
+    a.metric("Proposed AC capacity", f"{footprint.proposed_ac_mw:.3f} MWac")
+    b.metric("Assumed land-screen max AC", f"{footprint.max_screened_ac_mw:.3f} MWac")
+    c.metric("Estimated land required", f"{footprint.estimated_land_required_sqm:,.0f} m²")
+    if footprint.status == "NEEDS_REVIEW":
+        st.error("NEEDS_REVIEW: proposal exceeds the illustrative source parcel footprint.")
+    else:
+        st.caption("Area screen is an illustrative capacity heuristic, not a detailed PV layout.")
 
     st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
 
@@ -635,6 +666,17 @@ with tabs[1]:
 # ==========================================
 with tabs[2]:
     st.markdown('<div class="brand-name" style="margin-bottom: 0.5rem;">Tropical Yield Sizing & Financial Model (Newton-Raphson)</div>', unsafe_allow_html=True)
+    st.caption(
+        f"AC input {footprint.proposed_ac_mw:.3f} MWac / assumed AC:DC "
+        f"{footprint.assumed_ac_to_dc_ratio:.2f} = "
+        f"{footprint.proposed_dc_mwp:.3f} MWp. All yield and cost projections "
+        "are illustrative, not engineered or bankable."
+    )
+    if footprint.status == "NEEDS_REVIEW":
+        st.error(
+            "LAND-AREA MISMATCH: the hypothetical energy, DC rating and CAPEX are NOT "
+            "a feasible design for the supplied parcel. Financial NPV, IRR and payback are withheld."
+        )
 
     col_fin_1, col_fin_2, col_fin_3, col_fin_4 = st.columns(4)
     with col_fin_1:
@@ -880,7 +922,10 @@ with tabs[3]:
         # Download button
         report_payload = {
             "scope": "PRELIMINARY_SCREENING_ONLY; NO LEGAL/TNB/SEDA APPROVAL",
-            "assessment_status": "PRELIMINARY_REVIEW_REQUIRED",
+            "assessment_status": (
+                "NEEDS_REVIEW" if footprint.status == "NEEDS_REVIEW" else "PRELIMINARY_REVIEW_REQUIRED"
+            ),
+            "land_footprint_screen": footprint.model_dump(),
             "data_provenance": {**assessment["data_provenance"], "sld": g.graph.get("source_type", "SYNTHETIC_DEMO")},
             "sld_topology_screen": g.graph.get("tnb_compliance", {}),
             "regulatory_study": manifest.nemas_checklist.model_dump(),
@@ -911,6 +956,8 @@ with tabs[3]:
             "financial_feasibility": {
                 "scenario": feasibility.scenario,
                 "assumption_status": "ILLUSTRATIVE_NOT_BANKABLE",
+                "proposed_ac_mw": footprint.proposed_ac_mw,
+                "assumed_ac_to_dc_ratio": footprint.assumed_ac_to_dc_ratio,
                 "capacity_mwp": feasibility.capacity_mwp,
                 "annual_yield_mwh": feasibility.annual_yield_mwh,
                 "adjusted_capex_rm": feasibility.grading_adjusted_capex_rm,
