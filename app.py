@@ -98,14 +98,6 @@ MAIC_PITCH_OWNERS = [
     {"name": "SYNTHETIC PERSON BETA", "id": "SYNTH-ID-0002", "share": "60/120"},
 ]
 presets = {
-    MAIC_PITCH_PRESET: {
-        "title": "SYNTH-GRN-2026-001", "lot": "SYNTH-LOT-001",
-        "state": "Perak", "district": "Synthetic District", "mukim": "Synthetic Mukim",
-        "acres": 2.0, "roods": 0.0, "poles": 0.0, "zoning": "Bangunan",
-        "caveats": True, "charges": False, "reserve": False,
-        "slope_profile": "Optimal Flat Plain (2.1° mean)",
-        "ac_capacity": 3.21, "substation_mva": 15.0,
-    },
     "Perak Site (Default High Slope)": {
         "title": "GRN 45293", "lot": "Lot 8192", "state": "Perak", "district": "Larut dan Matang",
         "acres": 12.0, "roods": 2.0, "poles": 15.0, "zoning": "Pertanian",
@@ -124,6 +116,15 @@ presets = {
         "caveats": False, "charges": False, "reserve": True, "slope_profile": "Rolling Hills (8.5° mean)",
         "ac_capacity": 1.5, "substation_mva": 15.0
     }
+    MAIC_PITCH_PRESET: {
+        "title": "SYNTH-GRN-2026-001", "lot": "SYNTH-LOT-001",
+        "state": "Perak", "district": "Synthetic District", "mukim": "Synthetic Mukim",
+        "acres": 2.0, "roods": 0.0, "poles": 0.0, "zoning": "Bangunan",
+        "caveats": True, "charges": False, "reserve": False,
+        "slope_profile": "Optimal Flat Plain (2.1° mean)",
+        "ac_capacity": 3.21, "substation_mva": 15.0,
+    },
+
 }
 
 # --- Load Real Malaysian Sites ---
