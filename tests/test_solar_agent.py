@@ -261,9 +261,9 @@ def test_nova_study_bands_are_scheme_specific(capacity_kw, study, fee):
     terrain = CivilSlopeAnalyzer.analyze_topography(np.zeros((5, 5)), 10.0)
     grid = TNBSubstationCapacityValidator.audit_injection(1.0, 10.0)
     tech = YieldFeasibilityEngine(land, terrain, grid).calculate(scenario=SCENARIO_C_I_NEM)
-    manifest = FormFiller.generate_manifest(land, tech, proposed_ac_mw=capacity_kw / 1000.0)
+    manifest = FormFiller.generate_manifest(land, tech, proposed_ac_mw=capacity_kw / 1000.0, voltage_class="LV")
     assert manifest.nemas_checklist.is_nemas_required is study
-    assert manifest.nemas_checklist.estimated_regulatory_fee_rm == fee
+    assert manifest.nemas_checklist.estimated_regulatory_fee_rm == (fee if study else None)
     assert manifest.seda_application.Part_C_Proposed_AC_Capacity_kWac == pytest.approx(capacity_kw)
 
 
@@ -272,7 +272,7 @@ def test_lss_does_not_inherit_nova_study_fee():
     terrain = CivilSlopeAnalyzer.analyze_topography(np.zeros((5, 5)), 10.0)
     grid = TNBSubstationCapacityValidator.audit_injection(3.0, 15.0)
     tech = YieldFeasibilityEngine(land, terrain, grid).calculate()
-    m = FormFiller.generate_manifest(land, tech, proposed_ac_mw=3.0)
+    m = FormFiller.generate_manifest(land, tech, proposed_ac_mw=3.0, voltage_class="MV")
     assert not m.nemas_checklist.is_nemas_required
-    assert m.nemas_checklist.estimated_regulatory_fee_rm == 0.0
+    assert m.nemas_checklist.estimated_regulatory_fee_rm is None
     assert "not implemented" in " ".join(m.nemas_checklist.eligibility_notes).lower()
