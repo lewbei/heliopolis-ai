@@ -74,11 +74,11 @@ The demonstration is **not** a live Malaysian land-office or TNB integration.
 
 ## Slide 6 — Regulations matter: do not mix schemes
 
-**LSS PPA:** standalone utility-scale economic sensitivity, subject to applicable procurement and connection requirements.
+**LSS PPA:** standalone **illustrative** utility-scale economic sensitivity (no signed PPA, validated yield or bankable result), subject to applicable procurement and connection requirements.
 
-**NEM NOVA / illustrative C&I offset:** separate earlier scheme; current eligibility and export credit must be verified independently. Rate assumptions are not customer-specific electricity-bill calculations.
+**Historical NEM NOVA:** the published quota offer period ended 30 June 2025 (or once allocated). This is a historical tariff reference, not a current application. With no customer consumption/export profile, Heliopolis withholds NPV/IRR rather than extrapolate 10-year offsets across 21 years.
 
-**Solar ATAP (2026):** **not implemented** as a complete eligibility/financial model. The published non-domestic rule caps inverter output at **1 MW** and **100% of consumer maximum demand**; export-credit arrangement is **10 years**, followed by self-consumption without export offsets. Do **not** present the example ~5.9 MWac system as Solar ATAP eligible. Actual offsets require load/export profiles and verified tariff components.
+**Solar ATAP (2026):** a non-domestic **capacity-only precheck** is provided; a complete electricity-offset/financial model is **not implemented**. The published non-domestic rule caps inverter output at **1 MW** and **100% of consumer maximum demand**; export-credit arrangement is **10 years**, followed by self-consumption without export offsets. Do **not** present the example ~5.9 MWac system as Solar ATAP eligible. Actual offsets require load/export profiles and verified tariff components.
 
 **Authorities:** 
 - https://www.seda.gov.my/reportal/atap/solaratap-general/
@@ -89,7 +89,7 @@ The demonstration is **not** a live Malaysian land-office or TNB integration.
 
 ## Slide 7 — Evidence, not inflated benchmarks
 
-What exists: an executable Python/Streamlit prototype, unit/integration tests and reproducible synthetic fixtures. The repo's CI runs tests and performs Python compilation.
+What exists: an executable Python/Streamlit prototype, automated tests, negative-control fixtures and an ATAP capacity-only screen; NOVA/self-consumption ROI is withheld without load/tariff evidence. The repo's CI runs tests and performs Python compilation.
 
 What is **not** yet demonstrated: field OCR accuracy on held-out legal records, SLD error rates on real drawings, time savings against a manual process, utility validation, Solarvest partnership, or revenue.
 
