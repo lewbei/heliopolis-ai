@@ -237,8 +237,8 @@ with st.sidebar:
 
     st.markdown('<div class="card-title">Project Company</div>', unsafe_allow_html=True)
     st.markdown('<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">SEDA/TNB permits are filed by the project company, not the landowner.</div>', unsafe_allow_html=True)
-    in_project_company_name = st.text_input("Project Company Name", value=st.session_state.get("in_project_company_name", "Solarvest Development Sdn Bhd"))
-    in_project_company_reg = st.text_input("Company Reg. No", value=st.session_state.get("in_project_company_reg", "1234567-U"))
+    in_project_company_name = st.text_input("Applicant Company (optional; user-entered)", value=st.session_state.get("in_project_company_name", ""), placeholder="Enter only a verified applicant")
+    in_project_company_reg = st.text_input("Company registration (optional)", value=st.session_state.get("in_project_company_reg", ""), placeholder="Do not invent an SSM number")
 
     st.markdown('<div class="card-title">Technical Specifications</div>', unsafe_allow_html=True)
     current_slope_profile = st.session_state.get("in_slope_profile", "Severe Ridge (37.7° mean)")
@@ -248,7 +248,20 @@ with st.sidebar:
     in_slope_profile = st.selectbox("Terrain Slope Profile", slope_profiles_list, index=slope_profiles_list.index(current_slope_profile))
 
     in_ac_capacity = st.number_input("Proposed AC Capacity (MWac)", value=st.session_state.get("in_ac_capacity", 3.21), step=0.1)
-    in_substation_mva = st.number_input("Upstream Substation Limit (MVA)", value=st.session_state.get("in_substation_mva", 15.0), step=1.0)
+    in_substation_mva = st.number_input("Assumed Upstream Substation Rating (MVA)", value=st.session_state.get("in_substation_mva", 15.0), step=1.0)
+    in_voltage_class = st.selectbox(
+        "Connection voltage class (user assumption)",
+        ["UNKNOWN", "LV", "MV", "HV"],
+        help="Do not infer the voltage class from PV system size. Unknown means no historical scheme-specific fee can be estimated.",
+    )
+    in_maximum_demand = st.number_input(
+        "Provided Consumer Maximum Demand (kW; unverified, 0 = unknown)",
+        value=0.0, min_value=0.0, step=10.0,
+        help="ATAP non-domestic capacity cannot exceed 100% of MD or 1,000 kW. Unknown is not proof of eligibility.",
+    )
+    in_hypothetical_bess = st.checkbox(
+        "Illustrative 4-hour BESS what-if (NOT a TNB requirement)", value=False
+    )
 
     st.markdown('<div class="card-title">Financial Scenario</div>', unsafe_allow_html=True)
     scenario_options = list(SCENARIO_LABELS.values())
@@ -328,6 +341,7 @@ try:
         title_image_path=title_image_path,
         project_company_name=in_project_company_name,
         project_company_reg_no=in_project_company_reg,
+        source_type="SYNTHETIC_DEMO_OR_EDITED_FORM",
     )
 except DocumentReviewRequired as exc:
     stop_with_review(str(exc), "Uploaded land title")
@@ -337,7 +351,7 @@ finally:
 
 legal_status = land_meta.legal_assessment.status
 findings = land_meta.legal_assessment.findings
-is_poa_required = land_meta.legal_assessment.poa_compliance.is_poa_required
+coowner_review_required = land_meta.legal_assessment.poa_compliance.requires_coowner_coordination
 required_deeds = land_meta.legal_assessment.poa_compliance.required_deeds
 total_share = sum(o.calculated_share_float for o in land_meta.owners)
 
@@ -351,6 +365,9 @@ try:
         site_mode=site_mode,
         sld_image_path=sld_image_path,
         scenario=in_scenario,
+        voltage_class=in_voltage_class,
+        maximum_demand_kw=in_maximum_demand if in_maximum_demand > 0 else None,
+        hypothetical_bess=in_hypothetical_bess,
     )
 except DocumentReviewRequired as exc:
     stop_with_review(str(exc), "Uploaded electrical SLD")
@@ -362,8 +379,10 @@ grid_audit = assessment["grid_audit"]
 feasibility = assessment["feasibility"]
 manifest = assessment["manifest"]
 st.warning(f"PRELIMINARY SCREENING ONLY — Title source: {land_meta.source_type}; SLD source: {assessment['data_provenance']['sld']}; terrain: SYNTHETIC_TERRAIN. No legal or grid approval has been issued.")
+if title_image_path or sld_image_path:
+    st.caption("Gemini OCR was attempted for uploaded evidence; extracted results remain unverified and require human checking.")
 if in_scenario == "c_i_nem":
-    st.info("C&I/NEM NOVA tariff is illustrative and is NOT Solar ATAP eligibility. Confirm current scheme, applicable consumption/export profile and tariff before financial reliance.")
+    st.info("Historical NEM NOVA sensitivity only. The published NEM 3.0 quota offer period ended June 2025; do not treat the modeled rate as a current application or Solar ATAP eligibility.")
 if in_ac_capacity > 1.0:
     st.caption("Proposed capacity exceeds 1 MWac; do not present this project as eligible for non-domestic Solar ATAP.")
 
@@ -431,7 +450,7 @@ with tabs[0]:
         """), unsafe_allow_html=True)
 
         # Power of Attorney & Joint-Execution Manifest Card
-        poa_badge = '<span class="badge badge-amber">CO-OWNER REVIEW</span>' if is_poa_required else '<span class="badge badge-amber">LEGAL REVIEW</span>'
+        poa_badge = '<span class="badge badge-amber">CO-OWNER REVIEW</span>' if coowner_review_required else '<span class="badge badge-amber">LEGAL REVIEW</span>'
         poa_reasons_html = "".join([f'<div class="checklist-item"><span class="checklist-dot"></span>{html_escape(d)}</div>' for d in required_deeds])
 
         st.markdown(clean_html_markdown(f"""
@@ -570,54 +589,64 @@ with tabs[2]:
         capex_delta_type = "down" if feasibility.grading_adjusted_capex_rm > feasibility.base_capex_rm else "up"
         st.markdown(metric_card("Final CAPEX Cost", f"RM {feasibility.grading_adjusted_capex_rm:,.2f}", delta=f"{((feasibility.grading_adjusted_capex_rm - feasibility.base_capex_rm) / 1000000.0):.2f}M Premiums added", delta_type=capex_delta_type), unsafe_allow_html=True)
     with col_fin_4:
-        irr_delta_type = "up" if feasibility.irr_percent > 6.5 else "down"
-        st.markdown(metric_card("Project IRR (%)", f"{feasibility.irr_percent:.2f}%", delta="Newton-Raphson Solver", delta_type=irr_delta_type), unsafe_allow_html=True)
+        if feasibility.irr_percent is None:
+            st.markdown(metric_card("Project IRR", "Not estimated",
+                delta="Customer load/tariff evidence missing", delta_type="warning"),
+                unsafe_allow_html=True)
+        else:
+            irr_delta_type = "up" if feasibility.irr_percent > 6.5 else "down"
+            st.markdown(metric_card("Illustrative IRR", f"{feasibility.irr_percent:.2f}%",
+                delta="No signed PPA or bankable yield", delta_type=irr_delta_type),
+                unsafe_allow_html=True)
 
     st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
 
     col_fin_left, col_fin_right = st.columns([7, 5])
 
     with col_fin_left:
-        # Build Cash Flow Plot using Plotly Go
-        st.markdown('<div class="card-title">21-Year Lifecycle Projected Net Cash Flows</div>', unsafe_allow_html=True)
+        if feasibility.financial_status != "ILLUSTRATIVE_LSS_PPA_NO_SIGNED_CONTRACT":
+            st.info("NPV, IRR and net cash-flow chart withheld: customer interval demand/export, applicable tariff, and 10-year offset limits are not verified. Gross yield and LCOE above are illustrative only.")
+        else:
+            # Build Cash Flow Plot using Plotly Go
+            st.markdown('<div class="card-title">Illustrative LSS PPA Cash Flows (21 years)</div>', unsafe_allow_html=True)
 
-        # Use the same lifecycle projection function as the backend engine.
-        projection = project_lifecycle_cashflows(
-            capacity_mwp=feasibility.capacity_mwp,
-            annual_yield_mwh=feasibility.annual_yield_mwh,
-            adjusted_capex_rm=feasibility.grading_adjusted_capex_rm,
-            bess_capex_rm=grid_audit.bess_specification.estimated_bess_capex_rm,
-            tariff_rm_kwh=feasibility.ppa_tariff_rm_kwh,
-        )
-        years = list(range(0, len(projection["cash_flows"])))
-        cf_vals = projection["cash_flows"]
+            # Use the same lifecycle projection function as the backend engine.
+            projection = project_lifecycle_cashflows(
+                capacity_mwp=feasibility.capacity_mwp,
+                annual_yield_mwh=feasibility.annual_yield_mwh,
+                adjusted_capex_rm=feasibility.grading_adjusted_capex_rm,
+                bess_capex_rm=grid_audit.bess_specification.estimated_bess_capex_rm,
+                tariff_rm_kwh=feasibility.ppa_tariff_rm_kwh,
+            )
+            years = list(range(0, len(projection["cash_flows"])))
+            cf_vals = projection["cash_flows"]
 
-        fig_cf = go.Figure()
-        fig_cf.add_trace(go.Bar(
-            x=years,
-            y=cf_vals,
-            marker_color=["#ef4444" if val < 0 else "#22c55e" for val in cf_vals],
-            name="Net Cash Flow"
-        ))
+            fig_cf = go.Figure()
+            fig_cf.add_trace(go.Bar(
+                x=years,
+                y=cf_vals,
+                marker_color=["#ef4444" if val < 0 else "#22c55e" for val in cf_vals],
+                name="Net Cash Flow"
+            ))
 
-        fig_cf.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="DM Sans, sans-serif", color="#71717a" if not IS_DARK else "#a1a1aa", size=10),
-            margin=dict(l=0, r=0, t=10, b=0),
-            xaxis=dict(
-                gridcolor="rgba(0,0,0,0.04)" if not IS_DARK else "rgba(255,255,255,0.04)",
-                tickmode="linear",
-                dtick=2,
-                title="Year"
-            ),
-            yaxis=dict(
-                gridcolor="rgba(0,0,0,0.04)" if not IS_DARK else "rgba(255,255,255,0.04)",
-                title="Net Cash Flow (RM)"
-            ),
-            height=300
-        )
-        st.plotly_chart(fig_cf, use_container_width=True, config={"displayModeBar": False})
+            fig_cf.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="DM Sans, sans-serif", color="#71717a" if not IS_DARK else "#a1a1aa", size=10),
+                margin=dict(l=0, r=0, t=10, b=0),
+                xaxis=dict(
+                    gridcolor="rgba(0,0,0,0.04)" if not IS_DARK else "rgba(255,255,255,0.04)",
+                    tickmode="linear",
+                    dtick=2,
+                    title="Year"
+                ),
+                yaxis=dict(
+                    gridcolor="rgba(0,0,0,0.04)" if not IS_DARK else "rgba(255,255,255,0.04)",
+                    title="Net Cash Flow (RM)"
+                ),
+                height=300
+            )
+            st.plotly_chart(fig_cf, use_container_width=True, config={"displayModeBar": False})
 
     with col_fin_right:
         # BESS Battery Specification Card
@@ -670,15 +699,12 @@ with tabs[3]:
     st.markdown('<div class="brand-name" style="margin-bottom: 0.5rem;">Preliminary SEDA / TNB Planning Fields (Not a Filed Application)</div>', unsafe_allow_html=True)
     st.markdown('<div style="font-size: 0.8rem; margin-bottom: 1.25rem;">These are indicative planning fields only; actual filing, eligibility and grid requirements require qualified review.</div>', unsafe_allow_html=True)
 
-    # Patch values from sidebar
+    # Canonical planning fields come from land_meta; do not override an
+    # OCR-extracted title/location with stale sidebar or hard-coded Perak values.
     seda = manifest.seda_application
     tnb = manifest.tnb_grid_request
-    seda.Part_B_Site_Title_Number = in_title
-    seda.Part_B_Site_Lot_Number = in_lot
-    seda.Part_B_Mukim_Daerah_Negeri = f"Mukim Asam Kumbang, Larut dan Matang, {in_state}"
-    seda.Part_C_Proposed_DC_Capacity_kWp = float(feasibility.capacity_mwp * 1000.0)
-    seda.Part_C_Proposed_AC_Capacity_kWac = float(in_ac_capacity * 1000.0)
-    seda.Part_D_PPA_Tariff_Rate_RM_kWh = float(feasibility.ppa_tariff_rm_kwh)
+    atap_screen = manifest.solar_atap_precheck
+    study = manifest.nemas_checklist
 
     col_man_left, col_man_right = st.columns(2)
 
@@ -686,25 +712,25 @@ with tabs[3]:
         # SEDA Form Part A & B
         st.markdown(f"""
         <div class="card">
-            <div class="card-title">SEDA Rakyat Net Energy Metering (NEM / NOVA) Request</div>
-            <div class="card-subtitle">Form Pre-Fill Part A, B, C & D</div>
+            <div class="card-title">Preliminary Scheme Planning Data (Not a SEDA Application)</div>
+            <div class="card-subtitle">Source-preserving input summary, not an official form</div>
             <table class="data-table">
                 <tbody>
                     <tr>
                         <td style="width: 40%;">Part A: Applicant Corporate Name</td>
-                        <td><strong>{seda.Part_A_Applicant_Name}</strong></td>
+                        <td><strong>{html_escape(seda.Part_A_Applicant_Name)}</strong></td>
                     </tr>
                     <tr>
                         <td>Part A: SSM Company No</td>
-                        <td><code>{seda.Part_A_Company_Registration}</code></td>
+                        <td><code>{html_escape(seda.Part_A_Company_Registration)}</code></td>
                     </tr>
                     <tr>
                         <td>Part B: Registered Title Reference</td>
-                        <td><strong>{seda.Part_B_Site_Title_Number} ({seda.Part_B_Site_Lot_Number})</strong></td>
+                        <td><strong>{html_escape(seda.Part_B_Site_Title_Number)} ({html_escape(seda.Part_B_Site_Lot_Number)})</strong></td>
                     </tr>
                     <tr>
                         <td>Part B: Site Mukim & State</td>
-                        <td><strong>{seda.Part_B_Mukim_Daerah_Negeri}</strong></td>
+                        <td><strong>{html_escape(seda.Part_B_Mukim_Daerah_Negeri)}</strong></td>
                     </tr>
                     <tr>
                         <td>Part C: Proposed DC Capacity</td>
@@ -715,8 +741,8 @@ with tabs[3]:
                         <td><strong>{seda.Part_C_Proposed_AC_Capacity_kWac:,.2f} kWac</strong></td>
                     </tr>
                     <tr>
-                        <td>Part D: Proposed PPA Tariff Rate</td>
-                        <td><strong>RM {seda.Part_D_PPA_Tariff_Rate_RM_kWh:.4f} / kWh (LCOE-based)</strong></td>
+                        <td>Illustrative Model Tariff / Offset Assumption</td>
+                        <td><strong>RM {seda.Part_D_PPA_Tariff_Rate_RM_kWh:.4f} / kWh (not a signed tariff or LCOE)</strong></td>
                     </tr>
                 </tbody>
             </table>
@@ -726,29 +752,29 @@ with tabs[3]:
         # TNB Grid Connection Specs
         st.markdown(f"""
         <div class="card">
-            <div class="card-title">TNB Medium-Voltage Grid Connection Specs</div>
-            <div class="card-subtitle">Grid Parallel Interconnection Filing Requirements</div>
+            <div class="card-title">Connection Assumptions (Not a TNB Design)</div>
+            <div class="card-subtitle">Connection class is selected by user; exact voltage and PCC are unverified</div>
             <table class="data-table">
                 <tbody>
                     <tr>
                         <td style="width: 40%;">Interconnection Voltage Level</td>
-                        <td><strong>{tnb.Interconnection_Voltage_Level_kV:.1f} kV (Medium Voltage)</strong></td>
+                        <td><strong>Not engineered; selected class: {html_escape(study.voltage_class)}</strong></td>
                     </tr>
                     <tr>
                         <td>Total Generation Capacity</td>
                         <td><strong>{(seda.Part_C_Proposed_AC_Capacity_kWac / 1000.0):.2f} MWac</strong></td>
                     </tr>
                     <tr>
-                        <td>Inverter Compliance Standards</td>
+                        <td>Standards to verify (not certified)</td>
                         <td><strong>{", ".join(tnb.Inverter_Compliance_Standards)}</strong></td>
                     </tr>
                     <tr>
                         <td>Point of Common Coupling (PCC)</td>
-                        <td><strong>{tnb.Point_of_Common_Coupling}</strong></td>
+                        <td><strong>{html_escape(tnb.Point_of_Common_Coupling)}</strong></td>
                     </tr>
                     <tr>
-                        <td>Sized Transformer Capacity</td>
-                        <td><strong>{(seda.Part_C_Proposed_AC_Capacity_kWac / 1000.0 * 1.25):.2f} MVA</strong></td>
+                        <td>Transformer Capacity</td>
+                        <td><strong>To be determined by qualified engineering design</strong></td>
                     </tr>
                 </tbody>
             </table>
@@ -761,8 +787,9 @@ with tabs[3]:
         nemas = manifest.nemas_checklist
         study_label = nemas.assessment_type.replace("_", " ")
         nemas_fee_text = (
-            f"RM {nemas.estimated_regulatory_fee_rm:,.2f}"
-            if nemas.is_nemas_required else "Not established / scheme dependent"
+            f"RM {nemas.estimated_regulatory_fee_rm:,.2f} (historical NOVA reference only)"
+            if nemas.estimated_regulatory_fee_rm is not None
+            else "Unknown / not applicable / requires specific study"
         )
         study_notes = "".join(
             f'<div class="checklist-item"><span class="checklist-dot" style="background: var(--amber);"></span>{note}</div>'
@@ -776,7 +803,8 @@ with tabs[3]:
                 <tbody>
                     <tr><td>Proposed AC Capacity</td><td>{in_ac_capacity * 1000:,.1f} kWac</td></tr>
                     <tr><td>Study Classification</td><td>{study_label}</td></tr>
-                    <tr><td>Indicative Published Study Fee</td><td>{nemas_fee_text}</td></tr>
+                    <tr><td>Connection Voltage Class</td><td>{nemas.voltage_class} (assumed)</td></tr>
+                    <tr><td>Published Historical Fee Reference</td><td>{nemas_fee_text}</td></tr>
                     <tr><td>Processing Time</td><td>Not verified</td></tr>
                 </tbody>
             </table>
@@ -784,7 +812,14 @@ with tabs[3]:
         </div>
         """, unsafe_allow_html=True)
         if nemas.source_url:
-            st.caption(f"Fee/assessment reference: {nemas.source_url} (scheme and voltage applicability must be verified).")
+            st.caption(f"Study reference: {nemas.source_url} — {nemas.source_version}. Historical data do not establish a current application right.")
+        if atap_screen:
+            st.markdown("#### Solar ATAP: capacity-only precheck (NOT a financial simulation)")
+            if atap_screen.status == "CAPACITY_SCREEN_ONLY_FURTHER_REVIEW_REQUIRED":
+                st.info("Capacity is within the stated cap/maximum-demand limits, but eligibility and electrical assessment remain unverified.")
+            else:
+                st.warning(f"ATAP precheck: {atap_screen.status.replace('_', ' ').lower()}.")
+            st.caption("Export offsets only within the initial 10-year programme term; customer load and credits are NOT modeled.")
 
         # Download button
         report_payload = {
@@ -793,6 +828,18 @@ with tabs[3]:
             "data_provenance": {**assessment["data_provenance"], "sld": g.graph.get("source_type", "SYNTHETIC_DEMO")},
             "sld_topology_screen": g.graph.get("tnb_compliance", {}),
             "regulatory_study": manifest.nemas_checklist.model_dump(),
+            "regulatory_planning_fields": {
+                "seda": manifest.seda_application.model_dump(),
+                "tnb": manifest.tnb_grid_request.model_dump(),
+            },
+            "solar_atap_capacity_only_precheck": (
+                manifest.solar_atap_precheck.model_dump() if manifest.solar_atap_precheck else None
+            ),
+            "ocr_status": {
+                "title": "OCR_EXTRACTED_UNVERIFIED" if land_meta.source_type == "OCR_EXTRACTED_UNVERIFIED" else "NOT_USED",
+                "sld": "OCR_EXTRACTED_UNVERIFIED" if g.graph.get("source_type") == "OCR_EXTRACTED_UNVERIFIED" else "NOT_USED",
+                "model": "Gemini (GEMINI_MODEL configured; see server logs)" if (title_image_path or sld_image_path) else None,
+            },
             "land_title_analysis": {
                 "title_no": land_meta.title_no, "lot_no": land_meta.lot_no, "state": land_meta.state,
                 "area_hectares": hectares, "area_sq_meters": sq_meters,
@@ -811,7 +858,9 @@ with tabs[3]:
                 "annual_yield_mwh": feasibility.annual_yield_mwh,
                 "adjusted_capex_rm": feasibility.grading_adjusted_capex_rm,
                 "project_npv_rm": feasibility.npv_rm,
-                "project_irr_percent": feasibility.irr_percent
+                "project_irr_percent": feasibility.irr_percent,
+                "financial_status": feasibility.financial_status,
+                "financial_notes": feasibility.financial_notes
             }
         }
         json_str = json.dumps(report_payload, indent=4)

@@ -263,9 +263,9 @@ SLOPE_PROFILES = [
 ]
 
 SAMPLE_OWNERS = [
-    {"name": "Ahmad Bin Ismail", "id": "650212-08-5431", "share": "11/120"},
-    {"name": "Wan Fatimah Binti Wan Ali", "id": "701103-08-5222", "share": "15/120"},
-    {"name": "Siti Aminah Binti Ahmad", "id": "930415-08-6112", "share": "14/120"},
-    {"name": "Solarvest Development Sdn Bhd", "id": "1234567-U", "share": "40/120"},
-    {"name": "Lee Chong Wei", "id": "821021-10-5431", "share": "40/120"},
+    {"name": "Ahmad Bin Ismail", "id": "SYNTHETIC-ID-650", "share": "11/120"},
+    {"name": "Wan Fatimah Binti Wan Ali", "id": "SYNTHETIC-ID-701", "share": "15/120"},
+    {"name": "Siti Aminah Binti Ahmad", "id": "SYNTHETIC-ID-930", "share": "14/120"},
+    {"name": "Synthetic Demo Developer", "id": "SYNTHETIC-ID", "share": "40/120"},
+    {"name": "Synthetic Landowner E", "id": "SYNTHETIC-ID-821", "share": "40/120"},
 ]

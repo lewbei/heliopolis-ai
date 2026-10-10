@@ -36,6 +36,8 @@ Use these keys exactly:
   "area_acres": float or null,
   "area_roods": float or null,
   "area_poles": float or null,
+  "area_hectares_stated": float or null,
+  "area_sq_meters_stated": float or null,
   "has_caveats": true if a Caveat (Kaveat) is recorded, false if legibly absent, null if unreadable,
   "has_charges": true if a Charge/Gadaian or Dichaj is recorded, false if legibly absent, null if unreadable,
   "is_malay_reserve": true if Tanah Rezab Melayu / Malay Reserve appears, false if legibly absent, null if unreadable,
@@ -44,7 +46,7 @@ Use these keys exactly:
   ]
 }
 
-Never infer that a land restriction is absent from illegible text: return null for unknown flags. If an owner section is unreadable or not shown, return an empty list; do not invent owners.  Share fractions are usually expressed as "X/120" in Malaysian titles.
+Only report area_hectares_stated/area_sq_meters_stated when independently printed on the scanned source; NEVER calculate them from Ekar/Rood/Pole. These are cross-check fields, not solver outputs.\n\nNever infer that a land restriction is absent from illegible text: return null for unknown flags. If an owner section is unreadable or not shown, return an empty list; do not invent owners.  Share fractions are usually expressed as "X/120" in Malaysian titles.
 """
 
 _SLD_PROMPT = """

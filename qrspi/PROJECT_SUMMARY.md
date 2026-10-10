@@ -17,12 +17,12 @@ Solar developers routinely reconcile heterogeneous land, electrical and financia
 1. **Gemini Vision OCR:** optional cloud-based perception for title fields, electrical symbols, wires and junctions. Missing or unreadable uploaded evidence must return a review/error status and must never be substituted by pre-approved synthetic data.
 2. **Legal screening:** interprets area units and share fractions and flags selected visible restrictions; shares alone do not determine property execution authority. Title records require solicitor/land-office verification.
 3. **SLD graph screen:** a NetworkX graph tests modeled PV -> inverter -> anti-islanding relay -> transformer -> grid paths, including bypass/disconnection flags. Results are preliminary; no protection-setting or full utility compliance model exists.
-4. **Civil/financial sensitivity:** synthetic terrain examples, offline representative solar-resource inputs and simplified CAPEX, OPEX, yield and NPV/IRR assumptions. No actual topographic survey or financial bankability is claimed.
-5. **Regulatory planning fields:** model selected published NEM NOVA LV/MV CAS study-fee bands separately from LSS economic scenarios; never state the inferred amount is an approved quotation. A simplified AC MW/MVA screen does not establish an obligatory BESS requirement.
+4. **Civil/financial sensitivity:** synthetic terrain examples, offline representative solar-resource inputs and simplified CAPEX, OPEX and yield assumptions. NPV/IRR is returned only for an illustrative LSS PPA case; historical NOVA/self-consumption profitability is withheld without load and contract inputs. No actual topographic survey or financial bankability is claimed.
+5. **Regulatory planning fields:** look up historical NEM NOVA LV/MV CAS fee references only when a voltage class is explicitly supplied; current scheme applicability remains unverified; never state the inferred amount is an approved quotation. A simplified AC MW/MVA screen does not establish an obligatory BESS requirement.
 
 ## Important programme boundaries
 
-**Solar ATAP is not a complete supported modelling scenario.** Official non-domestic limits include inverter output <= 1 MW and <= 100% of consumer maximum demand; the export offset arrangement lasts 10 years. Our multi-MW demonstration must not be marketed as ATAP-eligible. Consumption/export profiles, accurate energy tariff elements and current programme rules require separate evaluation.
+**Solar ATAP is supported only as a non-domestic capacity precheck, not a 21-year cash-flow or offset model.** Official non-domestic limits include inverter output <= 1 MW and <= 100% of consumer maximum demand; the export offset arrangement lasts 10 years. Our multi-MW demonstration must not be marketed as ATAP-eligible. Consumption/export profiles, accurate energy tariff elements and current programme rules require separate evaluation.
 
 Official references:
 - https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/
@@ -43,7 +43,7 @@ Potential customers: solar EPCs, IPPs and their project-development analysts. Th
 
 - Synthetic samples are not an accuracy benchmark.
 - Land records and grid schematics have not received independent legal or TNB validation.
-- No verified Solar ATAP offset economics, live land-office integration, automatic filing or customer contract.
+- No real Solar ATAP offset economics, customer interval load profile, independently verified land document OCR, live land-office integration, automatic filing or signed customer contract.
 - Production data security and permissions require an additional deployment review.
 
 **MAIC presentation:** [PITCH_DECK.md](../PITCH_DECK.md)  

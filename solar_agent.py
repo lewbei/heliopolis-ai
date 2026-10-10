@@ -26,15 +26,15 @@ DEFAULT_WACC = 0.065
 # --- Financial Scenario Tariffs (RM/kWh) ---
 # Sourced from Malaysian market benchmarks:
 #   LSS PPA ~RM 0.17/kWh (LSS5 average, 2024)
-#   C&I NEM/ATAP offset ~RM 0.37/kWh (industrial displaced tariff)
+#   Historical C&I/NEM NOVA rate sensitivity ~RM 0.37/kWh (NOT Solar ATAP) (industrial displaced tariff)
 #   Self-consumption premium ~RM 0.45/kWh (system-access / green tariff scenarios)
 SCENARIO_LSS_PPA = "lss_ppa"
 SCENARIO_C_I_NEM = "c_i_nem"
 SCENARIO_SELF_CONSUMPTION = "self_consumption"
 SCENARIO_LABELS = {
     SCENARIO_LSS_PPA: "LSS PPA (Utility-Scale)",
-    SCENARIO_C_I_NEM: "C&I / NEM NOVA sensitivity (NOT Solar ATAP)",
-    SCENARIO_SELF_CONSUMPTION: "Self-consumption tariff sensitivity (illustrative)",
+    SCENARIO_C_I_NEM: "Historical NOVA reference (NO NPV without load profile)",
+    SCENARIO_SELF_CONSUMPTION: "Self-consumption (NO NPV without load profile)",
 }
 SCENARIO_TARIFFS: dict[str, float] = {
     SCENARIO_LSS_PPA: 0.17,
@@ -81,8 +81,8 @@ def generate_co_owners(count: int, site_id: str) -> list[dict[str, str]]:
         share_str = f"{shares[i]}/120"
 
         if i == 0 and count >= 3:
-            name = "Solarvest Development Sdn Bhd"
-            ic_co = "1234567-U"
+            name = "Synthetic Demo Developer"
+            ic_co = "SYNTHETIC-ID"
         else:
             salt = 0
             while True:
@@ -100,7 +100,7 @@ def generate_co_owners(count: int, site_id: str) -> list[dict[str, str]]:
             birth_dy = deterministic_hash(f"dy_{i}_{site_id}_{salt}") % 28 + 1
             state_code = deterministic_hash(f"st_{i}_{site_id}_{salt}") % 14 + 1
             unique_code = deterministic_hash(f"un_{i}_{site_id}_{salt}") % 9000 + 1000
-            ic_co = f"{birth_yr:02d}{birth_mo:02d}{birth_dy:02d}-{state_code:02d}-{unique_code:d}"
+            ic_co = f"SYNTHETIC-ID-{i:03d}-{unique_code:d}"
 
         owners.append({
             "name": name,
@@ -120,12 +120,15 @@ class OwnerModel(BaseModel):
     calculated_share_float: float = Field(description="Decimal value of the fractional share.")
 
 class PowerOfAttorneyModel(BaseModel):
-    is_poa_required: bool = Field(description="True if no single owner holds a controlling >50% stake.")
-    min_co_owners_needed: int = Field(description="Minimum number of co-owners that must co-sign to exceed 51% controlling interest.")
-    required_deeds: List[str] = Field(default=[], description="List of legal instruments required for joint land lease.")
+    # Legacy field name retained for compatibility: true means review *possible*
+    # POA / joint execution needs, not a legal conclusion that POA is mandatory.
+    is_poa_required: Optional[bool] = Field(default=None, description="POA legal requirement undetermined; never infer from share arithmetic.")
+    requires_coowner_coordination: bool = Field(default=False, description="Multiple proprietors need professional coordination review.")
+    min_co_owners_needed: Optional[int] = Field(default=None, description="Legal minimum signatures unknown; no 51% shortcut.")
+    required_deeds: List[str] = Field(default_factory=list, description="Items for solicitor review, not mandatory instruments.")
 
 class LegalAssessmentModel(BaseModel):
-    status: str = Field(description="Zoning or transaction suitability: 'Approved', 'Flagged/Risky', or 'Rejected'.")
+    status: str = Field(description="Preliminary review flag: Needs Legal Review or Flagged/Risky; never legal approval.")
     findings: List[str] = Field(default=[], description="List of administrative or legal issues found on the land title.")
     poa_compliance: PowerOfAttorneyModel
 
@@ -158,7 +161,7 @@ class TerrainProfileModel(BaseModel):
     grading_capex_premium_multiplier: float = Field(description="CAPEX multiplier adjustment for civil earthworks.")
 
 class BESSRecommendationModel(BaseModel):
-    is_bess_required: bool = Field(description="True if PV capacity exceeds 15% of upstream TNB substation capacity.")
+    is_bess_required: bool = Field(description="True only if independent engineering evidence establishes mandatory BESS; heuristic alone must not mandate storage.")
     recommended_battery_power_mw: float = Field(description="Recommended Battery Energy Storage System (BESS) power rating (MW).")
     recommended_battery_capacity_mwh: float = Field(description="Recommended BESS capacity for peak shaving (MWh).")
     estimated_bess_capex_rm: float = Field(description="Estimated extra BESS capital expenditure (RM).")
@@ -167,7 +170,7 @@ class BESSRecommendationModel(BaseModel):
 class GridCapacityValidationModel(BaseModel):
     upstream_substation_capacity_mva: float = Field(description="Rated capacity of local TNB substation (MVA).")
     substation_injection_percent: float = Field(description="Ratio of peak AC solar output to substation capacity.")
-    reverse_power_risk: str = Field(description="Grid risk classification: 'Negligible', 'Moderate', or 'Severe'.")
+    reverse_power_risk: str = Field(description="Heuristic review flag, not a utility load-flow or reverse-power protection assessment.")
     bess_specification: BESSRecommendationModel
 
 class TechnicalFeasibilityModel(BaseModel):
@@ -178,19 +181,24 @@ class TechnicalFeasibilityModel(BaseModel):
     lcoe_rm_kwh: float = Field(description="Levelized Cost of Electricity (RM/kWh).")
     ppa_tariff_rm_kwh: float = Field(description="Assumed PPA or displaced energy tariff used for revenue projection (RM/kWh).")
     scenario: str = Field(description="Financial scenario used for revenue projection (lss_ppa, c_i_nem, self_consumption).")
-    npv_rm: float = Field(description="Net Present Value (RM) over the project lifecycle.")
-    irr_percent: float = Field(description="Project Internal Rate of Return (%).")
-    payback_years: float = Field(description="Estimated capital payback period in years.")
+    npv_rm: Optional[float] = Field(description="Illustrative NPV only if a revenue model is supportable; otherwise null.")
+    irr_percent: Optional[float] = Field(description="Illustrative IRR or null if consumption/contract evidence is missing.")
+    payback_years: Optional[float] = Field(description="Illustrative payback or null if undefined.")
+    financial_status: str = Field(default="UNVERIFIED", description="Whether an illustrative revenue model can be presented.")
+    financial_notes: List[str] = Field(default_factory=list, description="Key missing economic inputs and limitations.")
     terrain_profile: TerrainProfileModel
     grid_capacity_audit: GridCapacityValidationModel
 
 class NEMASChecklistSchema(BaseModel):
-    is_nemas_required: bool = Field(description="True if proposed AC capacity exceeds 72 kWac.")
-    voltage_rise_study_required: bool = Field(description="True if AC generation can trigger local grid overvoltage.")
-    estimated_regulatory_fee_rm: float = Field(description="Estimate of TNB/SEDA assessment study fees.")
+    is_nemas_required: bool = Field(description="Legacy flag for scenario-specific historical study rule; not blanket NEMAS or permission.")
+    voltage_rise_study_required: Optional[bool] = Field(default=None, description="Unestablished until actual network study.")
+    estimated_regulatory_fee_rm: Optional[float] = Field(default=None, description="Published *reference* fee in RM, or None when not verified/applicable.")
     estimated_processing_days: Optional[int] = Field(default=None, description="Estimated calendar days, or None if not supported by evidence.")
     assessment_type: str = Field(default="UNCONFIRMED", description="Applicable connection study, not a permit.")
     source_url: str = Field(default="", description="Scheme-specific reference used for study fees.")
+    source_version: str = Field(default="", description="Document period/version for cited study rules.")
+    voltage_class: str = Field(default="UNKNOWN", description="EXPLICIT LV/MV/HV/UNKNOWN input, never inferred from MW size.")
+    study_applicability_known: bool = Field(default=False, description="Whether scenario + voltage selection are sufficient for preliminary historical study lookup.")
     eligibility_notes: List[str] = Field(default_factory=list, description="Requirements needing independent confirmation.")
     mandatory_technical_studies: List[str] = Field(default=[], description="List of engineering studies required for grid filing.")
 
@@ -206,16 +214,26 @@ class SEDAApplicationSchema(BaseModel):
 
 class TNBConnectionSchema(BaseModel):
     Applicant_Company: str
-    Interconnection_Voltage_Level_kV: float
+    Interconnection_Voltage_Level_kV: Optional[float] = None
     Total_Generation_Capacity_MWac: float
     Inverter_Compliance_Standards: List[str]
     Point_of_Common_Coupling: str
-    Transformer_Capacity_MVA: float
+    Transformer_Capacity_MVA: Optional[float] = None
+
+class SolarATAPPrecheck(BaseModel):
+    status: str = Field(description="Preliminary capacity screen; not programme eligibility or approval.")
+    capacity_kwac: float
+    maximum_demand_kw: Optional[float] = None
+    limit_kwac: float = 1000.0
+    export_offset_max_years: int = 10
+    notes: List[str] = Field(default_factory=list)
+
 
 class RegulatoryFilingManifest(BaseModel):
     seda_application: SEDAApplicationSchema
     tnb_grid_request: TNBConnectionSchema
     nemas_checklist: NEMASChecklistSchema
+    solar_atap_precheck: Optional[SolarATAPPrecheck] = None
 
 
 # --- Specialized Parsing & Analysis Modules ---
@@ -254,10 +272,7 @@ class ImageOrientationCorrector:
 
 
 class LandTitleParser:
-    """
-    Simulates high-precision, layout-aware legal OCR and text analysis of Malaysian Land Titles (Geran),
-    complying with the National Land Code (NLC / Kanun Tanah Negara) 1965.
-    """
+    """Preliminary document-field screening; not NLC legal compliance or title clearance."""
     @staticmethod
     def convert_imperial_to_metric(acres: float, roods: float, poles: float) -> tuple[float, float]:
         """
@@ -283,6 +298,19 @@ class LandTitleParser:
             return float(f_clean)
         except ValueError:
             return 0.0
+
+    @staticmethod
+    def parse_fraction_strict(value: str) -> float:
+        """Reject unknown, invalid, nonfinite or out-of-range ownership fractions."""
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("missing owner share")
+        try:
+            parsed = LandTitleParser.parse_fraction(value)
+        except (TypeError, ValueError, ZeroDivisionError, OverflowError) as exc:
+            raise ValueError("invalid owner share") from exc
+        if not np.isfinite(parsed) or not (0.0 < parsed <= 1.0):
+            raise ValueError("owner share must be between 0 and 1")
+        return parsed
 
     @classmethod
     def _convert_metric_to_imperial(cls, area_sq_meters: float) -> str:
@@ -338,8 +366,9 @@ class LandTitleParser:
         # a lease for the entire property on behalf of all registered proprietors.
         multiple_owners = len(owners) > 1
         return PowerOfAttorneyModel(
-            is_poa_required=multiple_owners,  # Legacy field: means legal coordination must be checked.
-            min_co_owners_needed=len(owners),
+            is_poa_required=None,  # No legal POA necessity can be inferred from owner share arithmetic.
+            requires_coowner_coordination=multiple_owners,
+            min_co_owners_needed=None,
             required_deeds=(
                 [
                     "Conveyancing review: confirm consent and authority of all registered proprietors.",
@@ -370,7 +399,7 @@ class LandTitleParser:
         if is_malay_reserve:
             findings.append("Malay Reserve indicated: check eligibility and state legislation with a qualified professional.")
             status = "Flagged/Risky"
-        if poa.is_poa_required:
+        if poa.requires_coowner_coordination:
             findings.append("Multiple proprietors: ownership percentages alone do not establish authority to lease the whole lot.")
         return LegalAssessmentModel(status=status, findings=findings, poa_compliance=poa)
 
@@ -407,8 +436,8 @@ class LandTitleParser:
         poa = cls._compute_poa(owners)
         legal = cls._compute_legal_assessment(zoning, has_caveats, has_charges, is_malay_reserve, poa)
 
-        project_company_name = site_data.get("project_company_name", "Solarvest Development Sdn Bhd")
-        project_company_reg_no = site_data.get("project_company_reg_no", "1234567-U")
+        project_company_name = site_data.get("project_company_name", "Synthetic demo developer (not registered)")
+        project_company_reg_no = site_data.get("project_company_reg_no", "SYNTHETIC-NOT-SSM")
 
         return LandTitleMetadata(
             source_type=site_data.get("source_type", "SYNTHETIC_DEMO"),
@@ -451,6 +480,21 @@ class LandTitleParser:
         if not all(np.isfinite(x) and x >= 0 for x in area) or area[1] >= 4 or area[2] >= 40:
             raise DocumentReviewRequired("Land-area fields are invalid or contradictory.")
         hectares, sq_meters = cls.convert_imperial_to_metric(*area)
+        # When the scanned title contains both imperial and metric statements,
+        # reject contradictory extraction rather than silently choose one.
+        for key, expected in (
+            ("area_hectares_stated", hectares),
+            ("area_sq_meters_stated", sq_meters),
+        ):
+            stated = data.get(key)
+            if stated is not None:
+                try:
+                    actual = float(stated)
+                except (TypeError, ValueError, OverflowError) as exc:
+                    raise DocumentReviewRequired(f"Unreadable {key}; verify area on original title.") from exc
+                tolerance = max(1.0 if key.endswith("sq_meters_stated") else 0.0001, expected * 0.01)
+                if not np.isfinite(actual) or actual <= 0 or abs(actual - expected) > tolerance:
+                    raise DocumentReviewRequired("Imperial and metric area statements contradict; check original title.")
         if sq_meters <= 0:
             raise DocumentReviewRequired("Land area is zero; cannot assess this site.")
 
@@ -466,7 +510,7 @@ class LandTitleParser:
                 ):
                     raise ValueError("incomplete registered-owner record")
                 share = owner["share_fraction"]
-                fraction = cls.parse_fraction(share)
+                fraction = cls.parse_fraction_strict(share)
                 if not (0 < fraction <= 1):
                     raise ValueError("invalid owner share")
                 owners.append(OwnerModel(
@@ -522,11 +566,11 @@ class LandTitleParser:
             "has_caveats": has_caveats,
             "has_charges": has_charges,
             "owner_templates": [
-                {"name": "Ahmad Bin Ismail", "ic_or_co_no": "650212-08-5431", "share": "11/120"},
-                {"name": "Wan Fatimah Binti Wan Ali", "ic_or_co_no": "701103-08-5222", "share": "15/120"},
-                {"name": "Siti Aminah Binti Ahmad", "ic_or_co_no": "930415-08-6112", "share": "14/120"},
-                {"name": "Solarvest Development Sdn Bhd", "ic_or_co_no": "1234567-U", "share": "40/120"},
-                {"name": "Lee Chong Wei", "ic_or_co_no": "821021-10-5431", "share": "40/120"}
+                {"name": "Ahmad Bin Ismail", "ic_or_co_no": "SYNTHETIC-ID-650", "share": "11/120"},
+                {"name": "Wan Fatimah Binti Wan Ali", "ic_or_co_no": "SYNTHETIC-ID-701", "share": "15/120"},
+                {"name": "Siti Aminah Binti Ahmad", "ic_or_co_no": "SYNTHETIC-ID-930", "share": "14/120"},
+                {"name": "Synthetic Demo Developer", "ic_or_co_no": "SYNTHETIC-ID", "share": "40/120"},
+                {"name": "Synthetic Landowner E", "ic_or_co_no": "SYNTHETIC-ID-821", "share": "40/120"}
             ]
         }
 
@@ -1012,6 +1056,32 @@ class YieldFeasibilityEngine:
 
         lcoe_rm_kwh = discounted_costs / (discounted_energy + 1e-12) if discounted_energy > 0 else 0.0
 
+        # No customer interval load/export profile or binding tariff is available
+        # for C&I/NOVA or self-consumption. A flat 21-year "offset" would wrongly
+        # count export credits long after the historical 10-year scheme ended.
+        if scenario != SCENARIO_LSS_PPA:
+            return TechnicalFeasibilityModel(
+                capacity_mwp=round(capacity_mwp, 3),
+                annual_yield_mwh=round(annual_yield_mwh, 2),
+                base_capex_rm=round(base_capex, 2),
+                grading_adjusted_capex_rm=round(adjusted_capex, 2),
+                lcoe_rm_kwh=round(lcoe_rm_kwh, 4),
+                ppa_tariff_rm_kwh=round(tariff_rm_kwh, 4),
+                scenario=scenario,
+                npv_rm=None,
+                irr_percent=None,
+                payback_years=None,
+                financial_status="NEEDS_LOAD_PROFILE_AND_VERIFIED_TARIFF",
+                financial_notes=[
+                    "No historical-NOVA/Solar-ATAP export credit projection is generated.",
+                    "Customer interval load/export, contract eligibility and tariff components are missing.",
+                    "Existing historical NEM/NOVA rules cannot be extended unchanged to years 11-21.",
+                    "LCOE, gross yield and CAPEX remain illustrative screening estimates.",
+                ],
+                terrain_profile=self.terrain,
+                grid_capacity_audit=self.grid_audit,
+            )
+
         # Solve NPV
         npv = -adjusted_capex
         for yr in range(1, project_lifetime + 1):
@@ -1052,104 +1122,189 @@ class YieldFeasibilityEngine:
             npv_rm=round(npv, 2),
             irr_percent=round(r * 100.0, 2),
             payback_years=round(payback, 2),
+            financial_status="ILLUSTRATIVE_LSS_PPA_NO_SIGNED_CONTRACT",
+            financial_notes=[
+                "Assumed LSS PPA tariff is an illustrative sensitivity, not a signed off-take agreement.",
+                "Yield, capital costs, power purchase terms and grid study are not independently verified.",
+            ],
             terrain_profile=self.terrain,
             grid_capacity_audit=self.grid_audit
         )
 
 
+def screen_solar_atap_non_domestic(
+    proposed_ac_kw: float,
+    maximum_demand_kw: Optional[float] = None,
+) -> SolarATAPPrecheck:
+    """Capacity-only Solar ATAP screen; no tariff or export-credit projection."""
+    if not np.isfinite(proposed_ac_kw) or proposed_ac_kw <= 0:
+        raise ValueError("Solar ATAP screen requires positive inverter AC capacity.")
+    if maximum_demand_kw is not None and (
+        not np.isfinite(maximum_demand_kw) or maximum_demand_kw <= 0
+    ):
+        raise ValueError("Maximum Demand must be positive or explicitly unknown.")
+
+    notes = [
+        "Non-domestic Solar ATAP: inverter output <= 1,000 kW and <= 100% of verified consumer Maximum Demand; user input alone does not verify it.",
+        "A TNB registered account, utility assessment and programme eligibility review are additionally required.",
+        "ATAP surplus-energy offset lasts 10 years; no excess-export offset applies from year 11 onward.",
+        "No eligible tariff, energy-bill saving, export amount, financing decision or grid permission is calculated.",
+        "Authority: https://www.seda.gov.my/reportal/atap/solaratap-general/ (guideline as of 30 Dec 2025).",
+    ]
+    if proposed_ac_kw > 1000.0:
+        status = "OUTSIDE_ATAP_NON_DOMESTIC_CAP"
+    elif maximum_demand_kw is None:
+        status = "MAXIMUM_DEMAND_NOT_PROVIDED"
+    elif proposed_ac_kw > maximum_demand_kw:
+        status = "EXCEEDS_PROVIDED_MAXIMUM_DEMAND"
+    else:
+        status = "CAPACITY_SCREEN_ONLY_FURTHER_REVIEW_REQUIRED"
+    return SolarATAPPrecheck(
+        status=status,
+        capacity_kwac=round(proposed_ac_kw, 5),
+        maximum_demand_kw=maximum_demand_kw,
+        notes=notes,
+    )
+
+
 class FormFiller:
-    """Generate PRELIMINARY planning fields; never a completed regulatory filing."""
+    """Produce preliminary, provenance-qualified planning data (not regulatory filings)."""
 
     @staticmethod
-    def generate_manifest(land: LandTitleMetadata, tech: TechnicalFeasibilityModel,
-                          proposed_ac_mw: Optional[float] = None) -> RegulatoryFilingManifest:
+    def generate_manifest(
+        land: LandTitleMetadata,
+        tech: TechnicalFeasibilityModel,
+        proposed_ac_mw: Optional[float] = None,
+        voltage_class: str = "UNKNOWN",
+        maximum_demand_kw: Optional[float] = None,
+    ) -> RegulatoryFilingManifest:
         ac_capacity_kw = float(
-            proposed_ac_mw * 1000 if proposed_ac_mw is not None
+            proposed_ac_mw * 1000.0
+            if proposed_ac_mw is not None
             else tech.capacity_mwp * 1000.0 * 0.85
         )
         if not np.isfinite(ac_capacity_kw) or ac_capacity_kw <= 0:
             raise ValueError("Proposed inverter AC capacity must be positive.")
 
-        assessment_type = "GRID_STUDY_TO_CONFIRM"
-        study_required = False
-        study_fee = 0.0
+        voltage_class = voltage_class.upper().strip()
+        if voltage_class not in ("UNKNOWN", "LV", "MV", "HV"):
+            raise ValueError("Select LV, MV, HV or UNKNOWN voltage class.")
+        atap = screen_solar_atap_non_domestic(ac_capacity_kw, maximum_demand_kw)
+
+        study_required = False  # Legacy compatibility; UNKNOWN does not mean exempt.
+        fee: Optional[float] = None
+        study_known = False
         source_url = ""
+        source_version = ""
+        study_type = "SCHEME_SPECIFIC_UTILITY_ASSESSMENT_PENDING"
+        required_items = ["Request project-specific network and protection requirements from the utility."]
         notes = [
-            "Preliminary manifest only. No TNB/SEDA application submitted or approved.",
-            "Capacity, connection voltage and applicant eligibility need independent verification.",
+            "PRELIMINARY planning fields; no TNB/SEDA application has been made or approved.",
+            "Site ownership, title limitations, applicant eligibility, and connection conditions are unverified.",
+            "Selected voltage class is a user assumption, not an automatic engineering decision.",
         ]
-        mandatory_studies = ["Obtain utility's project-specific study/connection requirements."]
 
         if tech.scenario == SCENARIO_C_I_NEM:
-            # NEM NOVA legacy scheme study bands, NOT Solar ATAP. Tariff is
-            # merely a financial sensitivity until contract and bills are reviewed.
             source_url = "https://www.seda.gov.my/reportal/nem/"
-            notes.append("NEM NOVA scenario and RM/kWh rate are illustrative; verify current programme eligibility and customer bills.")
-            if ac_capacity_kw <= 72.0:
-                assessment_type = "CAS_NOT_CAPACITY_TRIGGERED"
-                mandatory_studies = []
-            elif ac_capacity_kw <= 180.0:
-                assessment_type, study_fee = "CAS", 1000.0
-            elif ac_capacity_kw <= 425.0:
-                assessment_type, study_fee = "CAS", 5000.0
-            elif ac_capacity_kw <= 1000.0:
-                assessment_type, study_fee = "CAS", 8000.0
-            elif ac_capacity_kw <= 2000.0:
-                assessment_type, study_fee = "CAS", 15000.0
-            elif ac_capacity_kw <= 5000.0:
-                assessment_type, study_fee = "CAS", 20000.0
+            source_version = "NOVA guidelines updated 1 March 2025; 2021–2025 quota offer period"
+            notes.append(
+                "HISTORICAL NEM 3.0 NOVA *financial sensitivity only*. Quota offer period ended "
+                "30 June 2025 under published programme terms; confirm any new eligibility independently."
+            )
+            notes.append(
+                "The published historical connection study table is not Solar ATAP, "
+                "nor proof that a new 2026 NOVA application is accepted."
+            )
+            if voltage_class in ("LV", "MV"):
+                study_known = True
+                if ac_capacity_kw <= 72.0:
+                    study_type = "HISTORICAL_NOVA_CAS_NOT_CAPACITY_TRIGGERED"
+                    required_items = []
+                elif ac_capacity_kw <= 180.0:
+                    study_type, fee = "HISTORICAL_NOVA_CAS", 1000.0
+                elif ac_capacity_kw <= 425.0:
+                    study_type, fee = "HISTORICAL_NOVA_CAS", 5000.0
+                elif ac_capacity_kw <= 1000.0:
+                    study_type, fee = "HISTORICAL_NOVA_CAS", 8000.0
+                elif ac_capacity_kw <= 2000.0:
+                    study_type, fee = "HISTORICAL_NOVA_CAS", 15000.0
+                elif ac_capacity_kw <= 5000.0:
+                    study_type, fee = "HISTORICAL_NOVA_CAS", 20000.0
+                else:
+                    study_type = "OUTSIDE_HISTORICAL_NOVA_LV_MV_FEE_TABLE"
+                    required_items = ["Capacity > 5 MW; require programme-specific utility assessment."]
+                    study_known = False
+                study_required = study_type == "HISTORICAL_NOVA_CAS"
+                if study_required:
+                    required_items = [
+                        "Historical LV/MV NOVA Connection Assessment Study (CAS) reference only."
+                    ]
+            elif voltage_class == "HV":
+                study_known = True
+                study_required = True
+                study_type = "HISTORICAL_NOVA_HV_CONSULTANT_ASSESSMENT"
+                required_items = [
+                    "HV CAS scope and fee determined by qualified consultant, not LV/MV bands."
+                ]
             else:
-                assessment_type = "OUTSIDE_MODELED_NOVA_STUDY_BANDS"
-                notes.append("AC capacity exceeds published 5 MW LV/MV CAS fee table; require project-specific review.")
-            study_required = assessment_type == "CAS"
-            if study_required:
-                mandatory_studies = ["NEM NOVA connection assessment (CAS) – applicable to LV/MV; verify voltage classification."]
+                study_type = "CONNECTION_VOLTAGE_UNVERIFIED"
+                required_items = [
+                    "Confirm LV/MV/HV before displaying an applicable historical CAS tier."
+                ]
         else:
-            notes.append("LSS/self-consumption does not inherit NEM/NOVA/ATAP study fees or eligibility.")
-        notes.append("Solar ATAP is not implemented in this prototype: non-domestic inverter output is capped at 1 MW and <=100% maximum demand; export offset lasts 10 years.")
-        if ac_capacity_kw > 1000:
-            notes.append("Above 1 MWac: do not market this modeled project as Solar ATAP eligible.")
+            notes.append(
+                "LSS PPA / self-consumption models do not inherit NEM/NOVA/ATAP "
+                "study fees, offsets or application eligibility."
+            )
 
-        if land.project_company_name:
-            applicant_name, applicant_id = land.project_company_name, land.project_company_reg_no or "N/A"
-        elif land.owners:
-            applicant = max(land.owners, key=lambda o: o.calculated_share_float)
-            applicant_name, applicant_id = applicant.name, applicant.ic_or_co_no
-            notes.append("Largest landowner is only a proposed contact; legal authority to apply is unverified.")
+        if land.project_company_name.strip():
+            applicant_name = land.project_company_name
+            applicant_id = land.project_company_reg_no.strip() or "UNVERIFIED"
         else:
-            applicant_name = applicant_id = "N/A"
+            applicant_name = "APPLICANT_NOT_PROVIDED"
+            applicant_id = "UNVERIFIED"
+            notes.append(
+                "Applicant not provided. Do not automatically substitute a landowner "
+                "or infer authority to sign and submit an application."
+            )
 
-        coupling_location = land.mukim or land.district
+        location = ", ".join(
+            field for field in (land.mukim, land.district, land.state) if field
+        ) or "LOCATION_UNCONFIRMED"
         seda = SEDAApplicationSchema(
             Part_A_Applicant_Name=applicant_name,
             Part_A_Company_Registration=applicant_id,
             Part_B_Site_Title_Number=land.title_no,
             Part_B_Site_Lot_Number=land.lot_no,
-            Part_B_Mukim_Daerah_Negeri=f"{land.mukim}, {land.district}, {land.state}",
+            Part_B_Mukim_Daerah_Negeri=location,
             Part_C_Proposed_DC_Capacity_kWp=float(tech.capacity_mwp * 1000.0),
             Part_C_Proposed_AC_Capacity_kWac=ac_capacity_kw,
             Part_D_PPA_Tariff_Rate_RM_kWh=tech.ppa_tariff_rm_kwh,
         )
         tnb = TNBConnectionSchema(
             Applicant_Company=applicant_name,
-            Interconnection_Voltage_Level_kV=33.0 if tech.capacity_mwp >= 2.0 else 11.0,
+            Interconnection_Voltage_Level_kV=None,  # not determined by MWp
             Total_Generation_Capacity_MWac=ac_capacity_kw / 1000.0,
             Inverter_Compliance_Standards=["IEC 62116", "IEC 61727", "MS 1837:2010"],
-            Point_of_Common_Coupling=f"Proposed site: {coupling_location} (actual PCC unverified)",
-            Transformer_Capacity_MVA=float(tech.capacity_mwp * 1.2),
+            Point_of_Common_Coupling=f"Site region: {location}; actual PCC not established",
+            Transformer_Capacity_MVA=None,  # not an engineering design
         )
         nemas = NEMASChecklistSchema(
             is_nemas_required=study_required,
-            voltage_rise_study_required=False,  # not determinable without network study
-            estimated_regulatory_fee_rm=study_fee,
+            voltage_rise_study_required=None,  # unknown: cannot infer from generated capacity
+            estimated_regulatory_fee_rm=fee,
             estimated_processing_days=None,
-            assessment_type=assessment_type,
+            assessment_type=study_type,
             source_url=source_url,
+            source_version=source_version,
+            voltage_class=voltage_class,
+            study_applicability_known=study_known,
             eligibility_notes=notes,
-            mandatory_technical_studies=mandatory_studies,
+            mandatory_technical_studies=required_items,
         )
         return RegulatoryFilingManifest(
-            seda_application=seda, tnb_grid_request=tnb, nemas_checklist=nemas,
+            seda_application=seda, tnb_grid_request=tnb,
+            nemas_checklist=nemas, solar_atap_precheck=atap,
         )
 
 
@@ -1231,12 +1386,15 @@ def main():
 
     # Compile final execution package
     final_output = {
+        "assessment_status": "PRELIMINARY_REVIEW_REQUIRED",
+        "scope": "SYNTHETIC_DEMO_NOT_REGULATORY_APPROVAL",
+        "data_provenance": {"land": land_metadata.source_type, "terrain": "SYNTHETIC_TERRAIN", "sld": sld_graph.graph.get("source_type", "SYNTHETIC_DEMO")},
         "land_title_analysis": land_metadata.model_dump(),
         "sld_topology_analysis": {
             "node_count": sld_graph.number_of_nodes(),
             "edge_count": sld_graph.number_of_edges(),
             "graph_paths": list(sld_graph.edges()),
-            "tnb_compliance": sld_graph.graph.get("tnb_compliance", {})
+            "preliminary_topology_screen": sld_graph.graph.get("tnb_compliance", {})
         },
         "technical_financial_feasibility": tech_results.model_dump(),
         "regulatory_manifest": regulatory_manifest.model_dump()
@@ -1255,17 +1413,18 @@ def main():
         print(f" [ERROR] Atomic file write failed: {e}")
         sys.exit(1)
 
-    print(f"\n[Success] Complete Solar Assessment Report successfully written to: {report_path}")
+    print(f"\n[PRELIMINARY SYNTHETIC SCREENING] Report written to: {report_path}")
     print(f"Financial Scenario: {SCENARIO_LABELS.get(tech_results.scenario, tech_results.scenario)}")
     print(f"Calculated Capacity: {tech_results.capacity_mwp:.3f} MWp")
     print(f"Base CAPEX Cost: RM {tech_results.base_capex_rm:,.2f}")
     print(f"Civil Slope CAPEX Cost (Adjusted): RM {tech_results.grading_adjusted_capex_rm:,.2f} (Includes Earthworks & BESS premiums)")
-    print(f"Project Lifetime NPV: RM {tech_results.npv_rm:,.2f}")
-    print(f"Project IRR: {tech_results.irr_percent:.2f}%")
+    print(f"Financial model status: {tech_results.financial_status}")
+    print(f"Illustrative NPV: {f'RM {tech_results.npv_rm:,.2f}' if tech_results.npv_rm is not None else 'N/A — customer load/tariff evidence required'}")
+    print(f"Illustrative IRR: {f'{tech_results.irr_percent:.2f}%' if tech_results.irr_percent is not None else 'N/A — customer load/tariff evidence required'}")
     print(f"Land Legal Status: {land_metadata.legal_assessment.status}")
-    print(f"Power of Attorney Required: {land_metadata.legal_assessment.poa_compliance.is_poa_required}")
-    print(f"SEDA NEMAS Study Required: {regulatory_manifest.nemas_checklist.is_nemas_required}")
-    print(f"LFP Battery Storage Required: {grid_capacity_audit.bess_specification.is_bess_required}")
+    print(f"Co-owner coordination review flag: {land_metadata.legal_assessment.poa_compliance.requires_coowner_coordination}")
+    print(f"Study classification (unverified programme eligibility): {regulatory_manifest.nemas_checklist.assessment_type}")
+    print("BESS technical necessity: NOT EVALUATED (no network load-flow study)")
 
 if __name__ == "__main__":
     main()

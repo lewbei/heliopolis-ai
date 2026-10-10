@@ -47,7 +47,7 @@ def test_generate_co_owners():
     assert len(owners) == 3
     total_shares = sum(int(o["share"].split("/")[0]) for o in owners)
     assert total_shares == 120
-    assert owners[0]["name"] == "Solarvest Development Sdn Bhd"
+    assert owners[0]["name"] == "Synthetic Demo Developer"
 
 
 def test_imperial_string_to_parts():
@@ -95,7 +95,7 @@ def test_build_land_metadata():
     assert land_meta.legal_assessment.status == "Flagged/Risky"
     assert hectares > 1.0
     assert sq_m > 10000.0
-    assert "Solarvest" in html
+    assert "Synthetic Demo Developer" in html
 
 
 def test_synthetic_elevation_grid():
