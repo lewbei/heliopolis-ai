@@ -32,7 +32,7 @@ def test_normal_protected_graph_passes_preliminary_only():
     output = SLDTopologyResolver().validate_tnb_compliance(example_graph())
     assert output["grid_path_valid"] is True
     assert output["preliminary_topology_status"] == "PRELIMINARY_TOPOLOGY_PASS"
-    assert "not a TNB" in output["scope_note"]
+    assert "not a tnb" in output["scope_note"].lower()
 
 
 def test_missing_inverter_fails_preliminary_graph():
