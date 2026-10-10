@@ -115,7 +115,7 @@ presets = {
         "acres": 8.0, "roods": 1.0, "poles": 10.0, "zoning": "Pertanian",
         "caveats": False, "charges": False, "reserve": True, "slope_profile": "Rolling Hills (8.5° mean)",
         "ac_capacity": 1.5, "substation_mva": 15.0
-    }
+    },
     MAIC_PITCH_PRESET: {
         "title": "SYNTH-GRN-2026-001", "lot": "SYNTH-LOT-001",
         "state": "Perak", "district": "Synthetic District", "mukim": "Synthetic Mukim",
