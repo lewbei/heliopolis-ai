@@ -1,101 +1,50 @@
-# MAIC Nexus Challenge: Mandatory Project Summary
+# MAIC Nexus 2026 — Heliopolis-AI Project Summary
 
-**Project Name:** Heliopolis-AI (Solar Project Intelligence Agent)  
-**Track Selected:** Track T1 — AI for Clean Energy (Solarvest Holdings Berhad)  
-**Team Location:** Multimedia University (MMU), Melaka, Malaysia  
-**GitHub Repository:** https://github.com/lewbei/heliopolis-ai  
-**Live Demo (Streamlit):** Run `streamlit run app.py` locally after cloning the repo.  
+**Track:** T1 — AI for Clean Energy  
+**Prototype:** https://github.com/lewbei/heliopolis-ai  
+**Review date:** 10 October 2026
 
----
+## One-paragraph description
 
-## 1. Executive Summary
+Heliopolis-AI is a prototype **AI-assisted preliminary solar-site screening** system designed for Malaysian project-development analysts. It uses Gemini Vision to extract structured fields from uploaded land titles and electrical single-line diagrams; deterministic Python then performs unit conversions, ownership-share arithmetic, constrained SLD topology checks, illustrative terrain/energy calculations, and financial sensitivities. The outputs flag items needing professional review. **It is not a land-title clearance, TNB grid-code certification, Solar ATAP eligibility decision, SEDA submission or bankable investment recommendation.**
 
-Heliopolis-AI is an engineering-grade, hybrid neural-symbolic software agent that automates clean-energy site screening, legal land due diligence, and electrical grid compliance for Utility-Scale Solar (LSS) and Commercial & Industrial (C&I) project developers in Malaysia.
+## Industry problem and approach
 
-By separating **multimodal perception** (Gemini Vision OCR for scanned land titles and single-line diagrams) from **deterministic symbolic reasoning** (land-share math, finite-difference slope analysis, NetworkX grid-code audits, and Newton-Raphson financial modelling), Heliopolis-AI produces auditable, bankable site assessments in minutes instead of weeks.
+Solar developers routinely reconcile heterogeneous land, electrical and financial records. Our **hypothesis** is that earlier automated extraction and transparent checks can reduce avoidable errors and manual screening effort. We have **not measured** generalizable savings or field OCR accuracy. The prototype demonstrates a testable method rather than claiming complete due-diligence automation.
 
-The project directly supports Malaysia’s **National Energy Transition Roadmap (NETR)** by accelerating the screening and grid-connection of solar assets.
+## Actual AI and deterministic components
 
----
+1. **Gemini Vision OCR:** optional cloud-based perception for title fields, electrical symbols, wires and junctions. Missing or unreadable uploaded evidence must return a review/error status and must never be substituted by pre-approved synthetic data.
+2. **Legal screening:** interprets area units and share fractions and flags selected visible restrictions; shares alone do not determine property execution authority. Title records require solicitor/land-office verification.
+3. **SLD graph screen:** a NetworkX graph tests modeled PV -> inverter -> anti-islanding relay -> transformer -> grid paths, including bypass/disconnection flags. Results are preliminary; no protection-setting or full utility compliance model exists.
+4. **Civil/financial sensitivity:** synthetic terrain examples, offline representative solar-resource inputs and simplified CAPEX, OPEX, yield and NPV/IRR assumptions. No actual topographic survey or financial bankability is claimed.
+5. **Regulatory planning fields:** model selected published NEM NOVA LV/MV CAS study-fee bands separately from LSS economic scenarios; never state the inferred amount is an approved quotation. A simplified AC MW/MVA screen does not establish an obligatory BESS requirement.
 
-## 2. Core Problem & Industry Pain Points
+## Important programme boundaries
 
-Solar developers in Malaysia lose 2–6 weeks on every project intake because critical data is trapped in unstructured, domain-specific documents:
+**Solar ATAP is not a complete supported modelling scenario.** Official non-domestic limits include inverter output <= 1 MW and <= 100% of consumer maximum demand; the export offset arrangement lasts 10 years. Our multi-MW demonstration must not be marketed as ATAP-eligible. Consumption/export profiles, accurate energy tariff elements and current programme rules require separate evaluation.
 
-* **The Land Bottleneck:** Scanned *Geran* land titles use archaic imperial units (*Ekar, Rood, Pole*), list fragmented tenant-in-common co-owners, and may carry Malay Reserve Land, Caveat (*Kaveat*), or Charge (*Gadaian*) restrictions. Manual review is slow and error-prone.
-* **The Electrical Grid Bottleneck:** CAD single-line diagrams (SLDs) must be checked against **TNB ESAG** and **MS 1837:2010** before submission. Missing an anti-islanding relay or misreading a busbar connection can trigger expensive grid rejections.
-* **The Valuation Gap:** Standard due diligence often ignores high-resolution terrain slopes. Sites that look flat on satellite imagery can hide >15° slopes, triggering unbudgeted earthworks and monsoonal landslide risk.
-* **The Financial Uncertainty:** A single tariff assumption is not enough. An LSS PPA at RM 0.17/kWh, a C&I NEM/ATAP offset at ~RM 0.37/kWh, and a premium self-consumption tariff at ~RM 0.45/kWh produce radically different NPVs, but most tools cannot switch between them.
+Official references:
+- https://www.seda.gov.my/reportal/atap/solar-atap-guidelines/
+- https://www.seda.gov.my/reportal/atap/solaratap-general/
+- https://www.seda.gov.my/reportal/nem/
 
----
+## Demonstration and evidence
 
-## 3. Our Technological Solution
+Run `streamlit run app.py` (requires Python dependencies). Built-in site registry and generated slope surfaces are **synthetic** demonstration material. Uploaded-title and uploaded-SLD paths use Gemini and fail closed when evidence is incomplete; offline regression tests intentionally exercise those failures. See GitHub Actions for current compile/test results rather than assuming passing tests demonstrate real-world accuracy.
 
-Heliopolis-AI implements a **Hybrid Neural-Symbolic Architecture**:
+For the semifinal demonstration, show: (a) an explicitly synthetic site screening, (b) a faulty SLD flagged for review, and (c) an unreadable uploaded document producing an error instead of a fake clearance.
 
-1. **Legal Parser Unit** (`LandTitleParser`): Converts imperial land area units to metric hectares and square meters; computes co-owner share matrices and flags controlling-interest, caveats, charges, and Malay Reserve land.
-2. **Civil Slope Analyzer** (`CivilSlopeAnalyzer`): Uses 2D spatial finite differences to compute slope gradients, classifies terrain as Optimal / Manageable / Critical, and applies earthworks CAPEX premiums for severe slopes.
-3. **SLD Graph Resolver** (`SLDTopologyResolver`): Detects electrical symbols via Gemini Vision OCR, constructs a directed graph in NetworkX using scale-invariant ε-neighbor search, and verifies TNB anti-islanding and transformer-to-grid paths. It now also splits wire segments at detected junction dots and ignores plain line crossings, preventing short-circuit hallucinations.
-4. **Financial Sizing Engine** (`YieldFeasibilityEngine`): Models tropical temperature derating, annual degradation, OPEX inflation, and BESS premiums; solves LCOE, NPV, and IRR with a robust Newton-Raphson solver.
-5. **Regulatory Manifest Generator** (`FormFiller`): Pre-fills SEDA Rakyat/NOVA forms and TNB grid-connection requests, and triggers a SEDA NEMAS checklist when AC capacity exceeds 72 kWac.
-6. **Interactive Streamlit Frontend** (`app.py`): Lets users adjust land attributes, restrictions, project company, technical specifications, and financial scenarios in real time, with input validation and instant visual feedback.
+## Customer value and proposed pilot
 
----
+Potential customers: solar EPCs, IPPs and their project-development analysts. The proposed B2B product is a source-traceable preliminary screening workflow, with expert verification retained for high-stakes decisions. We are **seeking**, not claiming to have secured, a 3–5 site pilot. Its measurable outcomes should include field extraction correctness, false-clearance rate, manual correction effort, processing time, abstention frequency, and utility/legal reviewer acceptance. Compare matched documents against direct Gemini extraction plus conventional deterministic spreadsheet/checklist baselines.
 
-## 4. Competitive Differentiation
+## Current limitations
 
-* **Deterministic math, not LLM guessing:** Unit conversions, share splits, graph routing, and financial cash flows are computed programmatically, so the outputs are auditable and bankable.
-* **Junction-dot-aware SLD parsing:** Prevents the common failure mode where crossing busbars are incorrectly merged into one electrical net.
-* **Scenario-based finance:** Users can switch between LSS PPA, C&I NEM/ATAP, and self-consumption tariffs to match the deal structure.
-* **Malaysian domain specificity:** Built around the National Land Code 1965, TNB ESAG/MS 1837, and real Peninsular Malaysia meteorological data.
-* **Offline-capable core:** The symbolic solvers run entirely locally; only the optional OCR perception step calls the Gemini Vision API.
+- Synthetic samples are not an accuracy benchmark.
+- Land records and grid schematics have not received independent legal or TNB validation.
+- No verified Solar ATAP offset economics, live land-office integration, automatic filing or customer contract.
+- Production data security and permissions require an additional deployment review.
 
----
-
-## 5. Business Model & Market Viability
-
-**Target customers:** EPC solar contractors, Independent Power Producers (IPPs), and land-search consultancies in Peninsular Malaysia.
-
-**Go-to-market:**
-* **Pilot:** Propose a 3–5 site pilot with Solarvest Innovation Lab or a regional EPC to validate time-savings and accuracy against manual due diligence.
-* **Revenue model:** B2B SaaS licensing tiered by site-screening volume, plus enterprise API integrations for large EPCs and IPPs.
-* **Unfair advantage:** Deep, clean-room domain logic that generic document-processing tools cannot easily replicate.
-
----
-
-## 6. Traction & Verification
-
-* **Repository:** https://github.com/lewbei/heliopolis-ai (public)
-* **Tests:** 28 unit and integration tests passing (`pytest tests/`)
-* **Working demo:** Streamlit app loads and passes health checks (`/_stcore/health` returns 200)
-* **Sample output:** `solar_assessment_report.json` generated by `python solar_agent.py` shows a positive-NPV C&I NEM/ATAP demo project (NPV RM 10.5M, IRR 12.38%).
-* **Compliance portfolio:** Complete `qrspi/` documentation including QRSPI contract, research pack, design options, red-team audit, and FTO assessment.
-
----
-
-## 7. Team
-
-The team is based at **Multimedia University (MMU), Melaka, Malaysia**, and combines software engineering, clean-energy domain research, and Malaysian regulatory knowledge. All core code is a clean-room implementation built on open-source libraries (NumPy, NetworkX, Pydantic, Matplotlib, Plotly, Streamlit, Google GenAI).
-
----
-
-## 8. Submission Artifacts
-
-* **Project Summary:** This document (`qrspi/PROJECT_SUMMARY.md`)
-* **AI Usage Disclosure:** `qrspi/AI_USAGE_DISCLOSURE.md`
-* **Pitch Deck:** `PITCH_DECK.md` and `pitch_deck.pdf` (in repo root)
-* **Source Code:** `solar_agent.py`, `app.py`, `app_logic.py`, `heliopolis_ocr.py`, `solar_visualizer.py`
-* **Tests:** `tests/` (28 passing)
-* **Compliance docs:** `qrspi/` folder
-* **Demo:** `streamlit run app.py` (optional artifact link can be added later from the team dashboard)
-
----
-
-## 9. Call to Action
-
-We are seeking:
-1. A **pilot deployment** with Solarvest Innovation Lab or a Malaysian solar EPC to validate the agent on 3–5 live site opportunities.
-2. **Investment / prize support** to integrate live e-Tanah / myTNB / SEDA portal APIs and deploy a hosted SaaS version.
-3. **Mentorship** from the MAIC Nexus and HATI network on enterprise sales and regulatory partnerships.
-
-Heliopolis-AI turns weeks of manual solar due diligence into auditable, minutes-long intelligence — and helps Malaysia build its clean-energy future faster.
+**MAIC presentation:** [PITCH_DECK.md](../PITCH_DECK.md)  
+**Source and implementation:** [README.md](../README.md), `solar_agent.py`, `app.py`, `heliopolis_ocr.py` and `tests/`.
