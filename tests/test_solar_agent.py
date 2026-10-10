@@ -243,7 +243,7 @@ def test_missing_relay_cannot_pass_topology():
 def test_valid_topology_is_only_preliminary():
     result = SLDTopologyResolver().resolve(SAMPLE_SLD_SYMBOLS, SAMPLE_SLD_LINES).graph["tnb_compliance"]
     assert result["preliminary_topology_status"] == "PRELIMINARY_TOPOLOGY_PASS"
-    assert "not a TNB" in result["scope_note"].lower()
+    assert "not a tnb" in result["scope_note"].lower()
 
 
 @pytest.mark.parametrize("capacity_kw,study,fee", [
