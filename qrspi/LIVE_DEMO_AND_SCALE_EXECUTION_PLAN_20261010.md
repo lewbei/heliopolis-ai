@@ -6,6 +6,10 @@
 **Baseline at plan time:** GitHub master commit 3f86709a, 191 offline tests passed; no Cloud Run service URL or live Vertex field-level QA verified.
 **Status:** actionable plan, NOT an assertion that the work below has been implemented.
 
+## Implementation checkpoint: 10 October 2026
+
+Baseline `8b2562a68be3d6e2a8b375d99b0462f28736b965` includes the issue #17 AC/DC capacity/land-footprint correction, the source-corrected two-acre preset and auxiliary-branch SLD, plus server-side synthetic-only deployment mode. Its 213 offline tests pass. Follow the [current-code offline sequence](JUDGE_DEMO_RUNBOOK.md#current-code-offline-source-demo) for actual widget labels and behavior. The app recalculates on edits; the proposed Run button and original-source-image viewer below remain design proposals. A live Cloud Run URL, permissioned Vertex field-level QA, OCR rerun caching and full reviewer workflow are not established by this checkpoint. Remaining sections preserve the original plan-time baseline and roadmap, not a fresh inventory of missing fixes.
+
 ## Product and service boundaries
 
 One core product: **preliminary Malaysian solar-project dossier review** (incoming title + single-line diagram + project assumptions -> accepted fields, deterministic issues, human handoff, auditable report). Google Gemini through Vertex AI provides optional visual extraction; Python provides unit/fraction, graph and financial arithmetic. Never present title clearance, TNB compliance, project suitability or bankable ROI.

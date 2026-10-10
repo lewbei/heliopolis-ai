@@ -58,6 +58,20 @@ This replaces the ALTERNATE nine-section narrative previously in PR #16. This do
 
 ## Version / evidence compatibility
 
-The user's nine-page latest visual PDF is NOT the October 7 v8 16-page presentation nor the prior repository's alternate nine-section draft. Use one single source of truth for the on-stage slide order. Older local 232 Python/API + 39 frontend checks and current public master 186 offline tests are separate environments; neither is a field-OCR accuracy rate.
+The user's nine-page latest visual PDF is NOT the October 7 v8 16-page presentation nor the prior repository's alternate nine-section draft. Use one single source of truth for the on-stage slide order. Older local 232 Python/API + 39 frontend checks and baseline commit `8b2562a68be3d6e2a8b375d99b0462f28736b965` with 213 passing offline tests are separate environments; neither is a field-OCR accuracy rate.
 
 **Do not quietly alter the user's 9-page visual PDF.** The source image, layout and text remain authoritative; the GitHub markdown and any auto-rendered simple PDF are just readable derivatives.
+
+## Current-code offline source demo
+
+Verified baseline: `8b2562a68be3d6e2a8b375d99b0462f28736b965` (10 October 2026). Issue #17 is repaired in this revision; the historical screenshots still remain a separate saved illustration. This sequence supplements, and does not rewrite, the nine-slide presentation.
+
+1. From the repository root, start `HELIOPOLIS_DEMO_ONLY=1 streamlit run app.py --server.address=127.0.0.1 --browser.gatherUsageStats=false`. This server mode removes title/SLD uploads and Solar ATAP CSV uploads. No credentials are required.
+2. Choose **MAIC 2026 Source Title (2-acre SYNTHETIC)**. Confirm `SYNTH-GRN-2026-001`, 2 acres, caveat, two synthetic owners, MV and BESS off. These are prepared reviewed synthetic fields; no live extraction has occurred.
+3. Show the land-footprint `NEEDS_REVIEW` flag and original auxiliary-branch SLD's protection-review warning. These are separate review reasons.
+4. Change proposed AC capacity from 3.21 to 2.00 MWac. DC capacity updates from 3.776 to 2.353 MWp; both remain above the approximately 0.51 MWac parcel heuristic. NPV/IRR stay withheld. Do not narrate the old RM15.94m/RM7.06m bars as these results.
+5. Download the current JSON from the planning/report tab. Confirm current AC/DC capacities, unchanged source area, source hashes, `NOT_USED` OCR statuses and review flags. The app recalculates on widget edits; there is no separate Run button.
+6. For the separate broken-wire negative control, switch to a different synthetic preset, select MV, then toggle **Connect Transformer to Grid (synthetic)**. Confirm the displayed and exported topology both change to `NEEDS_REVIEW`. The original source preset intentionally locks its graph; do not alter the original drawing to manufacture a pass.
+7. Restart the app, select the source preset again, and verify the original 3.21 MWac/2-acre values return. If the network or UI fails during judging, use the labeled saved screenshots and describe them as recorded illustrations.
+
+Validation boundary: offline regression/AppTest checks establish deterministic software behavior only. They do not validate document extraction, real engineering feasibility, legal clearance, live cloud hosting or user acceptance.

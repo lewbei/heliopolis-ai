@@ -37,7 +37,7 @@ The detailed [MAIC live-demo and scaling execution plan](qrspi/LIVE_DEMO_AND_SCA
 
 The original **synthetic Perak land-title PNG and 11 kV SLD PNG** shown on Slide 2 of the user's latest nine-page pitch have been recovered from the matching October 8 PowerPoint. The two binary images are available as an input ZIP supplied in the ChatGPT conversation; they have not been committed to this repository. See [the exact expected document fields, original image hashes, live Vertex OCR path, and offline negative-control demo instructions](qrspi/MAIC_LIVE_INPUT_DOCUMENTS.md).
 
-Run `python scripts/extract_maic_demo_inputs.py /path/to/Heliopolis_AI_MAIC_20261008_Main_Pitch.pptx --output demo_inputs` on the original PPTX to recover the identical full-resolution PNGs. The script fails if the source does not match. The currently committed app is not the historical HOLD/financial output pictured on the original deck; see [the live finance mismatch issue](https://github.com/lewbei/heliopolis-ai/issues/17) before attempting the 3.21-to-2.00 MWac reprojection on stage.
+Run `python scripts/extract_maic_demo_inputs.py /path/to/Heliopolis_AI_MAIC_20261008_Main_Pitch.pptx --output demo_inputs` on the original PPTX to recover the identical full-resolution PNGs. The script fails if the source does not match. The currently committed app is not the historical HOLD/financial output pictured on the original deck; the [capacity/footprint mismatch fix](https://github.com/lewbei/heliopolis-ai/issues/17) now makes current calculations respond to proposed AC capacity. Both 3.21 and 2.00 MWac still exceed the source two-acre footprint heuristic and withhold NPV/IRR. See the [tested current-code demo sequence](qrspi/JUDGE_DEMO_RUNBOOK.md#current-code-offline-source-demo) before presenting it on stage.
 
 ---
 
@@ -245,7 +245,7 @@ Output appears in `qrspi/plots/`:
 ```bash
 pytest tests/
 ```
-All 28 unit and integration tests should pass.
+Run the complete suite for the exact checked-out revision. Baseline commit `8b2562a68be3d6e2a8b375d99b0462f28736b965` passed 213 offline tests; later workflow tests add coverage without constituting live OCR or field-validation evidence.
 
 ---
 
