@@ -28,4 +28,4 @@ def test_atap_page_requires_explicit_demo_mode_for_filled_values():
     assert any("Creditable export quantity" in m.label for m in at.metric)
     assert any("2,293.20" in str(m.value) for m in at.metric)
     md = " ".join(str(x.value) for x in at.markdown)
-    assert "SYNTHETIC" in md or any("SYNTHETIC" in str(x.message) for x in at.warning)
+    assert "SYNTHETIC" in md or any("SYNTHETIC" in str(x.value) for x in at.warning)
