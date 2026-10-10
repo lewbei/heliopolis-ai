@@ -1145,7 +1145,7 @@ def screen_solar_atap_non_domestic(
         raise ValueError("Maximum Demand must be positive or explicitly unknown.")
 
     notes = [
-        "Non-domestic Solar ATAP: inverter output <= 1,000 kW and <= 100% verified consumer Maximum Demand.",
+        "Non-domestic Solar ATAP: inverter output <= 1,000 kW and <= 100% of verified consumer Maximum Demand; user input alone does not verify it.",
         "A TNB registered account, utility assessment and programme eligibility review are additionally required.",
         "ATAP surplus-energy offset lasts 10 years; no excess-export offset applies from year 11 onward.",
         "No eligible tariff, energy-bill saving, export amount, financing decision or grid permission is calculated.",
@@ -1156,7 +1156,7 @@ def screen_solar_atap_non_domestic(
     elif maximum_demand_kw is None:
         status = "MAXIMUM_DEMAND_NOT_PROVIDED"
     elif proposed_ac_kw > maximum_demand_kw:
-        status = "EXCEEDS_VERIFIED_MAXIMUM_DEMAND"
+        status = "EXCEEDS_PROVIDED_MAXIMUM_DEMAND"
     else:
         status = "CAPACITY_SCREEN_ONLY_FURTHER_REVIEW_REQUIRED"
     return SolarATAPPrecheck(
